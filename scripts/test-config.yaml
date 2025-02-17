@@ -1,0 +1,19 @@
+services:
+  logistics-engine:
+    port: 3000
+    endpoints:
+      health: /health
+  api-gateway-auth:
+    port: 3001
+    base_port: 3000
+    endpoints:
+      health: /auth/health
+      register: /auth/register
+      login: /auth/login
+      me: /auth/me
+
+test_data:
+  user:
+    email: test@example.com
+    password: test123
+    name: Test User 

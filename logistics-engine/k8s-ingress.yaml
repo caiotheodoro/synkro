@@ -1,0 +1,17 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: logistics-engine-ingress
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+spec:
+  rules:
+  - http:
+      paths:
+      - path: /logistics
+        pathType: Prefix
+        backend:
+          service:
+            name: logistics-engine
+            port:
+              number: 3000 
