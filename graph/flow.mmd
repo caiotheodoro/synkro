@@ -1,0 +1,56 @@
+graph TD
+  %% Frontend Microfrontend Setup
+  subgraph Frontend
+    Vue[Vue.js - Supplier Dashboard] -->|GraphQL| APIGateway
+    Next[Next.js - Admin Panel] -->|GraphQL| APIGateway
+  end
+
+  %% API Gateway Layer
+  APIGateway[GraphQL API Gateway] -->|REST & WebSockets| AuthService
+  APIGateway -->|GraphQL Queries| OrderService
+  APIGateway -->|GraphQL Queries| InventoryService
+
+  %% Backend Microservices
+  subgraph Backend
+    AuthService[TypeScript - Auth & User Management]
+    OrderService[Rust - Order Processing & Logistics]
+    InventoryService[Go - Real-Time Inventory Sync]
+    AIService[Python - AI Demand Forecasting]
+    NotificationService[TypeScript - WebSockets & Push Notifications]
+  end
+
+  %% Communication & Messaging
+  OrderService -.->|gRPC| InventoryService
+  InventoryService -.->|gRPC| AIService
+  OrderService -.->|gRPC| LogisticsService
+  OrderService -.->|RabbitMQ| EventBus[RabbitMQ Event Bus]
+  InventoryService -.->|RabbitMQ| EventBus
+  NotificationService -.->|RabbitMQ| EventBus
+
+  %% Storage & Databases
+  subgraph Databases
+    SQLDB[(PostgreSQL - Orders, Users)]
+    NoSQLDB[(MongoDB - Inventory & Tracking)]
+    CacheDB[(Redis - Real-Time Caching)]
+    ObjectStore[(MinIO/S3 - Documents & Invoices)]
+  end
+
+  OrderService -->|Writes| SQLDB
+  InventoryService -->|Reads/Writes| NoSQLDB
+  NotificationService -->|Caches| CacheDB
+  OrderService -->|Stores Files| ObjectStore
+
+  %% Monitoring & Logging
+  subgraph Monitoring
+    Prometheus[Prometheus - Metrics]
+    Grafana[Grafana - Visualization]
+    ELK[ELK Stack - Logging]
+    Tracing[Jaeger - Distributed Tracing]
+  end
+
+  Backend -->|Metrics| Prometheus
+  Backend -->|Logs| ELK
+  Backend -->|Tracing| Tracing
+
+  %% External Communication
+  ExternalAPI[Third-Party Logistics API] -->|REST/gRPC| OrderService
