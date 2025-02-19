@@ -10,7 +10,7 @@ handle_error() {
     echo "Error occurred in deployment. Getting debug information..."
     echo "Pod logs:"
     kubectl get pods
-    for pod in $(kubectl get pods -l app=logistics-engine -o jsonpath='{.items[*].metadata.name}'); do
+    for pod in $(kubectl get pods -l 'app in (logistics-engine,api-gateway-auth,inventory-sync)' -o jsonpath='{.items[*].metadata.name}'); do
         echo "=== Logs for $pod ==="
         kubectl logs $pod
         echo "=== Events for $pod ==="
@@ -50,6 +50,15 @@ docker rmi logistics-engine:v1 2>/dev/null || true
 docker build -t logistics-engine:v1 . 2>&1 | tee ../logs/logistics-engine-build.log
 kubectl apply -f k8s-deployment.yaml
 
+# Build and deploy Inventory Sync Service
+echo "Building Inventory Sync Service..."
+cd ../inventory-sync-service
+# Remove old image if it exists
+docker rmi inventory-sync:v1 2>/dev/null || true
+# Build new image with specific tag
+docker build -t inventory-sync:v1 . 2>&1 | tee ../logs/inventory-sync-build.log
+kubectl apply -f k8s-deployment.yaml
+
 echo "Waiting for pods to be created..."
 sleep 10
 
@@ -59,6 +68,7 @@ kubectl get pods
 echo "Waiting for deployments to be ready..."
 kubectl wait --for=condition=available --timeout=300s deployment/api-gateway-auth
 kubectl wait --for=condition=available --timeout=300s deployment/logistics-engine
+kubectl wait --for=condition=available --timeout=300s deployment/inventory-sync
 
 echo "Deployments completed successfully!"
 
