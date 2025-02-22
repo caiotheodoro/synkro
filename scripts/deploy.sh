@@ -3,14 +3,14 @@
 # Exit on any error
 set -e
 
-echo "Building and deploying services..."
+echo "Starting deployment process..."
 
 # Function to handle errors
 handle_error() {
     echo "Error occurred in deployment. Getting debug information..."
     echo "Pod logs:"
     kubectl get pods
-    for pod in $(kubectl get pods -l 'app in (logistics-engine,api-gateway-auth,inventory-sync)' -o jsonpath='{.items[*].metadata.name}'); do
+    for pod in $(kubectl get pods -l 'app in (logistics-engine,api-gateway-auth,inventory-sync,ai-ml-predictions,notification-service)' -o jsonpath='{.items[*].metadata.name}'); do
         echo "=== Logs for $pod ==="
         kubectl logs $pod
         echo "=== Events for $pod ==="
@@ -19,6 +19,40 @@ handle_error() {
     echo "Cleaning up..."
     ./cleanup.sh
     exit 1
+}
+
+# Function to wait for deployment
+wait_for_deployment() {
+    local deployment=$1
+    local timeout=${2:-300s}
+    echo "Waiting for deployment $deployment to be ready..."
+    kubectl wait --for=condition=available --timeout=$timeout deployment/$deployment || {
+        echo "Deployment $deployment failed to become ready within $timeout"
+        return 1
+    }
+}
+
+# Function to build and deploy a service
+deploy_service() {
+    local service=$1
+    local version=${2:-v1}
+    echo "Building and deploying $service..."
+    
+    cd ../$service
+    
+    # Remove old image if it exists
+    docker rmi $service:$version 2>/dev/null || true
+    
+    # Build new image
+    docker build -t $service:$version . 2>&1 | tee ../logs/$service-build.log
+    
+    # Apply k8s configuration
+    kubectl apply -f k8s-deployment.yaml
+    
+    # Wait for deployment
+    wait_for_deployment $service
+    
+    cd ../scripts
 }
 
 # Set trap for error handling
@@ -35,47 +69,42 @@ echo "Cleaning up old deployments..."
 echo "Configuring Docker environment for Minikube..."
 eval $(minikube docker-env)
 
-# Build and deploy API Gateway Auth
-echo "Building API Gateway Auth..."
-cd ../api-gateway-auth
-docker build -t api-gateway-auth:latest . 2>&1 | tee ../logs/api-gateway-build.log
-kubectl apply -f k8s-deployment.yaml
+# Deploy all services
+services=(
+    "api-gateway-auth"
+    "logistics-engine"
+    "inventory-sync"
+    "ai-ml-predictions"
+    "notification-service"
+)
 
-# Build and deploy Logistics Engine
-echo "Building Logistics Engine..."
-cd ../logistics-engine
-# Remove old image if it exists
-docker rmi logistics-engine:v1 2>/dev/null || true
-# Build new image with specific tag
-docker build -t logistics-engine:v1 . 2>&1 | tee ../logs/logistics-engine-build.log
-kubectl apply -f k8s-deployment.yaml
+for service in "${services[@]}"; do
+    deploy_service $service
+done
 
-# Build and deploy Inventory Sync Service
-echo "Building Inventory Sync Service..."
-cd ../inventory-sync-service
-# Remove old image if it exists
-docker rmi inventory-sync:v1 2>/dev/null || true
-# Build new image with specific tag
-docker build -t inventory-sync:v1 . 2>&1 | tee ../logs/inventory-sync-build.log
-kubectl apply -f k8s-deployment.yaml
-
-echo "Waiting for pods to be created..."
+echo "Waiting for all services to be ready..."
 sleep 10
 
-echo "Checking pod status..."
+echo "Verifying all deployments..."
 kubectl get pods
-
-echo "Waiting for deployments to be ready..."
-kubectl wait --for=condition=available --timeout=300s deployment/api-gateway-auth
-kubectl wait --for=condition=available --timeout=300s deployment/logistics-engine
-kubectl wait --for=condition=available --timeout=300s deployment/inventory-sync
-
-echo "Deployments completed successfully!"
-
-# Show final status
-echo "Current deployment status:"
-kubectl get pods -o wide
 kubectl get services
+
+# Perform basic health checks
+echo "Performing health checks..."
+for service in "${services[@]}"; do
+    echo "Checking $service health endpoint..."
+    # Get the service port
+    port=$(kubectl get service $service -o jsonpath='{.spec.ports[0].port}')
+    # Forward the port temporarily
+    kubectl port-forward service/$service $port:$port >/dev/null 2>&1 &
+    forward_pid=$!
+    sleep 2
+    # Try the health check
+    curl -s http://localhost:$port/health || echo "Failed to reach $service health endpoint"
+    # Kill the port forward
+    kill $forward_pid 2>/dev/null || true
+    wait $forward_pid 2>/dev/null || true
+done
 
 # Reset docker environment
 echo "Resetting Docker environment..."
@@ -83,5 +112,10 @@ eval $(minikube docker-env -u)
 
 # Remove trap
 trap - ERR
+
+echo "Deployment completed successfully!"
+echo "Current deployment status:"
+kubectl get pods -o wide
+kubectl get services
 
 echo "Deployment logs are available in the logs directory" 
