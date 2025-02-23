@@ -5,7 +5,6 @@ import {
   UseGuards,
   Get,
   Req,
-  HttpCode,
   HttpStatus,
 } from '@nestjs/common';
 import {
@@ -14,65 +13,64 @@ import {
   ApiResponse,
   ApiBearerAuth,
   ApiBody,
-  ApiOkResponse,
-  ApiCreatedResponse,
 } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
-import { RegisterDto } from './dto/register.dto';
-import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { JwtAuthGuard } from '../user/guards/auth.guard';
 import { User } from '../user/entities/user.entity';
 import { AuthResponse } from './dto/auth.response';
+import { CreateUserDto } from '../user/dto/create-user.dto';
 
-@ApiTags('auth')
+@ApiTags('Auth')
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   @Post('login')
-  @HttpCode(HttpStatus.OK)
-  @ApiOperation({
-    summary: 'User login',
-    description: 'Login with email and password to get access token',
-  })
+  @ApiOperation({ summary: 'Login with email and password' })
   @ApiBody({ type: LoginDto })
-  @ApiOkResponse({
-    description: 'Login successful',
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'User has been successfully logged in.',
     type: AuthResponse,
   })
-  @ApiResponse({ status: 401, description: 'Invalid credentials' })
+  @ApiResponse({
+    status: HttpStatus.UNAUTHORIZED,
+    description: 'Invalid credentials.',
+  })
   async login(@Body() loginDto: LoginDto): Promise<AuthResponse> {
-    return this.authService.login(loginDto);
+    return this.authService.login(loginDto.email, loginDto.password);
   }
 
   @Post('register')
-  @HttpCode(HttpStatus.CREATED)
-  @ApiOperation({
-    summary: 'User registration',
-    description: 'Register a new user account',
-  })
-  @ApiBody({ type: RegisterDto })
-  @ApiCreatedResponse({
-    description: 'User successfully registered',
+  @ApiOperation({ summary: 'Register a new user' })
+  @ApiBody({ type: CreateUserDto })
+  @ApiResponse({
+    status: HttpStatus.CREATED,
+    description: 'User has been successfully registered.',
     type: AuthResponse,
   })
-  @ApiResponse({ status: 409, description: 'Email already exists' })
-  async register(@Body() registerDto: RegisterDto): Promise<AuthResponse> {
-    return this.authService.register(registerDto);
+  @ApiResponse({
+    status: HttpStatus.CONFLICT,
+    description: 'User with this email already exists.',
+  })
+  async register(@Body() createUserDto: CreateUserDto): Promise<AuthResponse> {
+    return this.authService.register(createUserDto);
   }
 
   @Get('profile')
-  @ApiOperation({
-    summary: 'Get user profile',
-    description: 'Get the profile of the currently authenticated user',
-  })
-  @ApiBearerAuth('JWT-auth')
-  @ApiOkResponse({
-    description: 'Profile retrieved successfully',
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'Get current user profile' })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Returns the current user profile.',
     type: User,
   })
-  @ApiResponse({ status: 401, description: 'Unauthorized' })
-  @UseGuards(JwtAuthGuard)
+  @ApiResponse({
+    status: HttpStatus.UNAUTHORIZED,
+    description: 'User is not authenticated.',
+  })
   getProfile(@Req() req: { user: User }): User {
     return req.user;
   }
