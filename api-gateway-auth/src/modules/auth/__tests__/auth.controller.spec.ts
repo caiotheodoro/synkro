@@ -5,6 +5,7 @@ import { LoginDto } from '../dto/login.dto';
 import { RegisterDto } from '../dto/register.dto';
 import { User, UserRole } from '../../user/entities/user.entity';
 import { AuthResponse } from '../dto/auth.response';
+import { CreateUserDto } from 'src/modules/user/dto/create-user.dto';
 
 describe('AuthController', () => {
   let controller: AuthController;
@@ -56,7 +57,10 @@ describe('AuthController', () => {
       const result = await controller.login(loginDto);
 
       expect(result).toEqual(mockAuthResponse);
-      expect(authService.login).toHaveBeenCalledWith(loginDto);
+      expect(authService.login).toHaveBeenCalledWith(
+        loginDto.email,
+        loginDto.password,
+      );
     });
   });
 
@@ -67,9 +71,10 @@ describe('AuthController', () => {
         password: 'password123',
         firstName: 'Test',
         lastName: 'User',
+        role: UserRole.USER,
       };
 
-      const result = await controller.register(registerDto);
+      const result = await controller.register(registerDto as CreateUserDto);
 
       expect(result).toEqual(mockAuthResponse);
       expect(authService.register).toHaveBeenCalledWith(registerDto);
