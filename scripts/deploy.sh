@@ -5,6 +5,12 @@ set -e
 
 echo "Starting deployment process..."
 
+if ! minikube status &>/dev/null; then
+    minikube start
+else
+    echo "Minikube is already running."
+fi
+
 # Function to handle errors
 handle_error() {
     echo "Error occurred in deployment. Getting debug information..."
@@ -34,23 +40,24 @@ wait_for_deployment() {
 
 # Function to build and deploy a service
 deploy_service() {
-    local service=$1
-    local version=${2:-v1}
-    echo "Building and deploying $service..."
+    local service_dir=$1
+    local service_name=${2:-$(basename $service_dir)}
+    local version=${3:-v1}
+    echo "Building and deploying $service_name from $service_dir..."
     
-    cd ../$service
+    cd ../$service_dir
     
     # Remove old image if it exists
-    docker rmi $service:$version 2>/dev/null || true
+    docker rmi $service_name:$version 2>/dev/null || true
     
     # Build new image
-    docker build -t $service:$version . 2>&1 | tee ../logs/$service-build.log
+    docker build -t $service_name:$version . 2>&1 | tee ../logs/$service_name-build.log
     
     # Apply k8s configuration
     kubectl apply -f k8s-deployment.yaml
     
     # Wait for deployment
-    wait_for_deployment $service
+    wait_for_deployment $service_name
     
     cd ../scripts
 }
@@ -69,17 +76,19 @@ echo "Cleaning up old deployments..."
 echo "Configuring Docker environment for Minikube..."
 eval $(minikube docker-env)
 
-# Deploy all services
-services=(
-    "api-gateway-auth"
-    "logistics-engine"
-    "inventory-sync"
-    "ai-ml-predictions"
-    "notification-service"
+# Define services with their directory and deployment names
+declare -A services=(
+    ["api-gateway-auth"]="api-gateway-auth"
+    ["logistics-engine"]="logistics-engine"
+    ["inventory-sync-service"]="inventory-sync"
+    ["ai-ml-predictions"]="ai-ml-predictions"
+    ["notification-service"]="notification-service"
 )
 
-for service in "${services[@]}"; do
-    deploy_service $service
+# Deploy all services
+for service_dir in "${!services[@]}"; do
+    service_name="${services[$service_dir]}"
+    deploy_service "$service_dir" "$service_name"
 done
 
 echo "Waiting for all services to be ready..."
@@ -91,16 +100,16 @@ kubectl get services
 
 # Perform basic health checks
 echo "Performing health checks..."
-for service in "${services[@]}"; do
-    echo "Checking $service health endpoint..."
+for service_name in "${services[@]}"; do
+    echo "Checking $service_name health endpoint..."
     # Get the service port
-    port=$(kubectl get service $service -o jsonpath='{.spec.ports[0].port}')
+    port=$(kubectl get service $service_name -o jsonpath='{.spec.ports[0].port}')
     # Forward the port temporarily
-    kubectl port-forward service/$service $port:$port >/dev/null 2>&1 &
+    kubectl port-forward service/$service_name $port:$port >/dev/null 2>&1 &
     forward_pid=$!
     sleep 2
     # Try the health check
-    curl -s http://localhost:$port/health || echo "Failed to reach $service health endpoint"
+    curl -s http://localhost:$port/health || echo "Failed to reach $service_name health endpoint"
     # Kill the port forward
     kill $forward_pid 2>/dev/null || true
     wait $forward_pid 2>/dev/null || true
