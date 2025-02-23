@@ -5,10 +5,13 @@ import {
   CreateDateColumn,
   UpdateDateColumn,
   BeforeInsert,
+  ManyToMany,
+  JoinTable,
 } from 'typeorm';
 import { Exclude } from 'class-transformer';
 import { ApiProperty } from '@nestjs/swagger';
 import * as bcrypt from 'bcrypt';
+import { Role } from './role.entity';
 
 export enum UserRole {
   USER = 'user',
@@ -49,6 +52,15 @@ export class User {
   @Column({ default: true })
   isActive: boolean;
 
+  @ApiProperty({ type: () => [Role] })
+  @ManyToMany(() => Role, (role) => role.users, { eager: true })
+  @JoinTable({
+    name: 'user_roles',
+    joinColumn: { name: 'user_id', referencedColumnName: 'id' },
+    inverseJoinColumn: { name: 'role_id', referencedColumnName: 'id' },
+  })
+  roles: Role[];
+
   @ApiProperty()
   @CreateDateColumn()
   createdAt: Date;
@@ -67,7 +79,7 @@ export class User {
     return bcrypt.compare(password, this.password);
   }
 
-  constructor(partial: Partial<User>) {
-    Object.assign(this, partial);
+  constructor(partial?: Partial<User>) {
+    Object.assign(this, partial || {});
   }
 }
