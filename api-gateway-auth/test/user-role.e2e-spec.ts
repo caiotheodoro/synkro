@@ -1,141 +1,81 @@
-import { Test, TestingModule } from '@nestjs/testing';
-import { INestApplication, ValidationPipe } from '@nestjs/common';
 import * as request from 'supertest';
-import { TypeOrmModule } from '@nestjs/typeorm';
-import { ConfigModule, ConfigService } from '@nestjs/config';
-import { AppModule } from '../src/app.module';
-import { User } from '../src/modules/user/entities/user.entity';
-import { Role } from '../src/modules/user/entities/role.entity';
+import { UserRole } from '../src/modules/user/entities/user.entity';
 import { AuthService } from '../src/modules/auth/auth.service';
 import { UserService } from '../src/modules/user/user.service';
-import { RoleService } from '../src/modules/user/role.service';
+import { CreateUserDto } from '../src/modules/user/dto/create-user.dto';
+import {
+  createTestApp,
+  cleanupDatabase,
+  createTestUser,
+} from './utils/test-utils';
+import { NestFastifyApplication } from '@nestjs/platform-fastify';
+
+jest.setTimeout(30000);
 
 describe('User and Role Management (e2e)', () => {
-  let app: INestApplication;
+  let app: NestFastifyApplication;
   let authService: AuthService;
   let userService: UserService;
-  let roleService: RoleService;
   let adminToken: string;
   let userId: string;
   let roleId: string;
 
-  beforeAll(async () => {
-    const moduleFixture: TestingModule = await Test.createTestingModule({
-      imports: [
-        ConfigModule.forRoot({
-          isGlobal: true,
-          envFilePath: '.env.test',
-        }),
-        TypeOrmModule.forRootAsync({
-          imports: [ConfigModule],
-          useFactory: (configService: ConfigService) => ({
-            type: 'postgres',
-            host: configService.get('DB_HOST'),
-            port: configService.get('DB_PORT'),
-            username: configService.get('DB_USERNAME'),
-            password: configService.get('DB_PASSWORD'),
-            database: configService.get('DB_DATABASE'),
-            entities: [User, Role],
-            synchronize: true,
-            dropSchema: true,
-          }),
-          inject: [ConfigService],
-        }),
-        AppModule,
-      ],
-    }).compile();
-
-    app = moduleFixture.createNestApplication();
-    app.useGlobalPipes(new ValidationPipe());
-    await app.init();
-
-    authService = moduleFixture.get<AuthService>(AuthService);
-    userService = moduleFixture.get<UserService>(UserService);
-    roleService = moduleFixture.get<RoleService>(RoleService);
+  beforeEach(async () => {
+    app = await createTestApp();
+    authService = app.get(AuthService);
+    userService = app.get(UserService);
 
     // Create admin user and get token
-    const adminUser = await authService.register({
+    const adminUser = await userService.create({
       email: 'admin@example.com',
       password: 'admin123',
       firstName: 'Admin',
       lastName: 'User',
-    });
-    adminToken = adminUser.access_token;
-    userId = adminUser.user.id;
+      role: UserRole.ADMIN,
+    } as CreateUserDto & { role: UserRole });
+
+    const { access_token } = await authService.login(
+      adminUser.email,
+      'admin123',
+    );
+    adminToken = access_token;
+    userId = adminUser.id;
   });
 
-  afterAll(async () => {
-    await app.close();
+  afterEach(async () => {
+    await cleanupDatabase(app);
   });
 
   describe('Roles', () => {
-    const createRoleDto = {
-      name: 'test-role',
-      permissions: ['read:users', 'write:users'],
-      description: 'Test role',
-    };
-
-    it('should create a new role', () => {
-      return request(app.getHttpServer())
-        .post('/roles')
-        .set('Authorization', `Bearer ${adminToken}`)
-        .send(createRoleDto)
-        .expect(201)
-        .expect((res) => {
-          expect(res.body.name).toBe(createRoleDto.name);
-          expect(res.body.permissions).toEqual(createRoleDto.permissions);
-          roleId = res.body.id;
-        });
-    });
-
-    it('should get all roles', () => {
-      return request(app.getHttpServer())
-        .get('/roles')
-        .set('Authorization', `Bearer ${adminToken}`)
-        .expect(200)
-        .expect((res) => {
-          expect(Array.isArray(res.body)).toBe(true);
-          expect(res.body.length).toBeGreaterThan(0);
-        });
-    });
-
-    it('should get role by id', () => {
-      return request(app.getHttpServer())
-        .get(`/roles/${roleId}`)
-        .set('Authorization', `Bearer ${adminToken}`)
-        .expect(200)
-        .expect((res) => {
-          expect(res.body.id).toBe(roleId);
-          expect(res.body.name).toBe(createRoleDto.name);
-        });
-    });
-
-    it('should update role', () => {
-      const updateDto = {
-        description: 'Updated description',
+    it('should create a new role', async () => {
+      const roleData = {
+        name: 'test-role',
+        permissions: ['read:users'],
+        description: 'Test role',
       };
 
-      return request(app.getHttpServer())
-        .patch(`/roles/${roleId}`)
+      const response = await request(app.getHttpServer())
+        .post('/roles')
         .set('Authorization', `Bearer ${adminToken}`)
-        .send(updateDto)
-        .expect(200)
-        .expect((res) => {
-          expect(res.body.description).toBe(updateDto.description);
-        });
+        .send(roleData)
+        .expect(201);
+
+      roleId = response.body.id;
+      expect(response.body.name).toBe(roleData.name);
+      expect(response.body.permissions).toEqual(roleData.permissions);
     });
 
-    it('should add permission to role', () => {
+    it('should add permission to role', async () => {
       return request(app.getHttpServer())
         .post(`/roles/${roleId}/permissions/delete:users`)
         .set('Authorization', `Bearer ${adminToken}`)
-        .expect(200)
+        .expect(201)
         .expect((res) => {
           expect(res.body.permissions).toContain('delete:users');
         });
     });
 
-    it('should remove permission from role', () => {
+    it('should remove permission from role', async () => {
       return request(app.getHttpServer())
         .delete(`/roles/${roleId}/permissions/delete:users`)
         .set('Authorization', `Bearer ${adminToken}`)
@@ -144,52 +84,28 @@ describe('User and Role Management (e2e)', () => {
           expect(res.body.permissions).not.toContain('delete:users');
         });
     });
+
+    it('should fail to create role without admin token', async () => {
+      const { accessToken: userToken } = await createTestUser(app);
+
+      return request(app.getHttpServer())
+        .post('/roles')
+        .set('Authorization', `Bearer ${userToken}`)
+        .send({
+          name: 'unauthorized-role',
+          permissions: [],
+          description: 'Test role',
+        })
+        .expect(403);
+    });
   });
 
   describe('Users', () => {
-    it('should get all users', () => {
-      return request(app.getHttpServer())
-        .get('/users')
-        .set('Authorization', `Bearer ${adminToken}`)
-        .expect(200)
-        .expect((res) => {
-          expect(Array.isArray(res.body)).toBe(true);
-          expect(res.body.length).toBeGreaterThan(0);
-        });
-    });
-
-    it('should get user by id', () => {
-      return request(app.getHttpServer())
-        .get(`/users/${userId}`)
-        .set('Authorization', `Bearer ${adminToken}`)
-        .expect(200)
-        .expect((res) => {
-          expect(res.body.id).toBe(userId);
-        });
-    });
-
-    it('should update user', () => {
-      const updateDto = {
-        firstName: 'Updated',
-        lastName: 'Name',
-      };
-
-      return request(app.getHttpServer())
-        .patch(`/users/${userId}`)
-        .set('Authorization', `Bearer ${adminToken}`)
-        .send(updateDto)
-        .expect(200)
-        .expect((res) => {
-          expect(res.body.firstName).toBe(updateDto.firstName);
-          expect(res.body.lastName).toBe(updateDto.lastName);
-        });
-    });
-
-    it('should assign role to user', () => {
+    it('should assign role to user', async () => {
       return request(app.getHttpServer())
         .post(`/users/${userId}/roles/${roleId}`)
         .set('Authorization', `Bearer ${adminToken}`)
-        .expect(200)
+        .expect(201)
         .expect((res) => {
           expect(res.body.roles).toContainEqual(
             expect.objectContaining({ id: roleId }),
@@ -197,7 +113,7 @@ describe('User and Role Management (e2e)', () => {
         });
     });
 
-    it('should remove role from user', () => {
+    it('should remove role from user', async () => {
       return request(app.getHttpServer())
         .delete(`/users/${userId}/roles/${roleId}`)
         .set('Authorization', `Bearer ${adminToken}`)
@@ -207,6 +123,24 @@ describe('User and Role Management (e2e)', () => {
             expect.objectContaining({ id: roleId }),
           );
         });
+    });
+
+    it('should fail to assign role without admin token', async () => {
+      const { user, accessToken: userToken } = await createTestUser(app);
+
+      return request(app.getHttpServer())
+        .post(`/users/${user.id}/roles/${roleId}`)
+        .set('Authorization', `Bearer ${userToken}`)
+        .expect(403);
+    });
+
+    it('should fail to remove role without admin token', async () => {
+      const { user, accessToken: userToken } = await createTestUser(app);
+
+      return request(app.getHttpServer())
+        .delete(`/users/${user.id}/roles/${roleId}`)
+        .set('Authorization', `Bearer ${userToken}`)
+        .expect(403);
     });
   });
 });

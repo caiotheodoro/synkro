@@ -8,6 +8,8 @@ import {
   Delete,
   UseGuards,
   HttpStatus,
+  ForbiddenException,
+  Request,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -19,14 +21,14 @@ import {
 import { UserService } from '../user.service';
 import { CreateUserDto } from '../dto/create-user.dto';
 import { UpdateUserDto } from '../dto/update-user.dto';
-import { User } from '../entities/user.entity';
+import { User, UserRole } from '../entities/user.entity';
 import { RolesGuard } from '../guards/roles.guard';
 import { JwtAuthGuard } from '../guards/auth.guard';
 import { Roles } from '../decorators/roles.decorator';
 import { Permissions } from '../decorators/permissions.decorator';
 
 @ApiTags('Users')
-@ApiBearerAuth('access-token')
+@ApiBearerAuth('JWT-auth')
 @ApiSecurity('access-token')
 @Controller('users')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -34,7 +36,7 @@ export class UserController {
   constructor(private readonly userService: UserService) {}
 
   @Post()
-  @Roles('admin')
+  @Roles(UserRole.ADMIN)
   @Permissions('create:users')
   @ApiOperation({ summary: 'Create a new user' })
   @ApiResponse({
@@ -51,7 +53,7 @@ export class UserController {
   }
 
   @Get()
-  @Roles('admin')
+  @Roles(UserRole.ADMIN)
   @Permissions('read:users')
   @ApiOperation({ summary: 'Get all users' })
   @ApiResponse({
@@ -64,8 +66,6 @@ export class UserController {
   }
 
   @Get(':id')
-  @Roles('admin')
-  @Permissions('read:users')
   @ApiOperation({ summary: 'Get a user by id' })
   @ApiResponse({
     status: HttpStatus.OK,
@@ -76,13 +76,15 @@ export class UserController {
     status: HttpStatus.NOT_FOUND,
     description: 'User not found.',
   })
-  findOne(@Param('id') id: string): Promise<User> {
+  async findOne(@Param('id') id: string, @Request() req): Promise<User> {
+    // Allow users to get their own profile or admins to get any profile
+    if (req.user.role !== UserRole.ADMIN && req.user.id !== id) {
+      throw new ForbiddenException('You can only access your own profile');
+    }
     return this.userService.findOne(id);
   }
 
   @Patch(':id')
-  @Roles('admin')
-  @Permissions('update:users')
   @ApiOperation({ summary: 'Update a user' })
   @ApiResponse({
     status: HttpStatus.OK,
@@ -93,15 +95,20 @@ export class UserController {
     status: HttpStatus.NOT_FOUND,
     description: 'User not found.',
   })
-  update(
+  async update(
     @Param('id') id: string,
     @Body() updateUserDto: UpdateUserDto,
+    @Request() req,
   ): Promise<User> {
+    // Allow users to update their own profile or admins to update any profile
+    if (req.user.role !== UserRole.ADMIN && req.user.id !== id) {
+      throw new ForbiddenException('You can only update your own profile');
+    }
     return this.userService.update(id, updateUserDto);
   }
 
   @Delete(':id')
-  @Roles('admin')
+  @Roles(UserRole.ADMIN)
   @Permissions('delete:users')
   @ApiOperation({ summary: 'Delete a user' })
   @ApiResponse({
@@ -116,12 +123,12 @@ export class UserController {
     return this.userService.remove(id);
   }
 
-  @Post(':userId/roles/:roleId')
-  @Roles('admin')
+  @Post(':id/roles/:roleId')
+  @Roles(UserRole.ADMIN)
   @Permissions('assign:roles')
   @ApiOperation({ summary: 'Assign a role to a user' })
   @ApiResponse({
-    status: HttpStatus.OK,
+    status: HttpStatus.CREATED,
     description: 'The role has been successfully assigned to the user.',
     type: User,
   })
@@ -130,14 +137,14 @@ export class UserController {
     description: 'User or role not found.',
   })
   assignRole(
-    @Param('userId') userId: string,
+    @Param('id') id: string,
     @Param('roleId') roleId: string,
   ): Promise<User> {
-    return this.userService.assignRole(userId, roleId);
+    return this.userService.assignRole(id, roleId);
   }
 
-  @Delete(':userId/roles/:roleId')
-  @Roles('admin')
+  @Delete(':id/roles/:roleId')
+  @Roles(UserRole.ADMIN)
   @Permissions('remove:roles')
   @ApiOperation({ summary: 'Remove a role from a user' })
   @ApiResponse({
@@ -147,12 +154,31 @@ export class UserController {
   })
   @ApiResponse({
     status: HttpStatus.NOT_FOUND,
-    description: 'User not found.',
+    description: 'User or role not found.',
   })
   removeRole(
-    @Param('userId') userId: string,
+    @Param('id') id: string,
     @Param('roleId') roleId: string,
   ): Promise<User> {
-    return this.userService.removeRole(userId, roleId);
+    return this.userService.removeRole(id, roleId);
+  }
+
+  @Patch(':id/active')
+  @Roles(UserRole.ADMIN)
+  @ApiOperation({ summary: 'Update user active status' })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'The user active status has been successfully updated.',
+    type: User,
+  })
+  @ApiResponse({
+    status: HttpStatus.NOT_FOUND,
+    description: 'User not found.',
+  })
+  setActive(
+    @Param('id') id: string,
+    @Body('isActive') isActive: boolean,
+  ): Promise<User> {
+    return this.userService.setActive(id, isActive);
   }
 }

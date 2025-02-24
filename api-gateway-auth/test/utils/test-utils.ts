@@ -1,19 +1,19 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { INestApplication } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { JwtService } from '@nestjs/jwt';
 import {
   FastifyAdapter,
   NestFastifyApplication,
 } from '@nestjs/platform-fastify';
-import { getTypeOrmConfig } from '../../src/config/typeorm.config';
 import { AuthModule } from '../../src/modules/auth/auth.module';
 import { UserModule } from '../../src/modules/user/user.module';
 import { User, UserRole } from '../../src/modules/user/entities/user.entity';
-import { ClassSerializerInterceptor } from '@nestjs/common';
+import { Role } from '../../src/modules/user/entities/role.entity';
+import { ClassSerializerInterceptor, ValidationPipe } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import * as bcrypt from 'bcrypt';
+import { DataSource } from 'typeorm';
+import { UserService } from '../../src/modules/user/user.service';
+import { AuthService } from '../../src/modules/auth/auth.service';
 
 export const createTestApp = async (): Promise<NestFastifyApplication> => {
   const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -24,7 +24,25 @@ export const createTestApp = async (): Promise<NestFastifyApplication> => {
       }),
       TypeOrmModule.forRootAsync({
         imports: [ConfigModule],
-        useFactory: getTypeOrmConfig,
+        useFactory: async (configService: ConfigService) => ({
+          type: 'postgres',
+          host: configService.get('DB_HOST'),
+          port: configService.get('DB_PORT'),
+          username: configService.get('DB_USERNAME'),
+          password: configService.get('DB_PASSWORD'),
+          database: configService.get('DB_DATABASE'),
+          schema: 'public',
+          entities: [User, Role],
+          synchronize: true,
+          dropSchema: true,
+          logging: false,
+          ssl: false,
+          maxQueryExecutionTime: 1000,
+          extra: {
+            max: 1,
+            idleTimeoutMillis: 1000,
+          },
+        }),
         inject: [ConfigService],
       }),
       AuthModule,
@@ -37,40 +55,92 @@ export const createTestApp = async (): Promise<NestFastifyApplication> => {
   );
 
   app.useGlobalInterceptors(new ClassSerializerInterceptor(app.get(Reflector)));
+  app.useGlobalPipes(
+    new ValidationPipe({
+      whitelist: true,
+      transform: true,
+      forbidNonWhitelisted: true,
+    }),
+  );
 
   await app.init();
   await app.getHttpAdapter().getInstance().ready();
+
+  // Get the DataSource and ensure the database is clean
+  const dataSource = moduleFixture.get<DataSource>(DataSource);
+
+  try {
+    // Ensure we're connected
+    if (!dataSource.isInitialized) {
+      await dataSource.initialize();
+    }
+
+    // Drop and recreate schema
+    await dataSource.query('DROP SCHEMA IF EXISTS public CASCADE');
+    await dataSource.query('CREATE SCHEMA IF NOT EXISTS public');
+    await dataSource.query('GRANT ALL ON SCHEMA public TO postgres');
+    await dataSource.query('GRANT ALL ON SCHEMA public TO public');
+
+    // Create UUID extension if it doesn't exist
+    await dataSource.query('CREATE EXTENSION IF NOT EXISTS "uuid-ossp"');
+
+    // Synchronize the database
+    await dataSource.synchronize(true);
+  } catch (error) {
+    console.error('Database setup error:', error);
+    throw error;
+  }
+
   return app;
+};
+
+export const cleanupDatabase = async (app: NestFastifyApplication) => {
+  if (!app) return;
+
+  try {
+    const dataSource = app.get<DataSource>(DataSource);
+
+    if (dataSource && dataSource.isInitialized) {
+      // Drop all tables but keep the schema
+      await dataSource.dropDatabase();
+
+      // Close the connection
+      await dataSource.destroy();
+    }
+  } catch (error) {
+    console.error('Database cleanup error:', error);
+  }
+
+  await app.close();
 };
 
 export const createTestUser = async (
   app: NestFastifyApplication,
-  overrides: Partial<User> = {},
+  roleOrOptions:
+    | UserRole
+    | { role?: UserRole; password?: string } = UserRole.USER,
 ): Promise<{ user: User; accessToken: string }> => {
-  const userRepository = app.get('UserRepository');
-  const jwtService = app.get(JwtService);
+  const userService = app.get(UserService);
+  const authService = app.get(AuthService);
 
-  const password = overrides.password || 'password123';
-  const salt = await bcrypt.genSalt();
-  const hashedPassword = await bcrypt.hash(password, salt);
+  const role =
+    typeof roleOrOptions === 'string'
+      ? roleOrOptions
+      : roleOrOptions.role || UserRole.USER;
+  const password =
+    typeof roleOrOptions === 'string'
+      ? 'password123'
+      : roleOrOptions.password || 'password123';
 
-  const user = await userRepository.save({
+  const user = await userService.create({
     email: `test-${Date.now()}@example.com`,
+    password,
     firstName: 'Test',
     lastName: 'User',
-    role: UserRole.USER,
-    isActive: true,
-    ...overrides,
-    password: hashedPassword, // Make sure password is always hashed
+    role,
   });
 
-  const payload = {
-    sub: user.id,
-    email: user.email,
-    role: user.role,
-  };
+  const { access_token } = await authService.login(user.email, password);
 
-  const accessToken = jwtService.sign(payload);
-
-  return { user, accessToken };
+  return { user, accessToken: access_token };
 };

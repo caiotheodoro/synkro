@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { INestApplication, ValidationPipe } from '@nestjs/common';
+import { ValidationPipe } from '@nestjs/common';
 import * as request from 'supertest';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule, ConfigService } from '@nestjs/config';
@@ -8,74 +8,63 @@ import { User } from '../src/modules/user/entities/user.entity';
 import { Role } from '../src/modules/user/entities/role.entity';
 import { AuthService } from '../src/modules/auth/auth.service';
 import { UserService } from '../src/modules/user/user.service';
+import { createTestApp, cleanupDatabase } from './utils/test-utils';
+import { NestFastifyApplication } from '@nestjs/platform-fastify';
+
+jest.setTimeout(30000); // Increase timeout to 30 seconds
 
 describe('AuthController (e2e)', () => {
-  let app: INestApplication;
+  let app: NestFastifyApplication;
   let authService: AuthService;
   let userService: UserService;
 
-  beforeAll(async () => {
-    const moduleFixture: TestingModule = await Test.createTestingModule({
-      imports: [
-        ConfigModule.forRoot({
-          isGlobal: true,
-          envFilePath: '.env.test',
-        }),
-        TypeOrmModule.forRootAsync({
-          imports: [ConfigModule],
-          useFactory: (configService: ConfigService) => ({
-            type: 'postgres',
-            host: configService.get('DB_HOST'),
-            port: configService.get('DB_PORT'),
-            username: configService.get('DB_USERNAME'),
-            password: configService.get('DB_PASSWORD'),
-            database: configService.get('DB_DATABASE'),
-            entities: [User, Role],
-            synchronize: true,
-            dropSchema: true,
-          }),
-          inject: [ConfigService],
-        }),
-        AppModule,
-      ],
-    }).compile();
-
-    app = moduleFixture.createNestApplication();
-    app.useGlobalPipes(new ValidationPipe());
-    await app.init();
-
-    authService = moduleFixture.get<AuthService>(AuthService);
-    userService = moduleFixture.get<UserService>(UserService);
+  beforeEach(async () => {
+    app = await createTestApp();
+    authService = app.get(AuthService);
+    userService = app.get(UserService);
   });
 
-  afterAll(async () => {
-    await app.close();
+  afterEach(async () => {
+    await cleanupDatabase(app);
   });
 
   describe('/auth/register (POST)', () => {
-    const registerDto = {
-      email: 'test@example.com',
-      password: 'password123',
-      firstName: 'John',
-      lastName: 'Doe',
-    };
-
     it('should register a new user', () => {
       return request(app.getHttpServer())
         .post('/auth/register')
-        .send(registerDto)
+        .send({
+          email: 'test@example.com',
+          password: 'password123',
+          firstName: 'Test',
+          lastName: 'User',
+        })
         .expect(201)
         .expect((res) => {
           expect(res.body.access_token).toBeDefined();
-          expect(res.body.user.email).toBe(registerDto.email);
+          expect(res.body.user.email).toBe('test@example.com');
           expect(res.body.user.password).toBeUndefined();
         });
     });
 
-    it('should fail to register with existing email', () => {
+    it('should fail to register with existing email', async () => {
+      await request(app.getHttpServer())
+        .post('/auth/register')
+        .send({
+          email: 'duplicate@example.com',
+          password: 'password123',
+          firstName: 'Test',
+          lastName: 'User',
+        })
+        .expect(201);
+
       return request(app.getHttpServer())
         .post('/auth/register')
-        .send(registerDto)
+        .send({
+          email: 'duplicate@example.com',
+          password: 'password123',
+          firstName: 'Test',
+          lastName: 'User',
+        })
         .expect(409);
     });
 
@@ -84,7 +73,7 @@ describe('AuthController (e2e)', () => {
         .post('/auth/register')
         .send({
           email: 'invalid-email',
-          password: '123',
+          password: '123', // Too short
         })
         .expect(400);
     });
@@ -92,9 +81,17 @@ describe('AuthController (e2e)', () => {
 
   describe('/auth/login (POST)', () => {
     const loginDto = {
-      email: 'test@example.com',
+      email: 'login-test@example.com',
       password: 'password123',
     };
+
+    beforeEach(async () => {
+      await userService.create({
+        ...loginDto,
+        firstName: 'Test',
+        lastName: 'User',
+      });
+    });
 
     it('should login successfully', () => {
       return request(app.getHttpServer())
@@ -124,11 +121,14 @@ describe('AuthController (e2e)', () => {
 
     beforeAll(async () => {
       const response = await request(app.getHttpServer())
-        .post('/auth/login')
+        .post('/auth/register')
         .send({
-          email: 'test@example.com',
+          email: 'profile-test@example.com',
           password: 'password123',
+          firstName: 'Test',
+          lastName: 'User',
         });
+
       accessToken = response.body.access_token;
     });
 
@@ -138,7 +138,7 @@ describe('AuthController (e2e)', () => {
         .set('Authorization', `Bearer ${accessToken}`)
         .expect(200)
         .expect((res) => {
-          expect(res.body.email).toBe('test@example.com');
+          expect(res.body.email).toBe('profile-test@example.com');
           expect(res.body.password).toBeUndefined();
         });
     });

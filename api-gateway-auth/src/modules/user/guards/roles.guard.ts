@@ -1,51 +1,46 @@
-import { Injectable, CanActivate, ExecutionContext } from '@nestjs/common';
+import {
+  Injectable,
+  CanActivate,
+  ExecutionContext,
+  UnauthorizedException,
+  ForbiddenException,
+} from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { User } from '../entities/user.entity';
+import { User, UserRole } from '../entities/user.entity';
+import { ROLES_KEY } from '../decorators/roles.decorator';
 
 @Injectable()
 export class RolesGuard implements CanActivate {
   constructor(private reflector: Reflector) {}
 
-  canActivate(context: ExecutionContext): boolean {
-    const requiredRoles = this.reflector.get<string[]>(
-      'roles',
+  async canActivate(context: ExecutionContext): Promise<boolean> {
+    const requiredRole = this.reflector.getAllAndOverride<UserRole>(ROLES_KEY, [
       context.getHandler(),
-    );
-    const requiredPermissions = this.reflector.get<string[]>(
-      'permissions',
-      context.getHandler(),
-    );
+      context.getClass(),
+    ]);
 
-    if (!requiredRoles && !requiredPermissions) {
+    // If no role is required, allow access
+    if (!requiredRole) {
       return true;
     }
 
     const request = context.switchToHttp().getRequest();
-    const user: User = request.user;
+    const user = request.user as User;
 
-    if (!user || !user.roles || user.roles.length === 0) {
-      return false;
+    if (!user) {
+      throw new UnauthorizedException('User not authenticated');
     }
 
-    if (requiredRoles) {
-      const hasRole = user.roles.some((role) =>
-        requiredRoles.includes(role.name),
-      );
-      if (!hasRole) {
-        return false;
-      }
+    // Admin role has access to everything
+    if (user.role === UserRole.ADMIN) {
+      return true;
     }
 
-    if (requiredPermissions) {
-      const userPermissions = user.roles.reduce(
-        (acc, role) => [...acc, ...(role.permissions || [])],
-        [] as string[],
-      );
-      return requiredPermissions.every((permission) =>
-        userPermissions.includes(permission),
-      );
+    // Check if user has the required role
+    if (user.role === requiredRole) {
+      return true;
     }
 
-    return true;
+    throw new ForbiddenException('Insufficient permissions');
   }
 }

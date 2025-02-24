@@ -23,19 +23,18 @@ import { Role } from '../entities/role.entity';
 import { RolesGuard } from '../guards/roles.guard';
 import { JwtAuthGuard } from '../guards/auth.guard';
 import { Roles } from '../decorators/roles.decorator';
-import { Permissions } from '../decorators/permissions.decorator';
+import { UserRole } from '../entities/user.entity';
 
 @ApiTags('Roles')
-@ApiBearerAuth('access-token')
+@ApiBearerAuth('JWT-auth')
 @ApiSecurity('access-token')
 @Controller('roles')
 @UseGuards(JwtAuthGuard, RolesGuard)
+@Roles(UserRole.ADMIN)
 export class RoleController {
   constructor(private readonly roleService: RoleService) {}
 
   @Post()
-  @Roles('admin')
-  @Permissions('create:roles')
   @ApiOperation({ summary: 'Create a new role' })
   @ApiResponse({
     status: HttpStatus.CREATED,
@@ -51,8 +50,6 @@ export class RoleController {
   }
 
   @Get()
-  @Roles('admin')
-  @Permissions('read:roles')
   @ApiOperation({ summary: 'Get all roles' })
   @ApiResponse({
     status: HttpStatus.OK,
@@ -64,8 +61,6 @@ export class RoleController {
   }
 
   @Get(':id')
-  @Roles('admin')
-  @Permissions('read:roles')
   @ApiOperation({ summary: 'Get a role by id' })
   @ApiResponse({
     status: HttpStatus.OK,
@@ -81,8 +76,6 @@ export class RoleController {
   }
 
   @Patch(':id')
-  @Roles('admin')
-  @Permissions('update:roles')
   @ApiOperation({ summary: 'Update a role' })
   @ApiResponse({
     status: HttpStatus.OK,
@@ -101,8 +94,6 @@ export class RoleController {
   }
 
   @Delete(':id')
-  @Roles('admin')
-  @Permissions('delete:roles')
   @ApiOperation({ summary: 'Delete a role' })
   @ApiResponse({
     status: HttpStatus.OK,
@@ -117,8 +108,6 @@ export class RoleController {
   }
 
   @Post(':id/permissions/:permission')
-  @Roles('admin')
-  @Permissions('manage:permissions')
   @ApiOperation({ summary: 'Add a permission to a role' })
   @ApiResponse({
     status: HttpStatus.OK,
@@ -137,8 +126,6 @@ export class RoleController {
   }
 
   @Delete(':id/permissions/:permission')
-  @Roles('admin')
-  @Permissions('manage:permissions')
   @ApiOperation({ summary: 'Remove a permission from a role' })
   @ApiResponse({
     status: HttpStatus.OK,

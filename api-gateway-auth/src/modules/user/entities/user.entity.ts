@@ -71,8 +71,10 @@ export class User {
 
   @BeforeInsert()
   async hashPassword() {
-    const salt = await bcrypt.genSalt();
-    this.password = await bcrypt.hash(this.password, salt);
+    if (this.password) {
+      const salt = await bcrypt.genSalt();
+      this.password = await bcrypt.hash(this.password, salt);
+    }
   }
 
   async validatePassword(password: string): Promise<boolean> {

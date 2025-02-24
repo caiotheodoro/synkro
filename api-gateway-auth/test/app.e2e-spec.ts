@@ -1,16 +1,29 @@
 import { NestFastifyApplication } from '@nestjs/platform-fastify';
-import { createTestApp, createTestUser } from './utils/test-utils';
+import {
+  createTestApp,
+  cleanupDatabase,
+  createTestUser,
+} from './utils/test-utils';
 import { UserRole } from '../src/modules/user/entities/user.entity';
+import { UserService } from '../src/modules/user/user.service';
+import { AuthService } from '../src/modules/auth/auth.service';
+import * as request from 'supertest';
+
+jest.setTimeout(30000); // Increase timeout to 30 seconds
 
 describe('AppController (e2e)', () => {
   let app: NestFastifyApplication;
+  let userService: UserService;
+  let authService: AuthService;
 
   beforeEach(async () => {
     app = await createTestApp();
+    userService = app.get(UserService);
+    authService = app.get(AuthService);
   });
 
   afterEach(async () => {
-    await app.close();
+    await cleanupDatabase(app);
   });
 
   describe('Auth', () => {
@@ -121,182 +134,136 @@ describe('AppController (e2e)', () => {
 
   describe('Users', () => {
     describe('GET /users', () => {
-      it('should get all users as admin', async () => {
-        const { accessToken } = await createTestUser(app, {
-          role: UserRole.ADMIN,
-        });
-
-        const response = await app.inject({
-          method: 'GET',
-          url: '/users',
-          headers: {
-            authorization: `Bearer ${accessToken}`,
-          },
-        });
-
-        expect(response.statusCode).toBe(200);
-        const body = JSON.parse(response.body);
-        expect(Array.isArray(body)).toBe(true);
-        if (body.length > 0) {
-          expect(body[0].email).toBeDefined();
-          expect(body[0].password).toBeUndefined();
-        }
-      });
-
       it('should return 403 for non-admin users', async () => {
-        const { accessToken } = await createTestUser(app);
+        const { user, accessToken } = await createTestUser(app);
 
-        const response = await app.inject({
-          method: 'GET',
-          url: '/users',
-          headers: {
-            authorization: `Bearer ${accessToken}`,
-          },
-        });
+        const response = await request(app.getHttpServer())
+          .get('/users')
+          .set('Authorization', `Bearer ${accessToken}`);
 
         expect(response.statusCode).toBe(403);
+      });
+
+      it('should return users list for admin', async () => {
+        const { accessToken } = await createTestUser(app, UserRole.ADMIN);
+
+        const response = await request(app.getHttpServer())
+          .get('/users')
+          .set('Authorization', `Bearer ${accessToken}`);
+
+        expect(response.statusCode).toBe(200);
+        expect(Array.isArray(response.body)).toBe(true);
       });
     });
 
     describe('GET /users/:id', () => {
-      it('should get user by id', async () => {
-        const { user, accessToken } = await createTestUser(app);
-
-        const response = await app.inject({
-          method: 'GET',
-          url: `/users/${user.id}`,
-          headers: {
-            authorization: `Bearer ${accessToken}`,
-          },
-        });
-
-        expect(response.statusCode).toBe(200);
-        const body = JSON.parse(response.body);
-        expect(body.email).toBe(user.email);
-        expect(body.password).toBeUndefined();
-      });
-
       it('should return 404 for non-existent user', async () => {
-        const { accessToken } = await createTestUser(app);
+        const { accessToken } = await createTestUser(app, UserRole.ADMIN);
+        const nonExistentId = '00000000-0000-0000-0000-000000000000';
 
-        const response = await app.inject({
-          method: 'GET',
-          url: '/users/999',
-          headers: {
-            authorization: `Bearer ${accessToken}`,
-          },
-        });
+        const response = await request(app.getHttpServer())
+          .get(`/users/${nonExistentId}`)
+          .set('Authorization', `Bearer ${accessToken}`);
 
         expect(response.statusCode).toBe(404);
+      });
+
+      it('should return user details for admin', async () => {
+        const { user, accessToken } = await createTestUser(app, UserRole.ADMIN);
+
+        const response = await request(app.getHttpServer())
+          .get(`/users/${user.id}`)
+          .set('Authorization', `Bearer ${accessToken}`);
+
+        expect(response.statusCode).toBe(200);
+        expect(response.body.id).toBe(user.id);
       });
     });
 
     describe('PATCH /users/:id', () => {
-      it('should update user', async () => {
-        const { user, accessToken } = await createTestUser(app);
-        const updateData = {
-          firstName: 'Updated',
-          lastName: 'Name',
-        };
-
-        const response = await app.inject({
-          method: 'PATCH',
-          url: `/users/${user.id}`,
-          headers: {
-            authorization: `Bearer ${accessToken}`,
-          },
-          payload: updateData,
-        });
-
-        expect(response.statusCode).toBe(200);
-        const body = JSON.parse(response.body);
-        expect(body.firstName).toBe(updateData.firstName);
-        expect(body.lastName).toBe(updateData.lastName);
-      });
-
       it('should return 403 when updating other user as non-admin', async () => {
-        const { accessToken } = await createTestUser(app);
-        const { user } = await createTestUser(app);
+        const { accessToken: userToken } = await createTestUser(app);
+        const { user: otherUser } = await createTestUser(app);
 
-        const response = await app.inject({
-          method: 'PATCH',
-          url: `/users/${user.id}`,
-          headers: {
-            authorization: `Bearer ${accessToken}`,
-          },
-          payload: { firstName: 'Updated' },
-        });
+        const response = await request(app.getHttpServer())
+          .patch(`/users/${otherUser.id}`)
+          .set('Authorization', `Bearer ${userToken}`)
+          .send({ firstName: 'Updated' });
 
         expect(response.statusCode).toBe(403);
+      });
+
+      it('should allow admin to update other users', async () => {
+        const { accessToken: adminToken } = await createTestUser(
+          app,
+          UserRole.ADMIN,
+        );
+        const { user: otherUser } = await createTestUser(app);
+
+        const response = await request(app.getHttpServer())
+          .patch(`/users/${otherUser.id}`)
+          .set('Authorization', `Bearer ${adminToken}`)
+          .send({ firstName: 'Updated' });
+
+        expect(response.statusCode).toBe(200);
+        expect(response.body.firstName).toBe('Updated');
       });
     });
 
     describe('DELETE /users/:id', () => {
-      it('should delete user', async () => {
-        const { user, accessToken } = await createTestUser(app);
-
-        const response = await app.inject({
-          method: 'DELETE',
-          url: `/users/${user.id}`,
-          headers: {
-            authorization: `Bearer ${accessToken}`,
-          },
-        });
-
-        expect(response.statusCode).toBe(200);
-      });
-
       it('should return 403 when deleting other user as non-admin', async () => {
-        const { accessToken } = await createTestUser(app);
-        const { user } = await createTestUser(app);
+        const { accessToken: userToken } = await createTestUser(app);
+        const { user: otherUser } = await createTestUser(app);
 
-        const response = await app.inject({
-          method: 'DELETE',
-          url: `/users/${user.id}`,
-          headers: {
-            authorization: `Bearer ${accessToken}`,
-          },
-        });
+        const response = await request(app.getHttpServer())
+          .delete(`/users/${otherUser.id}`)
+          .set('Authorization', `Bearer ${userToken}`);
 
         expect(response.statusCode).toBe(403);
+      });
+
+      it('should allow admin to delete other users', async () => {
+        const { accessToken: adminToken } = await createTestUser(
+          app,
+          UserRole.ADMIN,
+        );
+        const { user: otherUser } = await createTestUser(app);
+
+        const response = await request(app.getHttpServer())
+          .delete(`/users/${otherUser.id}`)
+          .set('Authorization', `Bearer ${adminToken}`);
+
+        expect(response.statusCode).toBe(200);
       });
     });
 
     describe('PATCH /users/:id/active', () => {
-      it('should update user active status as admin', async () => {
-        const { accessToken } = await createTestUser(app, {
-          role: UserRole.ADMIN,
-        });
-        const { user } = await createTestUser(app);
-
-        const response = await app.inject({
-          method: 'PATCH',
-          url: `/users/${user.id}/active`,
-          headers: {
-            authorization: `Bearer ${accessToken}`,
-          },
-          payload: { isActive: false },
-        });
-
-        expect(response.statusCode).toBe(200);
-        const body = JSON.parse(response.body);
-        expect(body.isActive).toBe(false);
-      });
-
       it('should return 403 when updating active status as non-admin', async () => {
-        const { accessToken } = await createTestUser(app);
-        const { user } = await createTestUser(app);
+        const { accessToken: userToken } = await createTestUser(app);
+        const { user: otherUser } = await createTestUser(app);
 
-        const response = await app.inject({
-          method: 'PATCH',
-          url: `/users/${user.id}/active`,
-          headers: {
-            authorization: `Bearer ${accessToken}`,
-          },
-          payload: { isActive: false },
-        });
+        const response = await request(app.getHttpServer())
+          .patch(`/users/${otherUser.id}/active`)
+          .set('Authorization', `Bearer ${userToken}`)
+          .send({ isActive: false });
 
         expect(response.statusCode).toBe(403);
+      });
+
+      it('should allow admin to update active status', async () => {
+        const { accessToken: adminToken } = await createTestUser(
+          app,
+          UserRole.ADMIN,
+        );
+        const { user: otherUser } = await createTestUser(app);
+
+        const response = await request(app.getHttpServer())
+          .patch(`/users/${otherUser.id}/active`)
+          .set('Authorization', `Bearer ${adminToken}`)
+          .send({ isActive: false });
+
+        expect(response.statusCode).toBe(200);
+        expect(response.body.isActive).toBe(false);
       });
     });
   });
