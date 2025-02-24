@@ -1,64 +1,91 @@
-import { NestFactory, Reflector } from '@nestjs/core';
+import { NestFactory } from '@nestjs/core';
 import {
   FastifyAdapter,
   NestFastifyApplication,
 } from '@nestjs/platform-fastify';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
-import { ValidationPipe, ClassSerializerInterceptor } from '@nestjs/common';
+import { ValidationPipe } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { WinstonModule } from 'nest-winston';
 import { AppModule } from './app.module';
+import { configureSecurityMiddleware } from './config/security.config';
+import { RequestMetricsInterceptor } from './modules/metrics/request-metrics.interceptor';
+import { MetricsService } from './modules/metrics/metrics.service';
 
 async function bootstrap() {
-  const fastifyAdapter = new FastifyAdapter({
-    trustProxy: true,
-    logger: true,
-  });
-
   const app = await NestFactory.create<NestFastifyApplication>(
     AppModule,
-    fastifyAdapter,
+    new FastifyAdapter(),
+    {
+      logger: WinstonModule.createLogger({}),
+    },
   );
 
-  app.useGlobalPipes(new ValidationPipe());
+  const configService = app.get(ConfigService);
+  const metricsService = app.get(MetricsService);
 
-  app.useGlobalInterceptors(new ClassSerializerInterceptor(app.get(Reflector)));
+  // Configure Security Middleware
+  await configureSecurityMiddleware(
+    app.getHttpAdapter().getInstance(),
+    configService,
+  );
 
+  // Global Pipes and Interceptors
+  app.useGlobalPipes(
+    new ValidationPipe({
+      transform: true,
+      whitelist: true,
+      forbidNonWhitelisted: true,
+    }),
+  );
+  app.useGlobalInterceptors(new RequestMetricsInterceptor(metricsService));
+
+  // Swagger Configuration
   const config = new DocumentBuilder()
     .setTitle('API Gateway Auth')
     .setDescription('The API Gateway Authentication and Authorization API')
     .setVersion('1.0')
-    .addTag('Auth', 'Authentication endpoints')
+    .addTag('Auth', 'Authentication and authorization endpoints')
     .addTag('Users', 'User management endpoints')
     .addTag('Roles', 'Role management endpoints')
+    .addTag('Gateway', 'API Gateway routing endpoints')
+    .addTag('Monitoring', 'Health and monitoring endpoints')
+    .addTag('Metrics', 'Prometheus metrics endpoints')
+    .addTag('System', 'System health and information')
     .addBearerAuth(
       {
-        description: 'Please enter JWT token',
         type: 'http',
         scheme: 'bearer',
         bearerFormat: 'JWT',
+        name: 'JWT',
+        description: 'Enter JWT token',
+        in: 'header',
       },
-      'access-token',
+      'JWT-auth',
     )
     .build();
 
-  const document = SwaggerModule.createDocument(app, config);
+  const document = SwaggerModule.createDocument(app, config, {
+    operationIdFactory: (controllerKey: string, methodKey: string) => methodKey,
+  });
 
   SwaggerModule.setup('api', app, document, {
+    explorer: true,
     swaggerOptions: {
       persistAuthorization: true,
-      security: [{ bearerAuth: [] }],
-      securityDefinitions: {
-        bearerAuth: {
-          type: 'http',
-          scheme: 'bearer',
-          bearerFormat: 'JWT',
-        },
-      },
+      docExpansion: 'list',
+      filter: true,
+      showRequestDuration: true,
+      tagsSorter: 'alpha',
     },
+    customSiteTitle: 'API Gateway Auth Documentation',
   });
 
   app.enableCors();
 
-  await app.listen(process.env.PORT ?? 3000);
+  // Start the server
+  const port = configService.get('PORT') || 3000;
+  await app.listen(port, '0.0.0.0');
   console.log(`Application is running on: ${await app.getUrl()}`);
 }
 bootstrap();
