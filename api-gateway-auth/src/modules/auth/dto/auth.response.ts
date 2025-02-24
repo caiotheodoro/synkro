@@ -1,10 +1,30 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { User } from '../../user/entities/user.entity';
+import { UserRole } from '../../user/entities/user.entity';
+
+export class AuthUserResponse {
+  @ApiProperty()
+  id: string;
+
+  @ApiProperty()
+  email: string;
+
+  @ApiProperty({ required: false })
+  firstName?: string;
+
+  @ApiProperty({ required: false })
+  lastName?: string;
+
+  @ApiProperty({ enum: UserRole })
+  role: UserRole;
+
+  @ApiProperty()
+  isActive: boolean;
+}
 
 export class AuthResponse {
-  @ApiProperty({ type: User })
-  user: User;
-
-  @ApiProperty({ example: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...' })
+  @ApiProperty()
   access_token: string;
+
+  @ApiProperty({ type: AuthUserResponse })
+  user: AuthUserResponse;
 }

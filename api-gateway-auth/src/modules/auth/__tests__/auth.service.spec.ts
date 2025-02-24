@@ -83,7 +83,14 @@ describe('AuthService', () => {
 
       expect(result).toEqual({
         access_token: 'test-token',
-        user: expect.any(User),
+        user: {
+          id: '1',
+          email: 'test@example.com',
+          firstName: 'Test',
+          lastName: 'User',
+          role: UserRole.USER,
+          isActive: true,
+        },
       });
       expect(userService.findByEmail).toHaveBeenCalledWith(loginDto.email);
       expect(bcrypt.compare).toHaveBeenCalledWith(
@@ -156,9 +163,20 @@ describe('AuthService', () => {
 
       expect(result).toEqual({
         access_token: 'test-token',
-        user: expect.any(User),
+        user: {
+          id: '1',
+          email: 'test@example.com',
+          firstName: 'Test',
+          lastName: 'User',
+          role: UserRole.USER,
+          isActive: true,
+        },
       });
-      expect(userService.create).toHaveBeenCalledWith(registerDto);
+      expect(userService.create).toHaveBeenCalledWith({
+        ...registerDto,
+        password: 'hashedPassword',
+        role: UserRole.USER,
+      });
     });
 
     it('should throw ConflictException when email already exists', async () => {

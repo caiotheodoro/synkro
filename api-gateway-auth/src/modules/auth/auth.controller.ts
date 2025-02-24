@@ -6,6 +6,7 @@ import {
   Get,
   Req,
   HttpStatus,
+  HttpCode,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -18,7 +19,7 @@ import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { JwtAuthGuard } from '../user/guards/auth.guard';
 import { User } from '../user/entities/user.entity';
-import { AuthResponse } from './dto/auth.response';
+import { AuthResponse, AuthUserResponse } from './dto/auth.response';
 import { CreateUserDto } from '../user/dto/create-user.dto';
 
 @ApiTags('Auth')
@@ -27,6 +28,7 @@ export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   @Post('login')
+  @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Login with email and password' })
   @ApiBody({ type: LoginDto })
   @ApiResponse({
@@ -43,6 +45,7 @@ export class AuthController {
   }
 
   @Post('register')
+  @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'Register a new user' })
   @ApiBody({ type: CreateUserDto })
   @ApiResponse({
@@ -60,18 +63,19 @@ export class AuthController {
 
   @Get('profile')
   @UseGuards(JwtAuthGuard)
-  @ApiBearerAuth('access-token')
+  @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Get current user profile' })
   @ApiResponse({
     status: HttpStatus.OK,
     description: 'Returns the current user profile.',
-    type: User,
+    type: AuthUserResponse,
   })
   @ApiResponse({
     status: HttpStatus.UNAUTHORIZED,
     description: 'User is not authenticated.',
   })
-  getProfile(@Req() req: { user: User }): User {
-    return req.user;
+  getProfile(@Req() req: { user: User }): AuthUserResponse {
+    const { id, email, firstName, lastName, role, isActive } = req.user;
+    return { id, email, firstName, lastName, role, isActive };
   }
 }
