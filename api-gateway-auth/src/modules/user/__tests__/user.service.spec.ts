@@ -70,6 +70,11 @@ describe('UserService', () => {
     }).compile();
 
     service = module.get<UserService>(UserService);
+
+    // Reset all mocks before each test
+    jest.clearAllMocks();
+    (bcrypt.hash as jest.Mock).mockResolvedValue('hashedPassword');
+    (bcrypt.compare as jest.Mock).mockResolvedValue(true);
   });
 
   describe('create', () => {
@@ -78,7 +83,7 @@ describe('UserService', () => {
       password: 'password123',
       firstName: 'New',
       lastName: 'User',
-      roleIds: [],
+      role: UserRole.USER,
     };
 
     it('should create a new user', async () => {
@@ -92,6 +97,7 @@ describe('UserService', () => {
       expect(mockUserRepository.create).toHaveBeenCalledWith({
         ...createDto,
         password: 'hashedPassword',
+        isActive: true,
       });
       expect(mockUserRepository.save).toHaveBeenCalledWith(mockUser);
     });

@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { NotFoundException } from '@nestjs/common';
+import { NotFoundException, ForbiddenException } from '@nestjs/common';
 import { UserController } from '../controllers/user.controller';
 import { UserService } from '../user.service';
 import { User, UserRole } from '../entities/user.entity';
@@ -11,6 +11,15 @@ describe('UserController', () => {
     id: '1',
     email: 'test@example.com',
     firstName: 'Test',
+    lastName: 'User',
+    role: UserRole.ADMIN,
+    isActive: true,
+  } as User;
+
+  const mockNonAdminUser = {
+    id: '2',
+    email: 'user@example.com',
+    firstName: 'Regular',
     lastName: 'User',
     role: UserRole.USER,
     isActive: true,
@@ -48,15 +57,27 @@ describe('UserController', () => {
   describe('findOne', () => {
     it('should return a user for admin', async () => {
       mockUserService.findOne.mockResolvedValue(mockUser);
-      const result = await controller.findOne(mockUser.id);
+      const result = await controller.findOne(mockUser.id, {
+        user: mockUser,
+      });
       expect(result).toEqual(mockUser);
+    });
+
+    it('should throw ForbiddenException when non-admin user tries to access another profile', async () => {
+      await expect(
+        controller.findOne(mockUser.id, {
+          user: mockNonAdminUser,
+        }),
+      ).rejects.toThrow(ForbiddenException);
     });
 
     it('should throw NotFoundException when user not found', async () => {
       mockUserService.findOne.mockRejectedValue(new NotFoundException());
-      await expect(controller.findOne('999')).rejects.toThrow(
-        NotFoundException,
-      );
+      await expect(
+        controller.findOne('999', {
+          user: mockUser,
+        }),
+      ).rejects.toThrow(NotFoundException);
     });
   });
 
@@ -68,7 +89,9 @@ describe('UserController', () => {
 
     it('should update user profile for admin', async () => {
       mockUserService.update.mockResolvedValue({ ...mockUser, ...updateDto });
-      const result = await controller.update(mockUser.id, updateDto);
+      const result = await controller.update(mockUser.id, updateDto, {
+        user: mockUser,
+      });
       expect(result).toEqual({ ...mockUser, ...updateDto });
     });
   });

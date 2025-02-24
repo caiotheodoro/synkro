@@ -3,6 +3,7 @@ import { ExecutionContext } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { RolesGuard } from '../guards/roles.guard';
 import { UserRole } from '../entities/user.entity';
+import { ForbiddenException, UnauthorizedException } from '@nestjs/common';
 
 describe('RolesGuard', () => {
   let guard: RolesGuard;
@@ -27,15 +28,14 @@ describe('RolesGuard', () => {
         {
           provide: Reflector,
           useValue: {
-            get: jest.fn().mockImplementation((key, context) => {
-              if (key === 'roles') {
-                return context.roles;
-              }
-              if (key === 'permissions') {
-                return context.permissions;
-              }
-              return undefined;
-            }),
+            getAllAndOverride: jest
+              .fn()
+              .mockImplementation((key, [handler, class_]) => {
+                if (key === 'roles') {
+                  return handler.roles;
+                }
+                return undefined;
+              }),
           },
         },
       ],
@@ -49,147 +49,71 @@ describe('RolesGuard', () => {
   });
 
   describe('canActivate', () => {
-    it('should return true when no roles are required', () => {
+    it('should return true when no roles are required', async () => {
       mockExecutionContext.getHandler.mockReturnValue({});
-      const request = { user: { roles: [{ name: UserRole.USER }] } };
+      const request = { user: { role: UserRole.USER } };
       mockRequest.mockReturnValue(request);
 
-      expect(guard.canActivate(mockExecutionContext)).toBe(true);
+      const result = await guard.canActivate(mockExecutionContext);
+      expect(result).toBe(true);
     });
 
-    it('should return true when user has required role', () => {
+    it('should return true when user has required role', async () => {
       mockExecutionContext.getHandler.mockReturnValue({
-        roles: [UserRole.ADMIN],
+        roles: UserRole.ADMIN,
       });
-      const request = { user: { roles: [{ name: UserRole.ADMIN }] } };
+      const request = { user: { role: UserRole.ADMIN } };
       mockRequest.mockReturnValue(request);
 
-      expect(guard.canActivate(mockExecutionContext)).toBe(true);
+      const result = await guard.canActivate(mockExecutionContext);
+      expect(result).toBe(true);
     });
 
-    it('should return false when user does not have required role', () => {
+    it('should throw ForbiddenException when user does not have required role', async () => {
       mockExecutionContext.getHandler.mockReturnValue({
-        roles: [UserRole.ADMIN],
+        roles: UserRole.ADMIN,
       });
-      const request = { user: { roles: [{ name: UserRole.USER }] } };
+      const request = { user: { role: UserRole.USER } };
       mockRequest.mockReturnValue(request);
 
-      expect(guard.canActivate(mockExecutionContext)).toBe(false);
+      await expect(guard.canActivate(mockExecutionContext)).rejects.toThrow(
+        ForbiddenException,
+      );
     });
 
-    it('should return false when user has no role', () => {
+    it('should throw ForbiddenException when user has no role', async () => {
       mockExecutionContext.getHandler.mockReturnValue({
-        roles: [UserRole.USER],
+        roles: UserRole.USER,
       });
-      const request = { user: { roles: [] } };
+      const request = { user: {} };
       mockRequest.mockReturnValue(request);
 
-      expect(guard.canActivate(mockExecutionContext)).toBe(false);
+      await expect(guard.canActivate(mockExecutionContext)).rejects.toThrow(
+        ForbiddenException,
+      );
     });
 
-    it('should return false when no user in request', () => {
+    it('should throw UnauthorizedException when no user in request', async () => {
       mockExecutionContext.getHandler.mockReturnValue({
-        roles: [UserRole.USER],
+        roles: UserRole.USER,
       });
       const request = {};
       mockRequest.mockReturnValue(request);
 
-      expect(guard.canActivate(mockExecutionContext)).toBe(false);
+      await expect(guard.canActivate(mockExecutionContext)).rejects.toThrow(
+        UnauthorizedException,
+      );
     });
 
-    it('should handle multiple required roles', () => {
+    it('should handle admin role having access to everything', async () => {
       mockExecutionContext.getHandler.mockReturnValue({
-        roles: [UserRole.ADMIN, UserRole.USER],
+        roles: UserRole.USER,
       });
-      const request = { user: { roles: [{ name: UserRole.ADMIN }] } };
+      const request = { user: { role: UserRole.ADMIN } };
       mockRequest.mockReturnValue(request);
 
-      expect(guard.canActivate(mockExecutionContext)).toBe(true);
-    });
-  });
-
-  describe('checkPermissions', () => {
-    it('should return true when no permissions are required', () => {
-      mockExecutionContext.getHandler.mockReturnValue({});
-      const request = {
-        user: { roles: [{ permissions: ['read:users'] }] },
-      };
-      mockRequest.mockReturnValue(request);
-
-      expect(guard.canActivate(mockExecutionContext)).toBe(true);
-    });
-
-    it('should return true when user has required permission', () => {
-      mockExecutionContext.getHandler.mockReturnValue({
-        permissions: ['read:users'],
-      });
-      const request = {
-        user: { roles: [{ permissions: ['read:users'] }] },
-      };
-      mockRequest.mockReturnValue(request);
-
-      expect(guard.canActivate(mockExecutionContext)).toBe(true);
-    });
-
-    it('should return false when user does not have required permission', () => {
-      mockExecutionContext.getHandler.mockReturnValue({
-        permissions: ['write:users'],
-      });
-      const request = {
-        user: { roles: [{ permissions: ['read:users'] }] },
-      };
-      mockRequest.mockReturnValue(request);
-
-      expect(guard.canActivate(mockExecutionContext)).toBe(false);
-    });
-
-    it('should return false when user has no roles', () => {
-      mockExecutionContext.getHandler.mockReturnValue({
-        permissions: ['read:users'],
-      });
-      const request = { user: { roles: [] } };
-      mockRequest.mockReturnValue(request);
-
-      expect(guard.canActivate(mockExecutionContext)).toBe(false);
-    });
-
-    it('should return false when role has no permissions', () => {
-      mockExecutionContext.getHandler.mockReturnValue({
-        permissions: ['read:users'],
-      });
-      const request = { user: { roles: [{ permissions: [] }] } };
-      mockRequest.mockReturnValue(request);
-
-      expect(guard.canActivate(mockExecutionContext)).toBe(false);
-    });
-
-    it('should handle multiple required permissions', () => {
-      mockExecutionContext.getHandler.mockReturnValue({
-        permissions: ['read:users', 'write:users'],
-      });
-      const request = {
-        user: { roles: [{ permissions: ['read:users', 'write:users'] }] },
-      };
-      mockRequest.mockReturnValue(request);
-
-      expect(guard.canActivate(mockExecutionContext)).toBe(true);
-    });
-
-    it('should handle permissions across multiple roles', () => {
-      mockExecutionContext.getHandler.mockReturnValue({
-        permissions: ['read:users', 'write:users'],
-      });
-      const request = {
-        user: {
-          roles: [
-            { permissions: ['read:users'] },
-            { permissions: ['write:users'] },
-          ],
-        },
-      };
-      mockRequest.mockReturnValue(request);
-
-      expect(guard.canActivate(mockExecutionContext)).toBe(true);
+      const result = await guard.canActivate(mockExecutionContext);
+      expect(result).toBe(true);
     });
   });
 });
