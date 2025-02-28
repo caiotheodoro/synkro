@@ -31,11 +31,8 @@ export class UserService {
       throw new ConflictException('User with this email already exists');
     }
 
-    const hashedPassword = await bcrypt.hash(createUserDto.password, 10);
-
     const user = this.userRepository.create({
       ...createUserDto,
-      password: hashedPassword,
       isActive: true,
     });
 
@@ -78,10 +75,6 @@ export class UserService {
       if (existingUser) {
         throw new ConflictException('User with this email already exists');
       }
-    }
-
-    if (updateUserDto.password) {
-      updateUserDto.password = await bcrypt.hash(updateUserDto.password, 10);
     }
 
     Object.assign(user, updateUserDto);
@@ -127,7 +120,7 @@ export class UserService {
   }
 
   async validatePassword(user: User, password: string): Promise<boolean> {
-    return bcrypt.compare(password, user.password);
+    return user.validatePassword(password);
   }
 
   async setActive(id: string, isActive: boolean): Promise<User> {
