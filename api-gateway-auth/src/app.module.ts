@@ -9,11 +9,11 @@ import { LoggingModule } from './modules/logging/logging.module';
 import { MonitoringModule } from './modules/monitoring/monitoring.module';
 import { MetricsModule } from './modules/metrics/metrics.module';
 import { AuthModule } from './modules/auth/auth.module';
-import { UserModule } from './modules/user/user.module';
+import { UserModule } from './user/user.module';
 import databaseConfig from './config/database.config';
 import { getTypeOrmConfig } from './config/typeorm.config';
 import { APP_GUARD } from '@nestjs/core';
-import { RolesGuard } from './modules/user/guards/roles.guard';
+import { RolesGuard } from './user/guards/roles.guard';
 
 @Module({
   imports: [

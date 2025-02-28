@@ -11,13 +11,14 @@ import { AppModule } from './app.module';
 import { configureSecurityMiddleware } from './config/security.config';
 import { RequestMetricsInterceptor } from './modules/metrics/request-metrics.interceptor';
 import { MetricsService } from './modules/metrics/metrics.service';
+import { createLoggerConfig } from './config/logger.config';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestFastifyApplication>(
     AppModule,
     new FastifyAdapter(),
     {
-      logger: WinstonModule.createLogger({}),
+      logger: WinstonModule.createLogger(createLoggerConfig()),
     },
   );
 
