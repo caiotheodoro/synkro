@@ -1,9 +1,9 @@
 import { Injectable, UnauthorizedException, Logger } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import { UserService } from '../user/user.service';
-import { CreateUserDto } from '../user/dto/create-user.dto';
+import { UserService } from '../../user/user.service';
+import { CreateUserDto } from '../../user/dto/create-user.dto';
 import { AuthResponse } from './dto/auth.response';
-import { User, UserRole } from '../user/entities/user.entity';
+import { User, UserRole } from '../../user/entities/user.entity';
 import * as bcrypt from 'bcrypt';
 
 @Injectable()
@@ -19,15 +19,20 @@ export class AuthService {
     try {
       const user = await this.userService.findByEmail(email);
 
+      if (!user) {
+        this.logger.error('User not found');
+        throw new UnauthorizedException('Invalid credentials');
+      }
+
       if (!user.isActive) {
         this.logger.error('User is not active');
         throw new UnauthorizedException('User is not active');
       }
 
-      const isPasswordValid = await bcrypt.compare(password, user.password);
+      const isPasswordValid = await user.validatePassword(password);
 
       if (!isPasswordValid) {
-        this.logger.error('Invalid credentials');
+        this.logger.error('Invalid password');
         throw new UnauthorizedException('Invalid credentials');
       }
 
@@ -36,7 +41,7 @@ export class AuthService {
       if (error instanceof UnauthorizedException) {
         throw error;
       }
-      this.logger.error('Invalid credentials');
+      this.logger.error('Login failed', error);
       throw new UnauthorizedException('Invalid credentials');
     }
   }
@@ -45,10 +50,8 @@ export class AuthService {
     createUserDto: CreateUserDto & { role?: UserRole },
   ): Promise<AuthResponse> {
     try {
-      const hashedPassword = await bcrypt.hash(createUserDto.password, 10);
       const user = await this.userService.create({
         ...createUserDto,
-        password: hashedPassword,
         role: createUserDto.role || UserRole.USER,
       });
       this.logger.log('User registered successfully');

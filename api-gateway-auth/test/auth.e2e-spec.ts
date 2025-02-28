@@ -4,10 +4,10 @@ import * as request from 'supertest';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { AppModule } from '../src/app.module';
-import { User } from '../src/modules/user/entities/user.entity';
-import { Role } from '../src/modules/user/entities/role.entity';
+import { User } from '../src/user/entities/user.entity';
+import { Role } from '../src/user/entities/role.entity';
 import { AuthService } from '../src/modules/auth/auth.service';
-import { UserService } from '../src/modules/user/user.service';
+import { UserService } from '../src/user/user.service';
 import { createTestApp, cleanupDatabase } from './utils/test-utils';
 import { NestFastifyApplication } from '@nestjs/platform-fastify';
 

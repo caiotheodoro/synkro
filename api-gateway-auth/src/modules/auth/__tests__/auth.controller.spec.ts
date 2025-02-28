@@ -3,9 +3,9 @@ import { AuthController } from '../auth.controller';
 import { AuthService } from '../auth.service';
 import { LoginDto } from '../dto/login.dto';
 import { RegisterDto } from '../dto/register.dto';
-import { User, UserRole } from '../../user/entities/user.entity';
+import { User, UserRole } from '../../../user/entities/user.entity';
 import { AuthResponse } from '../dto/auth.response';
-import { CreateUserDto } from 'src/modules/user/dto/create-user.dto';
+import { CreateUserDto } from 'src/user/dto/create-user.dto';
 
 describe('AuthController', () => {
   let controller: AuthController;

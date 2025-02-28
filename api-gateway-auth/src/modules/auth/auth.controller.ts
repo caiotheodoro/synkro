@@ -17,10 +17,10 @@ import {
 } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
-import { JwtAuthGuard } from '../user/guards/auth.guard';
-import { User } from '../user/entities/user.entity';
+import { JwtAuthGuard } from '../../user/guards/auth.guard';
+import { User } from '../../user/entities/user.entity';
 import { AuthResponse, AuthUserResponse } from './dto/auth.response';
-import { CreateUserDto } from '../user/dto/create-user.dto';
+import { CreateUserDto } from '../../user/dto/create-user.dto';
 
 @ApiTags('Auth')
 @Controller('auth')
