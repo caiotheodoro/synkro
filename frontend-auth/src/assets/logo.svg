@@ -1,0 +1,13 @@
+<svg width="200" height="50" viewBox="0 0 200 50" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <path
+    d="M30.5 10C17.5213 10 7 20.5213 7 33.5C7 46.4787 17.5213 57 30.5 57C43.4787 57 54 46.4787 54 33.5C54 20.5213 43.4787 10 30.5 10Z"
+    fill="#0EA5E9" transform="scale(0.7)" />
+  <path
+    d="M30.5 18C21.9396 18 15 24.9396 15 33.5C15 42.0604 21.9396 49 30.5 49C39.0604 49 46 42.0604 46 33.5C46 24.9396 39.0604 18 30.5 18Z"
+    fill="white" transform="scale(0.7)" />
+  <path
+    d="M30.5 25C25.8056 25 22 28.8056 22 33.5C22 38.1944 25.8056 42 30.5 42C35.1944 42 39 38.1944 39 33.5C39 28.8056 35.1944 25 30.5 25Z"
+    fill="#0EA5E9" transform="scale(0.7)" />
+  <text x="50" y="32" font-family="Arial, sans-serif" font-weight="bold" font-size="24" fill="#0C4A6E">SYNKRO</text>
+  <text x="145" y="32" font-family="Arial, sans-serif" font-weight="normal" font-size="14" fill="#0EA5E9">AUTH</text>
+</svg>
