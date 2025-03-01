@@ -21,6 +21,11 @@ const router = createRouter({
       meta: { requiresGuest: true },
     },
     {
+      path: "/logout",
+      name: "logout",
+      component: () => import("@/views/LogoutView.vue"),
+    },
+    {
       path: "/profile",
       name: "profile",
       component: () => import("@/views/ProfileView.vue"),

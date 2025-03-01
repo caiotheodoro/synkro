@@ -1,94 +1,171 @@
 import { defineStore } from "pinia";
 import { ref, computed } from "vue";
-import { AuthService } from "@/services/auth.service";
-import type { User, LoginCredentials, RegisterData } from "@/types/auth.types";
+import { api } from "@/services/api";
+
+const TOKEN_KEY = import.meta.env.VITE_AUTH_TOKEN_KEY || "auth_token";
+const USER_KEY = import.meta.env.VITE_AUTH_USER_KEY || "auth_user";
+
+interface User {
+  id: string;
+  name: string;
+  email: string;
+}
+
+interface LoginCredentials {
+  email: string;
+  password: string;
+}
+
+interface RegisterData {
+  name: string;
+  email: string;
+  password: string;
+}
 
 export const useAuthStore = defineStore("auth", () => {
-  const authService = new AuthService();
-
-  const user = ref<User | null>(null);
-  const token = ref<string | null>(null);
+  const token = ref<string | null>(localStorage.getItem(TOKEN_KEY));
+  const user = ref<User | null>(
+    JSON.parse(localStorage.getItem(USER_KEY) ?? "null")
+  );
   const loading = ref(false);
   const error = ref<string | null>(null);
 
-  const isAuthenticated = computed(() => !!token.value);
+  const isAuthenticated = computed(() => !!token.value && !!user.value);
 
-  const login = async (credentials: LoginCredentials) => {
+  async function login(credentials: LoginCredentials) {
     loading.value = true;
     error.value = null;
 
     try {
-      const response = await authService.login(credentials);
-      user.value = response.user;
-      token.value = response.access_token;
-      return response;
+      const response = await api.post("/auth/login", credentials);
+
+      if (response?.data?.access_token && response.data.user) {
+        token.value = response.data.access_token;
+        user.value = response.data.user;
+
+        if (token.value) {
+          localStorage.setItem(TOKEN_KEY, token.value);
+        }
+        localStorage.setItem(USER_KEY, JSON.stringify(user.value));
+
+        return response.data;
+      } else {
+        console.error("Invalid response format:", response.data);
+        throw new Error("Invalid response from server");
+      }
     } catch (err: any) {
-      error.value = err.message || "Failed to login";
-      throw err;
+      console.error("Login error:", err);
+
+      if (err.message === "Invalid credentials") {
+        error.value = "Invalid credentials";
+        throw new Error(error.value || "Failed to login");
+      }
+
+      if (err.response?.data?.message) {
+        error.value = err.response.data.message;
+      } else {
+        error.value = "Failed to login";
+      }
+
+      throw new Error(error.value ?? "Failed to login");
     } finally {
       loading.value = false;
     }
-  };
+  }
 
-  const register = async (userData: RegisterData) => {
+  async function register(userData: RegisterData) {
     loading.value = true;
     error.value = null;
 
     try {
-      const response = await authService.register(userData);
-      user.value = response.user;
-      token.value = response.access_token;
-      return response;
+      const response = await api.post("/auth/register", userData);
+
+      if (response?.data.access_token && response.data.user) {
+        token.value = response.data.access_token;
+        user.value = response.data.user;
+
+        if (token.value) {
+          localStorage.setItem(TOKEN_KEY, token.value);
+        }
+        localStorage.setItem(USER_KEY, JSON.stringify(user.value));
+
+        return response.data;
+      } else {
+        console.error("Invalid response format:", response.data);
+        throw new Error("Invalid response from server");
+      }
     } catch (err: any) {
-      error.value = err.message || "Failed to register";
-      throw err;
+      console.error("Registration error:", err);
+
+      if (err.message === "User already exists") {
+        error.value = "User already exists";
+        throw new Error(error.value || "Failed to register");
+      }
+
+      if (err.response?.data?.message) {
+        error.value = err.response.data.message;
+      } else {
+        error.value = "Failed to register";
+      }
+
+      throw new Error(error.value ?? "Failed to register");
     } finally {
       loading.value = false;
     }
-  };
+  }
 
-  const logout = async () => {
-    user.value = null;
-    token.value = null;
-    authService.clearToken();
-  };
+  async function logout() {
+    try {
+      token.value = null;
+      user.value = null;
 
-  const fetchProfile = async () => {
+      localStorage.removeItem(TOKEN_KEY);
+      localStorage.removeItem(USER_KEY);
+
+      return true;
+    } catch (err) {
+      console.error("Logout error:", err);
+      return false;
+    }
+  }
+
+  async function fetchProfile() {
     if (!token.value) return null;
 
-    loading.value = true;
-    error.value = null;
+    try {
+      const response = await api.get("/auth/profile");
+
+      if (response.data) {
+        user.value = response.data;
+        localStorage.setItem(USER_KEY, JSON.stringify(user.value));
+        return response.data;
+      }
+
+      return null;
+    } catch (err) {
+      console.error("Profile fetch error:", err);
+      return null;
+    }
+  }
+
+  async function initAuth() {
+    token.value = localStorage.getItem(TOKEN_KEY);
 
     try {
-      const profile = await authService.getProfile();
-      user.value = profile;
-      return profile;
-    } catch (err: any) {
-      error.value = err.message || "Failed to fetch profile";
-      if (err.response?.status === 401) {
-        logout();
-      }
-      throw err;
-    } finally {
-      loading.value = false;
+      user.value = JSON.parse(localStorage.getItem(USER_KEY) ?? "null");
+    } catch (e) {
+      console.error("Error parsing user from localStorage:", e);
+      user.value = null;
     }
-  };
 
-  const initAuth = async () => {
-    const savedToken = authService.getToken();
-    if (savedToken) {
-      token.value = savedToken;
-      try {
-        await fetchProfile();
-      } catch (err) {
-        logout();
-      }
+    if (token.value && !user.value) {
+      await fetchProfile();
     }
-  };
+  }
 
   return {
-    user,
     token,
+    user,
     loading,
     error,
     isAuthenticated,

@@ -1,0 +1,124 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --primary: #FF5252;
+  --secondary: #FFDE59;
+  --accent: #4DFFB4;
+  --background: #FFFFFF;
+  --foreground: #000000;
+  --border-width: 3px;
+  --shadow-offset: 5px;
+}
+
+/* Base styles */
+body {
+  @apply bg-white text-black;
+  font-family: 'Inter', system-ui, sans-serif;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  @apply font-bold;
+}
+
+/* Neobrutalism theme styles - only applied when theme=neobrutal is in URL */
+.theme-neobrutal {
+  /* Container styles */
+  .auth-container {
+    @apply max-w-lg mx-auto p-6;
+  }
+
+  /* Card styles */
+  .auth-card {
+    @apply bg-white border-[3px] border-black rounded-md p-6
+           shadow-[5px_5px_0px_0px_rgba(0,0,0,1)]
+           transition-all duration-200;
+  }
+
+  /* Form styles */
+  .form-group {
+    @apply mb-6;
+  }
+
+  .form-label {
+    @apply block text-black font-bold mb-2;
+  }
+
+  .form-input {
+    @apply w-full bg-white border-[3px] border-black rounded-md px-4 py-2
+           shadow-[3px_3px_0px_0px_rgba(0,0,0,1)]
+           focus:shadow-[5px_5px_0px_0px_rgba(0,0,0,1)]
+           focus:outline-none transition-all duration-200;
+  }
+
+  /* Button styles */
+  .btn {
+    @apply inline-flex items-center justify-center px-5 py-3 
+           border-[3px] border-black text-base font-bold rounded-md 
+           shadow-[5px_5px_0px_0px_rgba(0,0,0,1)] 
+           transition-all duration-200 
+           hover:translate-x-[3px] hover:translate-y-[3px] hover:shadow-[2px_2px_0px_0px_rgba(0,0,0,1)];
+  }
+  
+  .btn-primary {
+    @apply bg-[#FF5252] text-white;
+  }
+  
+  .btn-secondary {
+    @apply bg-[#FFDE59] text-black;
+  }
+
+  .btn-accent {
+    @apply bg-[#4DFFB4] text-black;
+  }
+
+  /* Link styles */
+  .auth-link {
+    @apply text-primary font-bold underline hover:text-primary-dark;
+  }
+
+  /* Header styles */
+  .auth-header {
+    @apply text-2xl font-bold mb-6 pb-4 border-b-[3px] border-black;
+  }
+
+  /* Alert styles */
+  .alert {
+    @apply p-4 mb-6 border-[3px] border-black rounded-md;
+  }
+
+  .alert-error {
+    @apply bg-primary text-white;
+  }
+
+  .alert-success {
+    @apply bg-accent text-black;
+  }
+
+  /* Checkbox styles */
+  .form-checkbox {
+    @apply w-5 h-5 border-[3px] border-black rounded
+           focus:ring-0 focus:ring-offset-0 text-primary;
+  }
+
+  /* Divider styles */
+  .divider {
+    @apply flex items-center my-6;
+  }
+
+  .divider::before,
+  .divider::after {
+    @apply flex-1 border-t-[3px] border-black;
+    content: '';
+  }
+
+  .divider-text {
+    @apply mx-4 font-bold text-black;
+  }
+}
+
+/* Apply neobrutalism theme when URL has theme=neobrutal */
+body.neobrutal-theme {
+  @apply theme-neobrutal;
+} 
