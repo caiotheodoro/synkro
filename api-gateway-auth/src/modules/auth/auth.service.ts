@@ -4,7 +4,6 @@ import { UserService } from '../../user/user.service';
 import { CreateUserDto } from '../../user/dto/create-user.dto';
 import { AuthResponse } from './dto/auth.response';
 import { User, UserRole } from '../../user/entities/user.entity';
-import * as bcrypt from 'bcrypt';
 
 @Injectable()
 export class AuthService {
@@ -52,7 +51,7 @@ export class AuthService {
     try {
       const user = await this.userService.create({
         ...createUserDto,
-        role: createUserDto.role || UserRole.USER,
+        role: createUserDto.role ?? UserRole.USER,
       });
       this.logger.log('User registered successfully');
       return this.generateToken(user);

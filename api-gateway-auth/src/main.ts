@@ -25,13 +25,13 @@ async function bootstrap() {
   const configService = app.get(ConfigService);
   const metricsService = app.get(MetricsService);
 
-  // Configure Security Middleware
+  app.setGlobalPrefix('api');
+
   await configureSecurityMiddleware(
     app.getHttpAdapter().getInstance(),
     configService,
   );
 
-  // Global Pipes and Interceptors
   app.useGlobalPipes(
     new ValidationPipe({
       transform: true,
@@ -41,7 +41,6 @@ async function bootstrap() {
   );
   app.useGlobalInterceptors(new RequestMetricsInterceptor(metricsService));
 
-  // Swagger Configuration
   const config = new DocumentBuilder()
     .setTitle('API Gateway Auth')
     .setDescription('The API Gateway Authentication and Authorization API')
@@ -70,7 +69,7 @@ async function bootstrap() {
     operationIdFactory: (controllerKey: string, methodKey: string) => methodKey,
   });
 
-  SwaggerModule.setup('api', app, document, {
+  SwaggerModule.setup('swagger', app, document, {
     explorer: true,
     swaggerOptions: {
       persistAuthorization: true,
