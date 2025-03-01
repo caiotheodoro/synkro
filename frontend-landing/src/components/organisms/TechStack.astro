@@ -1,0 +1,70 @@
+---
+import Container from "../atoms/Container.astro";
+import SectionTitle from "../atoms/SectionTitle.astro";
+import Card from "../atoms/Card.astro";
+---
+
+<section id="tech-stack" class="py-16 bg-secondary border-b-[3px] border-black">
+  <Container>
+    <SectionTitle text="Technology Stack" />
+
+    <div class="grid md:grid-cols-2 gap-8">
+      <!-- Communication Layer -->
+      <Card headerColor="primary" headerText="Communication Layer">
+        <ul class="list-disc pl-5 space-y-2">
+          <li>
+            <strong>RabbitMQ:</strong> Async tasks, notifications, and event-driven
+            order processing
+          </li>
+          <li>
+            <strong>gRPC:</strong> Optimized inter-service communication (Go & Rust
+            services)
+          </li>
+          <li>
+            <strong>REST + WebSockets:</strong> Public and live tracking APIs for
+            shipments
+          </li>
+        </ul>
+      </Card>
+
+      <!-- Data Storage -->
+      <Card headerColor="accent" headerText="Data Storage">
+        <ul class="list-disc pl-5 space-y-2">
+          <li>
+            <strong>PostgreSQL:</strong> User & order management (ACID-compliant)
+          </li>
+          <li>
+            <strong>MongoDB:</strong> Elastic document store (inventory, tracking
+            information)
+          </li>
+          <li><strong>Redis:</strong> Cache of real-time order statuses</li>
+          <li>
+            <strong>MinIO/S3:</strong> Invoice storage, documents of shipment
+          </li>
+        </ul>
+      </Card>
+
+      <!-- Observability Stack -->
+      <Card
+        class="md:col-span-2"
+        headerColor="secondary"
+        headerText="Observability Stack"
+      >
+        <ul class="list-disc pl-5 space-y-2 md:columns-3">
+          <li>
+            <strong>Metrics:</strong> Prometheus + Grafana for service metrics (API
+            response time, load balancing)
+          </li>
+          <li>
+            <strong>Logging:</strong> ELK Stack (Elasticsearch, Logstash, Kibana)
+            for centralized logs
+          </li>
+          <li>
+            <strong>Tracing:</strong> Jaeger / OpenTelemetry for distributed tracing
+            of microservices
+          </li>
+        </ul>
+      </Card>
+    </div>
+  </Container>
+</section>
