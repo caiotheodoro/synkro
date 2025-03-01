@@ -1,0 +1,57 @@
+---
+interface Props {
+  id?: string;
+  href?: string;
+  variant?: "primary" | "secondary" | "accent" | "outline";
+  size?: "sm" | "md" | "lg";
+  class?: string;
+  target?: string;
+}
+
+const {
+  id,
+  href,
+  variant = "primary",
+  size = "md",
+  class: className = "",
+  target,
+  ...rest
+} = Astro.props;
+
+const variantClasses = {
+  primary: "bg-primary text-white",
+  secondary: "bg-secondary text-black",
+  accent: "bg-accent text-black",
+  outline: "bg-white text-black",
+};
+
+const sizeClasses = {
+  sm: "px-3 py-2 text-sm",
+  md: "px-5 py-3 text-base",
+  lg: "px-8 py-4 text-lg",
+};
+
+const baseClasses =
+  "btn inline-flex items-center justify-center border-[3px] border-black font-bold rounded-md shadow-[5px_5px_0px_0px_rgba(0,0,0,1)] transition-all duration-200 hover:translate-x-[3px] hover:translate-y-[3px] hover:shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]";
+---
+
+{
+  href ? (
+    <a
+      href={href}
+      class={`${baseClasses} ${variantClasses[variant]} ${sizeClasses[size]} ${className}`}
+      target={target}
+      {...rest}
+    >
+      <slot />
+    </a>
+  ) : (
+    <button
+      id={id}
+      class={`${baseClasses} ${variantClasses[variant]} ${sizeClasses[size]} ${className}`}
+      {...rest}
+    >
+      <slot />
+    </button>
+  )
+}

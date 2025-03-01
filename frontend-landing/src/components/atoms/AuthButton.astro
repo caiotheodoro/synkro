@@ -1,0 +1,50 @@
+---
+import Button from "./Button.astro";
+
+interface Props {
+  mode?: "login" | "register";
+  text?: string;
+  variant?: "primary" | "secondary" | "accent";
+  class?: string;
+}
+
+const {
+  mode = "login",
+  text = mode === "login" ? "Sign In" : "Register",
+  variant = "primary",
+  class: className = "",
+} = Astro.props;
+
+const variantClasses = {
+  primary: "bg-primary text-white",
+  secondary: "bg-secondary text-black",
+  accent: "bg-accent text-black",
+};
+---
+
+<Button
+  class={` ${variantClasses[variant]} ${className} btn p-2`}
+  data-auth-button
+  size="sm"
+  data-mode={mode}
+>
+  {text}
+</Button>
+
+<script is:inline>
+  document.addEventListener("DOMContentLoaded", () => {
+    const authButtons = document.querySelectorAll("[data-auth-button]");
+
+    authButtons.forEach((button) => {
+      button.addEventListener("click", () => {
+        const mode = button.getAttribute("data-mode") || "login";
+
+        if (typeof window.openAuthDrawer === "function") {
+          window.openAuthDrawer(mode);
+        } else {
+          console.error("Auth drawer not initialized");
+        }
+      });
+    });
+  });
+</script>

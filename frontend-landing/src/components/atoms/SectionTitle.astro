@@ -1,0 +1,17 @@
+---
+interface Props {
+  text: string;
+  color?: "black" | "white";
+  class?: string;
+}
+
+const { text, color = "black", class: className = "" } = Astro.props;
+
+const textColorClass = color === "white" ? "text-white" : "text-black";
+---
+
+<h2
+  class={`text-3xl font-black mb-12 text-center ${textColorClass} ${className}`}
+>
+  {text}
+</h2>

@@ -1,0 +1,146 @@
+---
+interface Props {
+  id?: string;
+  title: string;
+  description?: string;
+  type?: "success" | "error" | "info" | "warning";
+  duration?: number;
+}
+
+const {
+  id = crypto.randomUUID(),
+  title,
+  description,
+  type = "info",
+  duration = 5000,
+} = Astro.props;
+
+const typeClasses = {
+  success: "bg-accent border-black text-black",
+  error: "bg-primary border-black text-white",
+  info: "bg-secondary border-black text-black",
+  warning: "bg-[#FFA500] border-black text-black",
+};
+---
+
+<div
+  id={id}
+  class={`fixed right-4 -top-20 z-50 w-80 p-4 rounded-md border-[3px] shadow-neo transition-all duration-300 ${typeClasses[type]}`}
+  data-duration={duration}
+  data-toast
+>
+  <div class="flex justify-between items-start">
+    <div>
+      <h3 class="font-bold text-lg">{title}</h3>
+      {description && <p class="mt-1">{description}</p>}
+    </div>
+    <button class="text-2xl font-bold leading-none" data-close-toast
+      >&times;</button
+    >
+  </div>
+</div>
+
+<script is:inline>
+  // Initialize toast functionality
+  document.addEventListener("DOMContentLoaded", () => {
+    const toasts = document.querySelectorAll("[data-toast]");
+
+    toasts.forEach((toast) => {
+      const closeBtn = toast.querySelector("[data-close-toast]");
+      const duration = Number(toast.getAttribute("data-duration")) || 5000;
+
+      // Show toast with animation
+      setTimeout(() => {
+        toast.classList.remove("-top-20");
+        toast.classList.add("top-4");
+      }, 100);
+
+      // Auto-hide after duration
+      const timeout = setTimeout(() => {
+        hideToast(toast);
+      }, duration);
+
+      // Close button handler
+      closeBtn?.addEventListener("click", () => {
+        clearTimeout(timeout);
+        hideToast(toast);
+      });
+    });
+  });
+
+  function hideToast(toast) {
+    toast.classList.remove("top-4");
+    toast.classList.add("-top-20");
+
+    // Remove from DOM after animation completes
+    setTimeout(() => {
+      toast.remove();
+    }, 300);
+  }
+
+  // Custom event listener for creating toasts dynamically
+  document.addEventListener("show-toast", (event) => {
+    const { title, description, type, duration } = event.detail;
+
+    // Create toast element
+    const toast = document.createElement("div");
+    const id = crypto.randomUUID();
+    toast.id = id;
+    toast.setAttribute("data-toast", "");
+    toast.setAttribute("data-duration", duration || "5000");
+
+    // Set classes based on type
+    const typeClasses = {
+      success: "bg-accent border-black text-black",
+      error: "bg-primary border-black text-white",
+      info: "bg-secondary border-black text-black",
+      warning: "bg-[#FFA500] border-black text-black",
+    };
+
+    const toastType = type || "info";
+    const typeClass = typeClasses[toastType] || typeClasses.info;
+
+    toast.className = `fixed right-4 -top-20 z-50 w-80 p-4 rounded-md border-[3px] shadow-neo transition-all duration-300 ${typeClass}`;
+
+    // Create content
+    toast.innerHTML = `
+      <div class="flex justify-between items-start">
+        <div>
+          <h3 class="font-bold text-lg">${title}</h3>
+          ${description ? `<p class="mt-1">${description}</p>` : ""}
+        </div>
+        <button class="text-2xl font-bold leading-none" data-close-toast>&times;</button>
+      </div>
+    `;
+
+    // Add to DOM
+    document.body.appendChild(toast);
+
+    // Show toast with animation
+    setTimeout(() => {
+      toast.classList.remove("-top-20");
+      toast.classList.add("top-4");
+    }, 100);
+
+    // Auto-hide after duration
+    const timeout = setTimeout(
+      () => {
+        hideToast(toast);
+      },
+      Number(duration) || 5000
+    );
+
+    // Close button handler
+    const closeBtn = toast.querySelector("[data-close-toast]");
+    closeBtn?.addEventListener("click", () => {
+      clearTimeout(timeout);
+      hideToast(toast);
+    });
+  });
+</script>
+
+<style>
+  .shadow-neo {
+    box-shadow: 5px 5px 0px 0px rgba(0, 0, 0, 1);
+  }
+</style>
