@@ -1,0 +1,26 @@
+---
+interface Props {
+  class?: string;
+}
+
+const { class: className = "w-4 h-4 text-secondary" } = Astro.props;
+---
+
+<svg
+  xmlns="http://www.w3.org/2000/svg"
+  class={className}
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M5 8h14"></path>
+  <path d="M5 12h14"></path>
+  <path d="M5 16h14"></path>
+  <path d="M3 20h18"></path>
+  <path d="M3 4h18"></path>
+</svg>
