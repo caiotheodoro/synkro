@@ -1,0 +1,32 @@
+{
+  "name": "frontend-landing",
+  "version": "1.0.0",
+  "description": "Synkro Landing Page - Microfrontend",
+  "type": "module",
+  "scripts": {
+    "dev": "astro dev",
+    "start": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview",
+    "astro": "astro"
+  },
+  "keywords": [
+    "astro",
+    "microfrontend",
+    "landing-page"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "astro": "^4.4.0",
+    "lucide-astro": "^0.477.0",
+    "vue": "^3.4.19"
+  },
+  "devDependencies": {
+    "@astrojs/tailwind": "^5.1.5",
+    "@astrojs/vue": "^4.0.8",
+    "autoprefixer": "^10.4.20",
+    "postcss": "^8.5.3",
+    "tailwindcss": "^3.4.17"
+  }
+}
