@@ -1,0 +1,206 @@
+---
+import Logo from "../atoms/Logo.astro";
+import NavLink from "../molecules/NavLink.astro";
+import Button from "../atoms/Button.astro";
+import Container from "../atoms/Container.astro";
+import AuthDrawerClient from "../molecules/AuthDrawer/AuthDrawerClient.astro";
+
+const navItems = [
+  { text: "Features", href: "#features" },
+  { text: "Architecture", href: "#architecture" },
+  { text: "Tech Stack", href: "#tech-stack" },
+  { text: "About", href: "#about" },
+];
+---
+
+<header class="bg-white border-b-[3px] border-black sticky top-0 z-50">
+  <Container class="py-4 flex items-center justify-between">
+    <div class="flex items-center">
+      <Logo />
+    </div>
+
+    <nav class="hidden md:flex items-center space-x-8">
+      {navItems.map((item) => <NavLink href={item.href} text={item.text} />)}
+    </nav>
+    <div class="flex items-center space-x-4" id="auth-buttons">
+      <div class="sign-in-btn">
+        <AuthDrawerClient
+          type="login"
+          returnUrl="/"
+          triggerClass="text-black font-bold hover:text-primary transition-colors duration-200 h-12"
+        />
+      </div>
+
+      <div class="get-started-btn">
+        <AuthDrawerClient
+          type="register"
+          returnUrl="/"
+          triggerClass="btn btn-primary h-12"
+          triggerText="Get Started"
+        />
+      </div>
+
+      <!-- User dropdown menu (hidden by default) -->
+      <div class="relative hidden user-menu">
+        <button
+          class="flex items-center space-x-2 text-black font-bold hover:text-primary transition-colors duration-200"
+          id="user-menu-button"
+          aria-expanded="false"
+          aria-haspopup="true"
+        >
+          <span class="user-name">User</span>
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke-width="2"
+            stroke="currentColor"
+            class="w-5 h-5"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              d="M19.5 8.25l-7.5 7.5-7.5-7.5"></path>
+          </svg>
+        </button>
+
+        <div
+          class="absolute right-0 z-10 mt-2 w-48 origin-top-right rounded-md bg-white py-1 border-[3px] border-black shadow-neo hidden"
+          id="user-dropdown"
+          role="menu"
+          aria-orientation="vertical"
+          aria-labelledby="user-menu-button"
+          tabindex="-1"
+        >
+          <a
+            href="#"
+            class="block px-4 py-2 text-sm font-bold text-black hover:bg-secondary"
+            role="menuitem"
+            tabindex="-1"
+            id="user-menu-item-0">Your Profile</a
+          >
+          <a
+            href="#"
+            class="block px-4 py-2 text-sm font-bold text-black hover:bg-secondary"
+            role="menuitem"
+            tabindex="-1"
+            id="user-menu-item-1">Settings</a
+          >
+          <a
+            href="#"
+            class="block px-4 py-2 text-sm font-bold text-black hover:bg-secondary"
+            role="menuitem"
+            tabindex="-1"
+            id="logout-button">Sign out</a
+          >
+        </div>
+      </div>
+      <Button
+        href="/dashboard"
+        target="_blank"
+        variant="primary"
+        class="h-12 hidden dashboard-btn"
+      >
+        Dashboard
+      </Button>
+      <button class="md:hidden text-black hover:text-primary" aria-label="Menu">
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke-width="2"
+          stroke="currentColor"
+          class="w-6 h-6"
+        >
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5"></path>
+        </svg>
+      </button>
+    </div>
+  </Container>
+</header>
+
+<script>
+  import { authService } from "../../services/auth.service";
+
+  const updateAuthUI = () => {
+    const isAuthenticated = authService.isAuthenticated();
+    const user = authService.getUser();
+
+    const signInBtn = document.querySelector(".sign-in-btn");
+    const getStartedBtn = document.querySelector(".get-started-btn");
+    const userMenu = document.querySelector(".user-menu");
+    const userName = document.querySelector(".user-name") as HTMLElement;
+    const dashboardBtn = document.querySelector(".dashboard-btn");
+
+    if (isAuthenticated && user) {
+      signInBtn?.classList.add("hidden");
+      getStartedBtn?.classList.add("hidden");
+      dashboardBtn?.classList.remove("hidden");
+      userMenu?.classList.remove("hidden");
+      userName.textContent = user.name || user.email;
+    } else {
+      signInBtn?.classList.remove("hidden");
+      getStartedBtn?.classList.remove("hidden");
+
+      userMenu?.classList.add("hidden");
+    }
+  };
+
+  // Toggle user dropdown menu
+  const setupUserMenu = () => {
+    const menuButton = document.getElementById("user-menu-button");
+    const dropdown = document.getElementById("user-dropdown");
+
+    if (menuButton && dropdown) {
+      menuButton.addEventListener("click", () => {
+        const expanded = menuButton.getAttribute("aria-expanded") === "true";
+        menuButton.setAttribute("aria-expanded", (!expanded).toString());
+        dropdown.classList.toggle("hidden");
+      });
+
+      // Close the dropdown when clicking outside
+      document.addEventListener("click", (event) => {
+        const target = event.target as Node;
+        if (!menuButton.contains(target) && !dropdown.contains(target)) {
+          menuButton.setAttribute("aria-expanded", "false");
+          dropdown.classList.add("hidden");
+        }
+      });
+    }
+  };
+
+  // Handle logout
+  const setupLogout = () => {
+    const logoutButton = document.getElementById("logout-button");
+
+    if (logoutButton) {
+      logoutButton.addEventListener("click", (e) => {
+        e.preventDefault();
+
+        // Create a hidden iframe to trigger logout in the auth microservice
+        const logoutFrame = document.createElement("iframe");
+        logoutFrame.style.display = "none";
+        logoutFrame.src = import.meta.env.PUBLIC_AUTH_SERVICE_URL + "/logout";
+        document.body.appendChild(logoutFrame);
+
+        // Wait a moment to ensure the auth service processes the logout
+        setTimeout(() => {
+          // Remove the frame
+          document.body.removeChild(logoutFrame);
+
+          // Then logout from the landing page
+          authService.logout();
+        }, 500);
+      });
+    }
+  };
+
+  document.addEventListener("DOMContentLoaded", () => {
+    updateAuthUI();
+    setupUserMenu();
+    setupLogout();
+  });
+</script>
