@@ -1,0 +1,115 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --primary: #FF5252;
+  --secondary: #FFDE59;
+  --accent: #4DFFB4;
+  --background: #FFFFFF;
+  --foreground: #000000;
+  --border-width: 3px;
+  --shadow-offset: 5px;
+}
+
+@layer base {
+  html {
+    font-family: 'Inter', sans-serif;
+    scroll-behavior: smooth;
+  }
+  
+  body {
+    @apply bg-white text-black;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-bold;
+  }
+}
+
+@layer components {
+  .container {
+    @apply max-w-7xl mx-auto px-4 sm:px-6 lg:px-8;
+  }
+  
+  /* Neobrutalism button styles */
+  .btn {
+    @apply inline-flex items-center justify-center border-[3px] border-black font-bold rounded-md shadow-[5px_5px_0px_0px_rgba(0,0,0,1)] transition-all duration-200 hover:translate-x-[3px] hover:translate-y-[3px] hover:shadow-[2px_2px_0px_0px_rgba(0,0,0,1)];
+  }
+  
+  .btn-primary {
+    @apply bg-primary text-white px-5 py-3;
+  }
+  
+  .btn-secondary {
+    @apply bg-secondary text-black px-5 py-3;
+  }
+
+  .btn-accent {
+    @apply bg-accent text-black px-5 py-3;
+  }
+
+  /* Neobrutalism card styles */
+  .neo-card {
+    @apply bg-white border-[3px] border-black rounded-md shadow-[5px_5px_0px_0px_rgba(0,0,0,1)] hover:shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] transition-all duration-200;
+  }
+
+  /* Neobrutalism input styles */
+  .neo-input {
+    @apply bg-white border-[3px] border-black rounded-md px-4 py-2
+           shadow-[3px_3px_0px_0px_rgba(0,0,0,1)]
+           focus:shadow-[5px_5px_0px_0px_rgba(0,0,0,1)]
+           focus:outline-none transition-all duration-200;
+  }
+}
+
+/* Transition styles */
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.3s ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
+
+.slide-up-enter-active {
+  transition: transform 0.3s ease-out;
+}
+
+.slide-up-leave-active {
+  transition: transform 0.2s ease-in;
+}
+
+.slide-up-enter-from,
+.slide-up-leave-to {
+  transform: translateY(100%);
+}
+
+/* Drawer handle animation */
+@keyframes pulse {
+  0% {
+    transform: scaleX(1);
+    opacity: 0.8;
+  }
+  50% {
+    transform: scaleX(1.1);
+    opacity: 1;
+  }
+  100% {
+    transform: scaleX(1);
+    opacity: 0.8;
+  }
+}
+
+.drawer-root .mx-auto.mt-4.h-2.w-\[100px\] {
+  animation: pulse 2s infinite;
+  animation-delay: 0.5s;
+}
+
+/* Ensure smooth animations */
+* {
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+} 
