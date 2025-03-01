@@ -1,0 +1,67 @@
+---
+import Layout from "../../layouts/Layout.astro";
+---
+
+<Layout title="Register - Synkro" description="Create a new Synkro account">
+  <div class="min-h-screen flex flex-col">
+    <div class="container mx-auto py-8 flex-1">
+      <div class="mb-8">
+        <a href="/" class="text-primary hover:underline flex items-center">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke-width="1.5"
+            stroke="currentColor"
+            class="w-5 h-5 mr-2"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18"></path>
+          </svg>
+          Back to Home
+        </a>
+      </div>
+
+      <div class="bg-white rounded-lg shadow-md p-8 max-w-md mx-auto">
+        <h1 class="text-2xl font-bold mb-6 text-center">
+          Create a Synkro Account
+        </h1>
+
+        <iframe
+          id="auth-frame"
+          src={import.meta.env.PUBLIC_AUTH_SERVICE_URL +
+            "/register?returnUrl={encodeURIComponent(returnUrl)}"}
+          class="w-full h-[600px] border-0"
+          title="Registration"></iframe>
+      </div>
+    </div>
+  </div>
+</Layout>
+
+<script>
+  const checkAuthStatus = () => {
+    const token = localStorage.getItem("synkro_token");
+    if (token) {
+      const returnUrl =
+        new URLSearchParams(window.location.search).get("returnUrl") || "/";
+      window.location.href = returnUrl;
+    }
+  };
+
+  checkAuthStatus();
+
+  window.addEventListener("message", (event) => {
+    if (event.origin !== import.meta.env.PUBLIC_AUTH_SERVICE_URL) return;
+
+    if (event.data.type === "AUTH_SUCCESS") {
+      localStorage.setItem("synkro_user", JSON.stringify(event.data.user));
+      localStorage.setItem("synkro_token", event.data.access_token);
+
+      const returnUrl =
+        new URLSearchParams(window.location.search).get("returnUrl") || "/";
+      window.location.href = returnUrl;
+    }
+  });
+</script>
