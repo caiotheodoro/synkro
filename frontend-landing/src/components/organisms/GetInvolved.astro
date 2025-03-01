@@ -1,0 +1,35 @@
+---
+import Container from "../atoms/Container.astro";
+import Button from "../atoms/Button.astro";
+import Card from "../atoms/Card.astro";
+---
+
+<section id="get-involved" class="py-16 bg-accent">
+  <Container>
+    <Card class="relative">
+      <div class="p-8 md:p-12">
+        <h2 class="text-3xl font-black mb-6">Get Involved in Development</h2>
+        <p class="text-xl mb-8">
+          Synkro is an open-source project looking for contributors. Whether
+          you're a frontend developer, backend engineer, or AI specialist,
+          there's a place for you on our team.
+        </p>
+        <div class="flex flex-wrap gap-4">
+          <Button
+            href="https://github.com/caiotheodoro/synkro"
+            target="_blank"
+            variant="primary"
+          >
+            GitHub Repository
+          </Button>
+          <Button href="#" variant="accent"> Read Documentation </Button>
+        </div>
+      </div>
+      <div
+        class="absolute -bottom-4 -right-4 w-24 h-24 bg-primary border-[3px] border-black rounded-full flex items-center justify-center"
+      >
+        <span class="text-4xl">🚀</span>
+      </div>
+    </Card>
+  </Container>
+</section>

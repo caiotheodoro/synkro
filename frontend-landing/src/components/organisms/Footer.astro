@@ -1,0 +1,43 @@
+---
+import Container from "../atoms/Container.astro";
+import Logo from "../atoms/Logo.astro";
+import SocialLink from "../molecules/SocialLink.astro";
+
+const socialLinks = [
+  {
+    platform: "github",
+    href: "https://github.com/caiotheodoro/synkro",
+    label: "GitHub",
+  },
+];
+---
+
+<footer class="bg-white border-t-[3px] border-black py-12">
+  <Container>
+    <div class="flex flex-col md:flex-row justify-between items-center">
+      <div class="mb-6 md:mb-0">
+        <Logo />
+        <p class="mt-2 text-sm">AI-Fueled Supply Chain Optimization Platform</p>
+      </div>
+
+      <div class="flex space-x-6">
+        {
+          socialLinks.map((link) => (
+            <SocialLink
+              href={link.href}
+              platform={link.platform as "github" | "twitter" | "discord"}
+              label={link.label}
+            />
+          ))
+        }
+      </div>
+    </div>
+
+    <div class="mt-8 pt-8 border-t-[3px] border-black">
+      <p class="text-center text-sm">
+        &copy; {new Date().getFullYear()} Synkro. All rights reserved. Built with
+        ❤️ using modern web technologies.
+      </p>
+    </div>
+  </Container>
+</footer>

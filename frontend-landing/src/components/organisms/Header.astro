@@ -1,0 +1,149 @@
+---
+import Container from "../atoms/Container.astro";
+import Logo from "../atoms/Logo.astro";
+import NavLink from "../molecules/NavLink.astro";
+import { Button } from "../ui/button";
+
+const navItems = [
+  { text: "Features", href: "#features" },
+  { text: "Architecture", href: "#architecture" },
+  { text: "Tech Stack", href: "#tech-stack" },
+  { text: "Team", href: "#team" },
+];
+---
+
+<header class="bg-white border-b-[3px] border-black sticky top-0 z-40">
+  <Container>
+    <div class="flex items-center justify-between py-4">
+      <div class="flex items-center">
+        <Logo />
+      </div>
+
+      <nav class="hidden md:flex items-center space-x-8">
+        {
+          navItems.map((item) => (
+            <NavLink href={item.href}>{item.text}</NavLink>
+          ))
+        }
+      </nav>
+
+      <div class="flex items-center space-x-4" id="auth-buttons-container">
+        <div id="unauthenticated-buttons" class="flex items-center space-x-4">
+          <Button
+            class="bg-secondary text-black"
+            data-auth-button
+            data-mode="login"
+            size="sm">Sign In</Button
+          >
+          <Button
+            class="bg-primary text-white ml-4"
+            class="bg-primary text-white ml-4"
+            data-auth-button
+            data-mode="register"
+            size="sm">Register</Button
+          >
+        </div>
+
+        <div id="authenticated-buttons" class="hidden items-center space-x-4">
+          <Button
+            id="profile-button"
+            class="bg-accent text-black"
+            variant="secondary"
+            size="sm"
+          >
+            Profile
+          </Button>
+          <Button id="dashboard-button" class="bg-primary text-white" size="sm"
+            >Dashboard</Button
+          >
+        </div>
+      </div>
+    </div>
+  </Container>
+</header>
+
+<script is:inline>
+  function setupAuthButtons() {
+    const updateAuthButtons = () => {
+      const user = localStorage.getItem("user");
+      const token = localStorage.getItem("token");
+      const isAuthenticated = !!user && !!token;
+
+      const unauthenticatedButtons = document.getElementById(
+        "unauthenticated-buttons"
+      );
+      const authenticatedButtons = document.getElementById(
+        "authenticated-buttons"
+      );
+      const profileButton = document.getElementById("profile-button");
+
+      if (!unauthenticatedButtons || !authenticatedButtons || !profileButton)
+        return;
+
+      if (isAuthenticated) {
+        unauthenticatedButtons.classList.add("hidden");
+        authenticatedButtons.classList.remove("hidden");
+
+        try {
+          // Parse user data to get name
+          const userData = JSON.parse(user);
+          const userName = userData.name || "Profile";
+
+          // Update profile button text
+          profileButton.textContent = userName;
+        } catch (e) {
+          console.error("Error parsing user data:", e);
+          profileButton.textContent = "Profile";
+        }
+      } else {
+        unauthenticatedButtons.classList.remove("hidden");
+        authenticatedButtons.classList.add("hidden");
+      }
+    };
+
+    function setupAuthButtonListeners() {
+      document.querySelectorAll("[data-auth-button]").forEach((button) => {
+        button.addEventListener("click", () => {
+          const mode = button.getAttribute("data-mode") || "login";
+          if (typeof window.openAuthDrawer === "function") {
+            window.openAuthDrawer(mode);
+          }
+        });
+      });
+    }
+
+    function setupProfileButtonListener() {
+      const profileButton = document.getElementById("profile-button");
+      if (profileButton) {
+        profileButton.addEventListener("click", () => {
+          if (typeof window.openAuthDrawer === "function") {
+            window.openAuthDrawer("profile", "neobrutal");
+          } else {
+            console.error("Auth drawer not initialized");
+          }
+        });
+      }
+    }
+
+    function setupDashboardButtonListener() {
+      const dashboardButton = document.getElementById("dashboard-button");
+      if (dashboardButton) {
+        dashboardButton.addEventListener("click", () => {
+          window.location.href = "/dashboard";
+        });
+      }
+    }
+
+    setupAuthButtonListeners();
+    setupProfileButtonListener();
+    setupDashboardButtonListener();
+
+    updateAuthButtons();
+
+    window.addEventListener("auth-state-changed", () => {
+      updateAuthButtons();
+    });
+  }
+
+  document.addEventListener("DOMContentLoaded", setupAuthButtons);
+</script>

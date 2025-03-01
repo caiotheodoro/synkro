@@ -1,0 +1,105 @@
+---
+import Container from "../atoms/Container.astro";
+import SectionTitle from "../atoms/SectionTitle.astro";
+import Card from "../atoms/Card.astro";
+---
+
+<section id="architecture" class="py-16 bg-primary border-b-[3px] border-black">
+  <Container>
+    <SectionTitle text="Technical Architecture" color="white" />
+
+    <Card
+      class="mb-12"
+      headerColor="secondary"
+      headerText="Frontend (Microfrontend Architecture)"
+    >
+      <ul class="list-disc pl-5 space-y-2">
+        <li><strong>Vue.js:</strong> Supplier & Retailer Dashboards</li>
+        <li>
+          <strong>Next.js:</strong> Admin Panel, Authentication, SEO-Friendly Landing
+        </li>
+        <li>
+          <strong>GraphQL:</strong> Apollo Federation for centralized API Gateway
+        </li>
+      </ul>
+    </Card>
+
+    <Card headerColor="accent" headerText="Backend Microservices">
+      <div class="overflow-x-auto">
+        <table class="min-w-full border-[3px] border-black">
+          <thead>
+            <tr class="bg-secondary">
+              <th
+                class="py-2 px-4 border-b-[3px] border-r-[3px] border-black text-left"
+                >Service</th
+              >
+              <th
+                class="py-2 px-4 border-b-[3px] border-r-[3px] border-black text-left"
+                >Technology</th
+              >
+              <th class="py-2 px-4 border-b-[3px] border-black text-left"
+                >Purpose</th
+              >
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="py-2 px-4 border-b-[3px] border-r-[3px] border-black"
+                >API Gateway & Auth</td
+              >
+              <td class="py-2 px-4 border-b-[3px] border-r-[3px] border-black"
+                >TypeScript (NestJS/Fastify)</td
+              >
+              <td class="py-2 px-4 border-b-[3px] border-black"
+                >Handles REST, GraphQL, and WebSockets for real-time updates</td
+              >
+            </tr>
+            <tr>
+              <td class="py-2 px-4 border-b-[3px] border-r-[3px] border-black"
+                >Logistics Engine</td
+              >
+              <td class="py-2 px-4 border-b-[3px] border-r-[3px] border-black"
+                >Rust (Axum/Actix-Web)</td
+              >
+              <td class="py-2 px-4 border-b-[3px] border-black"
+                >Order fulfillment, routing, and optimization algorithms for
+                high performance</td
+              >
+            </tr>
+            <tr>
+              <td class="py-2 px-4 border-b-[3px] border-r-[3px] border-black"
+                >Real-Time Inventory Sync</td
+              >
+              <td class="py-2 px-4 border-b-[3px] border-r-[3px] border-black"
+                >Go (gRPC + Gin)</td
+              >
+              <td class="py-2 px-4 border-b-[3px] border-black"
+                >Handles inventory synchronization between warehouses via gRPC</td
+              >
+            </tr>
+            <tr>
+              <td class="py-2 px-4 border-b-[3px] border-r-[3px] border-black"
+                >AI/ML Predictions</td
+              >
+              <td class="py-2 px-4 border-b-[3px] border-r-[3px] border-black"
+                >Python (FastAPI)</td
+              >
+              <td class="py-2 px-4 border-b-[3px] border-black"
+                >Machine learning-based demand forecasting (TensorFlow, Pandas)</td
+              >
+            </tr>
+            <tr>
+              <td class="py-2 px-4 border-r-[3px] border-black"
+                >Notification Service</td
+              >
+              <td class="py-2 px-4 border-r-[3px] border-black">Bun</td>
+              <td class="py-2 px-4 border-black"
+                >Handles real-time notifications and alerts</td
+              >
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </Card>
+  </Container>
+</section>

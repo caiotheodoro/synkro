@@ -1,0 +1,73 @@
+---
+import Container from "../atoms/Container.astro";
+import SectionTitle from "../atoms/SectionTitle.astro";
+import BentoGrid, { type BentoItem } from "../molecules/BentoGrid.astro";
+import { TrendingUp } from "lucide-astro";
+
+const features = [
+  {
+    title: "AI-Based Demand Forecasting",
+    description:
+      "Machine learning predicts optimal inventory levels from historic data",
+    color: "primary",
+    badgeColor: "secondary",
+    number: 1,
+    colSpan: 1,
+    hasPersistentHover: true,
+    tags: ["AI", "ML", "Forecasting"],
+  },
+  {
+    title: "Real-Time Inventory Management",
+    description:
+      "Go-based service synchronizes real-time warehouses and suppliers",
+    color: "secondary",
+    badgeColor: "primary",
+    number: 2,
+    colSpan: 2,
+    tags: ["Go", "Real-time"],
+  },
+  {
+    title: "Multi-Protocol APIs",
+    description:
+      "REST for web apps, gRPC for internal microservices, WebSockets for real-time updates",
+    color: "accent",
+    badgeColor: "secondary",
+    number: 3,
+    colSpan: 2,
+    tags: ["REST", "gRPC", "WebSockets"],
+  },
+  {
+    title: "Order Fulfillment Automation",
+    description: "Rust microservice decides routes with AI",
+    color: "primary",
+    badgeColor: "accent",
+    number: 4,
+    tags: ["Rust", "Automation"],
+  },
+  {
+    title: "Event-Driven Processing",
+    description: "RabbitMQ for reliable order processing and async processes",
+    color: "secondary",
+    badgeColor: "primary",
+    number: 5,
+    tags: ["RabbitMQ", "Async"],
+  },
+  {
+    title: "Multi-Tenant SaaS",
+    description:
+      "Suppliers, retailers, and logistics operators have customized dashboards",
+    color: "accent",
+    badgeColor: "secondary",
+    number: 6,
+    colSpan: 2,
+    tags: ["SaaS", "Multi-tenant"],
+  },
+] as BentoItem[];
+---
+
+<section id="features" class="py-16 bg-white border-b-[3px] border-black">
+  <Container>
+    <SectionTitle text="Primary Features" />
+    <BentoGrid items={features} />
+  </Container>
+</section>

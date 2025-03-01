@@ -1,0 +1,42 @@
+---
+import Container from "../atoms/Container.astro";
+import Button from "../atoms/Button.astro";
+---
+
+<section class="py-12 bg-secondary border-b-[3px] border-black">
+  <Container>
+    <div class="grid md:grid-cols-2 gap-8 items-center">
+      <div>
+        <h1 class="text-4xl md:text-5xl font-black mb-6">
+          AI-Fueled Supply Chain Optimization Platform
+        </h1>
+        <p class="text-xl mb-8">
+          A multi-tenant platform connecting manufacturers, suppliers, and
+          retailers with real-time analytics, predictive AI, and multi-protocol
+          messaging.
+        </p>
+        <div class="flex flex-wrap gap-4">
+          <Button href="#features" variant="primary"> Explore Features </Button>
+          <Button href="#architecture" variant="accent">
+            View Architecture
+          </Button>
+        </div>
+      </div>
+      <div class="relative">
+        <div
+          class="neo-card bg-white p-6 relative z-10 flex items-center justify-center"
+        >
+          <img
+            src="/images/planets.svg"
+            alt="Supply Chain Illustration"
+            class="w-full h-full max-h-[300px] max-w-[300px] object-contain"
+          />
+        </div>
+        <div
+          class="absolute -bottom-4 -right-4 w-full h-full bg-primary border-[3px] border-black rounded-md z-0"
+        >
+        </div>
+      </div>
+    </div>
+  </Container>
+</section>
