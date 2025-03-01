@@ -1,0 +1,41 @@
+<svg width="800" height="600" viewBox="0 0 800 600" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Factory -->
+  <rect x="50" y="200" width="150" height="200" fill="#FFDE59" stroke="black" stroke-width="6" />
+  <rect x="80" y="150" width="30" height="50" fill="#FF5252" stroke="black" stroke-width="6" />
+  <rect x="140" y="150" width="30" height="50" fill="#FF5252" stroke="black" stroke-width="6" />
+  <rect x="80" y="250" width="40" height="60" fill="white" stroke="black" stroke-width="6" />
+  <rect x="130" y="250" width="40" height="60" fill="white" stroke="black" stroke-width="6" />
+
+  <!-- Warehouse -->
+  <rect x="600" y="200" width="150" height="200" fill="#4DFFB4" stroke="black" stroke-width="6" />
+  <path d="M600 200 L675 100 L750 200" fill="#FF5252" stroke="black" stroke-width="6" />
+  <rect x="650" y="300" width="50" height="100" fill="white" stroke="black" stroke-width="6" />
+
+  <!-- Truck -->
+  <rect x="300" y="350" width="100" height="50" fill="#FF5252" stroke="black" stroke-width="6" />
+  <rect x="250" y="350" width="50" height="30" fill="#FF5252" stroke="black" stroke-width="6" />
+  <circle cx="280" cy="400" r="20" fill="white" stroke="black" stroke-width="6" />
+  <circle cx="370" cy="400" r="20" fill="white" stroke="black" stroke-width="6" />
+
+  <!-- Arrows -->
+  <path d="M200 300 L250 300" stroke="black" stroke-width="6" stroke-linecap="round" />
+  <path d="M240 290 L250 300 L240 310" stroke="black" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" />
+
+  <path d="M400 300 L600 300" stroke="black" stroke-width="6" stroke-linecap="round" />
+  <path d="M590 290 L600 300 L590 310" stroke="black" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" />
+
+  <!-- Boxes -->
+  <rect x="450" y="250" width="30" height="30" fill="#FFDE59" stroke="black" stroke-width="4" />
+  <rect x="470" y="230" width="30" height="30" fill="#4DFFB4" stroke="black" stroke-width="4" />
+  <rect x="490" y="250" width="30" height="30" fill="#FF5252" stroke="black" stroke-width="4" />
+
+  <!-- AI Cloud -->
+  <ellipse cx="400" cy="150" rx="100" ry="60" fill="white" stroke="black" stroke-width="6" />
+  <path d="M370 150 L390 170 L410 130" stroke="black" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" />
+  <text x="350" y="190" font-family="Arial" font-weight="bold" font-size="24">AI</text>
+
+  <!-- Connecting Lines -->
+  <path d="M400 210 L400 250" stroke="black" stroke-width="4" stroke-dasharray="10 5" />
+  <path d="M125 150 L350 150" stroke="black" stroke-width="4" stroke-dasharray="10 5" />
+  <path d="M450 150 L675 150" stroke="black" stroke-width="4" stroke-dasharray="10 5" />
+</svg>

@@ -1,0 +1,39 @@
+<svg width="300" height="300" viewBox="0 0 300 300" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Burger Body -->
+  <circle cx="150" cy="150" r="100" fill="#FFDE59" stroke="black" stroke-width="5" />
+
+  <!-- Burger Bun Top -->
+  <path d="M150,70 C190,70 220,90 220,110 C220,130 190,140 150,140 C110,140 80,130 80,110 C80,90 110,70 150,70"
+    fill="#FF5252" stroke="black" stroke-width="5" />
+
+  <!-- Burger Bun Bottom -->
+  <path d="M150,160 C190,160 220,180 220,200 C220,220 190,230 150,230 C110,230 80,220 80,200 C80,180 110,160 150,160"
+    fill="#FF5252" stroke="black" stroke-width="5" />
+
+  <!-- Lettuce -->
+  <path d="M90,150 Q110,140 130,150 Q150,160 170,150 Q190,140 210,150" stroke="#4DFFB4" stroke-width="10"
+    stroke-linecap="round" />
+
+  <!-- Eyes -->
+  <circle cx="120" cy="110" r="12" fill="white" stroke="black" stroke-width="3" />
+  <circle cx="180" cy="110" r="12" fill="white" stroke="black" stroke-width="3" />
+  <circle cx="120" cy="110" r="6" fill="black" />
+  <circle cx="180" cy="110" r="6" fill="black" />
+
+  <!-- Mouth -->
+  <path d="M120,180 Q150,200 180,180" stroke="black" stroke-width="5" stroke-linecap="round" fill="none" />
+
+  <!-- Arms -->
+  <path d="M60,150 Q40,130 30,100" stroke="black" stroke-width="5" stroke-linecap="round" fill="none" />
+  <circle cx="30" cy="100" r="10" fill="white" stroke="black" stroke-width="3" />
+
+  <path d="M240,150 Q260,130 270,100" stroke="black" stroke-width="5" stroke-linecap="round" fill="none" />
+  <circle cx="270" cy="100" r="10" fill="white" stroke="black" stroke-width="3" />
+
+  <!-- Legs -->
+  <path d="M120,240 Q110,270 90,280" stroke="black" stroke-width="5" stroke-linecap="round" fill="none" />
+  <circle cx="90" cy="280" r="10" fill="#FF5252" stroke="black" stroke-width="3" />
+
+  <path d="M180,240 Q190,270 210,280" stroke="black" stroke-width="5" stroke-linecap="round" fill="none" />
+  <circle cx="210" cy="280" r="10" fill="#FF5252" stroke="black" stroke-width="3" />
+</svg>
