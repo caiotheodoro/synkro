@@ -1,0 +1,152 @@
+<div id="toast-container" class="fixed top-0 right-0 z-50 p-4 space-y-4"></div>
+
+<script is:inline>
+  class ToastManager {
+    constructor() {
+      this.container = document.getElementById("toast-container");
+      if (!this.container) {
+        this.container = document.createElement("div");
+        this.container.id = "toast-container";
+        this.container.className = "fixed top-0 right-0 z-50 p-4 space-y-4";
+        document.body.appendChild(this.container);
+      }
+
+      this.activeToasts = new Map();
+
+      window.addEventListener("message", this.handleAuthMessage.bind(this));
+    }
+
+    handleAuthMessage(event) {
+      if (
+        !event.data ||
+        !event.data.type ||
+        event.data.source === "react-devtools-content-script"
+      ) {
+        return;
+      }
+
+      const messageKey = `${event.data.type}-${event.data.message || ""}`;
+
+      if (this.activeToasts.has(messageKey)) {
+        return;
+      }
+
+      switch (event.data.type) {
+        case "AUTH_SUCCESS":
+          this.showToast({
+            title: "Authentication Successful",
+            description: "You have been successfully logged in.",
+            type: "success",
+            key: messageKey,
+          });
+          break;
+        case "AUTH_ERROR":
+          this.showToast({
+            title: "Authentication Failed",
+            description:
+              event.data.message ||
+              "Please check your credentials and try again.",
+            type: "error",
+            key: messageKey,
+          });
+          break;
+        case "AUTH_LOGOUT":
+          this.showToast({
+            title: "Logged Out",
+            description: "You have been successfully logged out.",
+            type: "info",
+            key: messageKey,
+          });
+          break;
+        case "REGISTRATION_SUCCESS":
+          this.showToast({
+            title: "Registration Successful",
+            description: "Your account has been created. You can now log in.",
+            type: "success",
+            key: messageKey,
+          });
+          break;
+        case "REGISTRATION_ERROR":
+          this.showToast({
+            title: "Registration Failed",
+            description:
+              event.data.message ||
+              "Please check your information and try again.",
+            type: "error",
+            key: messageKey,
+          });
+          break;
+      }
+    }
+
+    showToast({ title, description, type = "info", duration = 5000, key }) {
+      const toast = document.createElement("div");
+      const id = key || Math.random().toString(36).substring(2, 9);
+      toast.id = `toast-${id}`;
+
+      if (key) {
+        this.activeToasts.set(key, toast);
+
+        setTimeout(() => {
+          this.activeToasts.delete(key);
+        }, duration + 500);
+      }
+
+      const typeClasses = {
+        success: "bg-accent border-black text-black",
+        error: "bg-primary border-black text-white",
+        info: "bg-secondary border-black text-black",
+        warning: "bg-[#FFA500] border-black text-black",
+      };
+
+      const typeClass = typeClasses[type] || typeClasses.info;
+      toast.className = `fixed right-4 -top-20 z-50 w-80 p-4 rounded-md border-[3px] shadow-neo transition-all duration-300 ${typeClass}`;
+
+      toast.innerHTML = `
+        <div class="flex justify-between items-start">
+          <div>
+            <h3 class="font-bold text-lg">${title}</h3>
+            ${description ? `<p class="mt-1">${description}</p>` : ""}
+          </div>
+          <button class="text-2xl font-bold leading-none" data-close-toast>&times;</button>
+        </div>
+      `;
+
+      this.container.appendChild(toast);
+
+      setTimeout(() => {
+        toast.classList.remove("-top-20");
+        toast.style.position = "relative";
+        toast.style.top = "0";
+      }, 10);
+
+      const timeout = setTimeout(() => {
+        this.hideToast(toast);
+      }, duration);
+
+      const closeBtn = toast.querySelector("[data-close-toast]");
+      closeBtn.addEventListener("click", () => {
+        clearTimeout(timeout);
+        this.hideToast(toast);
+      });
+    }
+
+    hideToast(toast) {
+      toast.style.opacity = "0";
+
+      setTimeout(() => {
+        toast.remove();
+      }, 300);
+    }
+  }
+
+  document.addEventListener("DOMContentLoaded", () => {
+    window.toastManager = new ToastManager();
+  });
+</script>
+
+<style>
+  .shadow-neo {
+    box-shadow: 5px 5px 0px 0px rgba(0, 0, 0, 1);
+  }
+</style>

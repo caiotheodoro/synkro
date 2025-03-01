@@ -1,0 +1,128 @@
+---
+export interface BentoItem {
+  title: string;
+  description: string;
+  status?: string;
+  tags?: string[];
+  meta?: string;
+  cta?: string;
+  colSpan?: number;
+  hasPersistentHover?: boolean;
+  color?: "primary" | "secondary" | "accent";
+  badgeColor?: "primary" | "secondary" | "accent";
+  number?: number;
+}
+
+interface Props {
+  items: BentoItem[];
+}
+
+const { items } = Astro.props;
+
+function cn(...classes: (string | Record<string, boolean> | undefined)[]) {
+  return classes
+    .filter(Boolean)
+    .map((cls) => {
+      if (typeof cls === "string") return cls;
+      if (typeof cls === "object") {
+        return Object.entries(cls)
+          .filter(([_, value]) => Boolean(value))
+          .map(([key]) => key)
+          .join(" ");
+      }
+      return "";
+    })
+    .join(" ")
+    .trim();
+}
+---
+
+<div class="grid grid-cols-1 md:grid-cols-3 gap-3 p-4 max-w-7xl mx-auto">
+  {
+    items.map((item, index) => (
+      <div
+        class={cn(
+          "group relative p-4 rounded-xl overflow-hidden transition-all duration-300",
+          "border-[3px] border-black bg-white",
+          "hover:shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] shadow-[5px_5px_0px_0px_rgba(0,0,0,1)]",
+          "hover:-translate-y-0.5 will-change-transform",
+          item.colSpan
+            ? `col-span-1 md:col-span-${item.colSpan}`
+            : "col-span-1",
+          {
+            "shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] -translate-y-0.5":
+              item.hasPersistentHover === true,
+          }
+        )}
+      >
+        <div
+          class={`absolute inset-0 ${
+            item.hasPersistentHover === true
+              ? "opacity-100"
+              : "opacity-0 group-hover:opacity-100"
+          } transition-opacity duration-300`}
+        >
+          <div class="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(0,0,0,0.02)_1px,transparent_1px)] bg-[length:4px_4px]" />
+        </div>
+
+        <div class="relative flex flex-col space-y-3">
+          <div class="flex items-center justify-between">
+            {item.number && (
+              <div
+                class={cn(
+                  "w-10 h-10 flex items-center justify-center rounded-full border-[3px] border-black font-bold",
+                  item.badgeColor === "primary"
+                    ? "bg-primary text-white"
+                    : item.badgeColor === "secondary"
+                      ? "bg-secondary text-black"
+                      : "bg-accent text-black"
+                )}
+              >
+                {item.number}
+              </div>
+            )}
+          </div>
+
+          <div class="space-y-2">
+            <h3 class="font-bold text-xl text-gray-900 tracking-tight">
+              {item.title}
+              {item.meta && (
+                <span class="ml-2 text-xs text-gray-500 font-normal">
+                  {item.meta}
+                </span>
+              )}
+            </h3>
+            <p class="text-gray-600 leading-snug">{item.description}</p>
+          </div>
+
+          {(item.tags || item.cta) && (
+            <div class="flex items-center justify-between mt-2">
+              {item.tags && (
+                <div class="flex items-center space-x-2 text-xs text-gray-500">
+                  {item.tags.map((tag, i) => (
+                    <span class="px-2 py-1 rounded-md bg-black/5 backdrop-blur-sm transition-all duration-200 hover:bg-black/10">
+                      #{tag}
+                    </span>
+                  ))}
+                </div>
+              )}
+              {item.cta && (
+                <span class="text-xs text-gray-500 opacity-0 group-hover:opacity-100 transition-opacity">
+                  {item.cta}
+                </span>
+              )}
+            </div>
+          )}
+        </div>
+
+        <div
+          class={`absolute inset-0 -z-10 rounded-xl p-px bg-gradient-to-br from-transparent via-gray-100/50 to-transparent ${
+            item.hasPersistentHover === true
+              ? "opacity-100"
+              : "opacity-0 group-hover:opacity-100"
+          } transition-opacity duration-300`}
+        />
+      </div>
+    ))
+  }
+</div>

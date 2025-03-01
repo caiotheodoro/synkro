@@ -1,0 +1,30 @@
+---
+import Card from "../atoms/Card.astro";
+
+interface Props {
+  title: string;
+  description: string;
+  number: number;
+  color: "primary" | "secondary" | "accent";
+  badgeColor: "primary" | "secondary" | "accent";
+}
+
+const { title, description, number, color, badgeColor } = Astro.props;
+
+const badgeColorClasses = {
+  primary: "bg-primary text-white",
+  secondary: "bg-secondary text-black",
+  accent: "bg-accent text-black",
+};
+---
+
+<Card class="relative overflow-hidden" headerColor={color} headerText={title}>
+  <p>{description}</p>
+  <div class="absolute top-3 right-3">
+    <div
+      class={`w-10 h-10 ${badgeColorClasses[badgeColor]} border-[3px] border-black rounded-full flex items-center justify-center`}
+    >
+      <span class="font-bold">{number}</span>
+    </div>
+  </div>
+</Card>

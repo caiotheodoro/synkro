@@ -1,0 +1,130 @@
+---
+interface Props {
+  id?: string;
+}
+
+const { id = "auth-drawer" } = Astro.props;
+
+const authUrl =
+  import.meta.env.PUBLIC_AUTH_SERVICE_URL || "http://localhost:5173";
+---
+
+<div id={id} class="fixed inset-0 z-40 bg-black bg-opacity-50 hidden">
+  <div
+    class="absolute right-0 top-0 h-full w-full max-w-md bg-white shadow-neo transform transition-transform duration-300 translate-x-full"
+  >
+    <div
+      class="flex justify-between items-center p-4 border-b-[3px] border-black"
+    >
+      <h2 class="text-xl font-bold">Authentication</h2>
+      <button id="close-auth-drawer" class="text-2xl font-bold">&times;</button>
+    </div>
+
+    <div class="h-[calc(100%-64px)] w-full">
+      <iframe
+        id="auth-iframe"
+        class="w-full h-full border-none"
+        src=""
+        title="Authentication"></iframe>
+    </div>
+  </div>
+</div>
+
+<script is:inline define:vars={{ authUrl }}>
+  document.addEventListener("DOMContentLoaded", () => {
+    const drawer = document.getElementById("auth-drawer");
+    const closeBtn = document.getElementById("close-auth-drawer");
+    const iframe = document.getElementById("auth-iframe");
+
+    function openDrawer(mode = "login", theme = "neobrutal") {
+      if (!drawer || !iframe) return;
+
+      iframe.src = `${authUrl}/${mode}?theme=${theme}`;
+
+      drawer.classList.remove("hidden");
+
+      setTimeout(() => {
+        const drawerContent = drawer.querySelector("div");
+        if (drawerContent) {
+          drawerContent.classList.remove("translate-x-full");
+        }
+      }, 10);
+
+      document.body.style.overflow = "hidden";
+    }
+
+    function closeDrawer() {
+      if (!drawer) return;
+
+      const drawerContent = drawer.querySelector("div");
+      if (drawerContent) {
+        drawerContent.classList.add("translate-x-full");
+      }
+
+      setTimeout(() => {
+        drawer.classList.add("hidden");
+
+        if (iframe) {
+          iframe.src = "";
+        }
+      }, 300);
+
+      document.body.style.overflow = "";
+    }
+
+    closeBtn?.addEventListener("click", closeDrawer);
+
+    drawer?.addEventListener("click", (e) => {
+      if (e.target === drawer) {
+        closeDrawer();
+      }
+    });
+
+    window.addEventListener("message", (event) => {
+      if (event.data && event.data.type) {
+        if (
+          event.data.type === "AUTH_SUCCESS" ||
+          event.data.type === "REGISTRATION_SUCCESS"
+        ) {
+          if (event.data.user && event.data.access_token) {
+            localStorage.setItem("user", JSON.stringify(event.data.user));
+            localStorage.setItem("token", event.data.access_token);
+
+            window.dispatchEvent(
+              new CustomEvent("auth-state-changed", {
+                detail: {
+                  isAuthenticated: true,
+                  user: event.data.user,
+                },
+              })
+            );
+
+            closeDrawer();
+          }
+        } else if (event.data.type === "AUTH_LOGOUT") {
+          localStorage.removeItem("user");
+          localStorage.removeItem("token");
+
+          window.dispatchEvent(
+            new CustomEvent("auth-state-changed", {
+              detail: {
+                isAuthenticated: false,
+              },
+            })
+          );
+
+          closeDrawer();
+        }
+      }
+    });
+
+    window.openAuthDrawer = openDrawer;
+    window.closeAuthDrawer = closeDrawer;
+  });
+</script>
+
+<style>
+  .shadow-neo {
+    box-shadow: -5px 5px 0px 0px rgba(0, 0, 0, 1);
+  }
+</style>
