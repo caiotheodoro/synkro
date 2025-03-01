@@ -5,8 +5,7 @@ interface Props {
 
 const { id = "auth-drawer" } = Astro.props;
 
-const authUrl =
-  import.meta.env.PUBLIC_AUTH_SERVICE_URL || "http://localhost:5173";
+const authUrl = import.meta.env.PUBLIC_AUTH_SERVICE_URL;
 ---
 
 <div id={id} class="fixed inset-0 z-40 bg-black bg-opacity-50 hidden">

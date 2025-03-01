@@ -1,0 +1,56 @@
+---
+interface Props {
+  type?: "login" | "register";
+  returnUrl?: string;
+  triggerClass?: string;
+  triggerText?: string;
+}
+
+const {
+  type = "login",
+  returnUrl = "/",
+  triggerClass = "",
+  triggerText = type === "login" ? "Sign In" : "Get Started",
+} = Astro.props;
+---
+
+<div
+  id="auth-drawer-container"
+  data-type={type}
+  data-return-url={returnUrl}
+  data-trigger-class={triggerClass}
+  data-trigger-text={triggerText}
+>
+</div>
+
+<script>
+  import { AuthDrawer } from "./AuthDrawer";
+  import { h, render } from "vue";
+
+  // Initialize the auth drawer
+  const initAuthDrawer = () => {
+    const container = document.getElementById("auth-drawer-container");
+    if (!container) return;
+
+    const type = container.dataset.type || "login";
+    const returnUrl = container.dataset.returnUrl || "/";
+    const triggerClass = container.dataset.triggerClass || "";
+    const triggerText =
+      container.dataset.triggerText ||
+      (type === "login" ? "Sign In" : "Get Started");
+
+    // Render the Vue component
+    render(
+      h(AuthDrawer, {
+        type,
+        returnUrl,
+        triggerClass,
+        triggerText,
+      }),
+      container
+    );
+  };
+
+  // Initialize when the DOM is loaded
+  document.addEventListener("DOMContentLoaded", initAuthDrawer);
+</script>

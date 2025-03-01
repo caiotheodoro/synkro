@@ -29,50 +29,39 @@ export const AuthDrawer = defineComponent({
     },
   },
   setup(props) {
-    const isOpen = ref(false);
     const iframeLoaded = ref(false);
     const iframeHeight = computed(() =>
       props.type === "login" ? "500px" : "600px"
     );
 
-    // Function to handle authentication success
     const handleAuthSuccess = (event: MessageEvent) => {
-      // Verify the origin of the message
-      if (event.origin !== "http://localhost:5173") return;
+      if (event.origin !== import.meta.env.PUBLIC_AUTH_SERVICE_URL) return;
 
-      // Handle authentication success
       if (event.data.type === "AUTH_SUCCESS") {
-        // Store auth data
         localStorage.setItem("synkro_user", JSON.stringify(event.data.user));
         localStorage.setItem("synkro_token", event.data.access_token);
 
-        // Close the drawer
         const closeEvent = new CustomEvent("drawer:close");
         window.dispatchEvent(closeEvent);
 
-        // Refresh the page to update UI
         window.location.reload();
       }
     };
 
-    // Check if user is already signed in
     const checkAuthStatus = () => {
       return localStorage.getItem("synkro_token") !== null;
     };
 
     onMounted(() => {
-      // Listen for messages from the auth iframe
       window.addEventListener("message", handleAuthSuccess);
 
-      // Return cleanup function
       return () => {
         window.removeEventListener("message", handleAuthSuccess);
       };
     });
 
-    // Determine the iframe URL based on the type prop
     const iframeUrl = () => {
-      const baseUrl = "http://localhost:5173";
+      const baseUrl = import.meta.env.PUBLIC_AUTH_SERVICE_URL;
       const path = props.type === "login" ? "/login" : "/register";
       return `${baseUrl}${path}?returnUrl=${encodeURIComponent(
         props.returnUrl
