@@ -2,21 +2,24 @@
 import { onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth.store'
+import { sendLogout, sendAuthStatus } from '@/utils/messaging'
 
 const router = useRouter()
 const authStore = useAuthStore()
 
 onMounted(async () => {
-  // Perform logout
   await authStore.logout()
   
-  // If we're in an iframe, notify the parent window
   if (window.parent !== window) {
-    window.parent.postMessage({
-      type: 'LOGOUT_SUCCESS'
-    }, '*')
+    sendLogout()
+    sendAuthStatus(false)
+    
+    try {
+      localStorage.setItem("auth_state_timestamp", Date.now().toString());
+    } catch (e) {
+      console.error("Error setting auth state timestamp:", e);
+    }
   } else {
-    // Redirect to login page
     router.push('/login')
   }
 })

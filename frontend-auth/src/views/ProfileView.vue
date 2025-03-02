@@ -2,7 +2,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth.store'
-import { sendLogout } from '@/utils/messaging'
+import { sendLogout, sendAuthStatus } from '@/utils/messaging'
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -11,9 +11,9 @@ const user = computed(() => authStore.user)
 const isNeobrutalTheme = ref(false)
 
 const handleLogout = async () => {
-  
   if (window.parent !== window) {
     sendLogout()
+    sendAuthStatus(false)
   }
   
   await authStore.logout()
@@ -27,6 +27,10 @@ onMounted(() => {
     return
   }
   
+  if (window.parent !== window) {
+    const token = localStorage.getItem(import.meta.env.VITE_AUTH_TOKEN_KEY || "auth_token")
+    sendAuthStatus(true, authStore.user, token || '')
+  }
   
   const urlParams = new URLSearchParams(window.location.search)
   isNeobrutalTheme.value = urlParams.get('theme') === 'neobrutal'

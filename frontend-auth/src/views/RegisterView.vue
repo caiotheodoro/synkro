@@ -2,7 +2,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth.store'
-import { sendRegistrationSuccess, sendRegistrationError } from '@/utils/messaging'
+import { sendRegistrationSuccess, sendRegistrationError, sendAuthStatus } from '@/utils/messaging'
 
 const router = useRouter()
 const route = useRoute()
@@ -14,15 +14,12 @@ const password = ref('')
 const confirmPassword = ref('')
 const loading = ref(false)
 const error = ref('')
-const showError = ref(false) // Control visibility of error messages
+const showError = ref(false) 
 
-// Get the return URL from query parameters
 const returnUrl = computed(() => route.query.returnUrl as string || '/')
 
-// Create login URL with the return URL
 const loginUrl = computed(() => `/login?returnUrl=${encodeURIComponent(returnUrl.value)}${isNeobrutalTheme.value ? '&theme=neobrutal' : ''}`)
 
-// Check if neobrutalism theme is requested
 const isNeobrutalTheme = computed(() => route.query.theme === 'neobrutal')
 
 const handleRegister = async () => {
@@ -35,6 +32,7 @@ const handleRegister = async () => {
     
     if (window.parent !== window) {
       sendRegistrationError(error.value)
+      sendAuthStatus(false)
     } else {
       showError.value = true
     }
@@ -44,13 +42,8 @@ const handleRegister = async () => {
   }
   
   try {
-    const firstName = name?.value?.split(' ')[0] ?? ''
-    const lastName = name?.value?.split(' ')[1] ?? ''
-
-   
     const response = await authStore.register({
-      firstName: firstName,
-      lastName: lastName,
+      name: name.value,
       email: email.value,
       password: password.value
     })
@@ -58,6 +51,7 @@ const handleRegister = async () => {
     
     if (window.parent !== window) {
       sendRegistrationSuccess(authStore.user, response.access_token)
+      sendAuthStatus(true, authStore.user, response.access_token)
     } else {
       router.push('/profile')
     }
@@ -67,6 +61,7 @@ const handleRegister = async () => {
     
     if (window.parent !== window) {
       sendRegistrationError(error.value)
+      sendAuthStatus(false)
     } else {
       showError.value = true
     }
@@ -76,9 +71,19 @@ const handleRegister = async () => {
 }
 
 onMounted(() => {
+  if (window.parent !== window) {
+    if (authStore.isAuthenticated) {
+      const token = localStorage.getItem(import.meta.env.VITE_AUTH_TOKEN_KEY || "auth_token")
+      sendAuthStatus(true, authStore.user, token || '')
+    } else {
+      sendAuthStatus(false)
+    }
+  }
+
   if (authStore.isAuthenticated) {
     if (window.parent !== window) {
-      sendRegistrationSuccess(authStore.user, authStore.access_token)
+      const token = localStorage.getItem(import.meta.env.VITE_AUTH_TOKEN_KEY || "auth_token")
+      sendRegistrationSuccess(authStore.user, token || '')
     } else {
       router.push('/profile')
     }

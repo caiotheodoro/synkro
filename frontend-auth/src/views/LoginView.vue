@@ -2,7 +2,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth.store'
-import { sendAuthSuccess, sendAuthError } from '@/utils/messaging'
+import { sendAuthSuccess, sendAuthError, sendAuthStatus } from '@/utils/messaging'
 
 const router = useRouter()
 const route = useRoute()
@@ -31,6 +31,7 @@ const handleLogin = async () => {
     
     if (window.parent !== window) {
       sendAuthSuccess(authStore.user, response.access_token)
+      sendAuthStatus(true, authStore.user, response.access_token)
     } else {
       showError.value = true
       router.push('/profile')
@@ -41,6 +42,7 @@ const handleLogin = async () => {
     
     if (window.parent !== window) {
       sendAuthError(error.value)
+      sendAuthStatus(false)
     } else {
       showError.value = true
     }
@@ -50,10 +52,20 @@ const handleLogin = async () => {
 }
 
 onMounted(() => {
+  if (window.parent !== window) {
+    if (authStore.isAuthenticated) {
+      const token = localStorage.getItem(import.meta.env.VITE_AUTH_TOKEN_KEY || "auth_token")
+      sendAuthSuccess(authStore.user, token || '')
+      sendAuthStatus(true, authStore.user, token || '')
+    } else {
+      sendAuthStatus(false)
+    }
+  }
 
   if (authStore.isAuthenticated) {
     if (window.parent !== window) {
-      sendAuthSuccess(authStore.user, authStore.access_token)
+      const token = localStorage.getItem(import.meta.env.VITE_AUTH_TOKEN_KEY || "auth_token")
+      sendAuthSuccess(authStore.user, token || '')
     } else {
       router.push('/profile')
     }
