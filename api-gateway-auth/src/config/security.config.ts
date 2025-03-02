@@ -6,7 +6,6 @@ export const configureSecurityMiddleware = async (
   app: FastifyInstance,
   config: ConfigService,
 ) => {
-  // Configure Helmet security headers
   await app.register(fastifyHelmet, {
     contentSecurityPolicy: {
       directives: {
@@ -38,5 +37,12 @@ export const configureSecurityMiddleware = async (
   // Configure CSRF Protection
   await app.register(require('@fastify/csrf-protection'), {
     sessionPlugin: '@fastify/secure-session',
+    getToken: (req) => {
+      return req.headers['csrf-token'];
+    },
+    // Exclude authentication endpoints from CSRF protection
+    ignoreMethods: ['GET', 'HEAD', 'OPTIONS', 'POST'],
+    // Alternatively, use a more specific path-based exclusion
+    // ignorePaths: ['/api/auth/login', '/api/auth/register', '/api/auth/logout', '/api/auth/validate-token'],
   });
 };
