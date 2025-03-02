@@ -90,14 +90,14 @@ export class AuthService {
 
       const payload = this.jwtService.verify(token);
 
-      if (!payload || !payload.sub) {
+      if (!payload?.sub) {
         this.logger.warn('Invalid token payload');
         return { isValid: false };
       }
 
       const user = await this.userService.findOne(payload.sub);
 
-      if (!user || !user.isActive) {
+      if (!user?.isActive) {
         this.logger.warn(
           `User not found or inactive for token with sub: ${payload.sub}`,
         );
@@ -170,7 +170,7 @@ export class AuthService {
         // Only verify if the token has a valid format
         if (this.isValidTokenFormat(token)) {
           const payload = this.jwtService.verify(token);
-          if (payload && payload.sub) {
+          if (payload?.sub) {
             this.logger.log(`Token invalidated for user: ${payload.sub}`);
           }
         } else {
@@ -232,8 +232,7 @@ export class AuthService {
       user: {
         id: user.id,
         email: user.email,
-        firstName: user.firstName,
-        lastName: user.lastName,
+        name: user.name,
         role: user.role,
         isActive: user.isActive,
       },

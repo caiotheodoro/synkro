@@ -9,10 +9,7 @@ export class AuthUserResponse {
   email: string;
 
   @ApiProperty({ required: false })
-  firstName?: string;
-
-  @ApiProperty({ required: false })
-  lastName?: string;
+  name?: string;
 
   @ApiProperty({ enum: UserRole })
   role: UserRole;

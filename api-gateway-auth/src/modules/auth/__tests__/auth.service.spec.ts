@@ -25,8 +25,7 @@ describe('AuthService', () => {
     id: '1',
     email: 'test@example.com',
     password: 'hashedPassword123',
-    firstName: 'Test',
-    lastName: 'User',
+    name: 'Test',
     role: UserRole.USER,
     isActive: true,
     createdAt: new Date(),
@@ -86,8 +85,7 @@ describe('AuthService', () => {
         user: {
           id: '1',
           email: 'test@example.com',
-          firstName: 'Test',
-          lastName: 'User',
+          name: 'Test',
           role: UserRole.USER,
           isActive: true,
         },
@@ -152,8 +150,7 @@ describe('AuthService', () => {
       const registerDto = {
         email: 'new@example.com',
         password: 'password123',
-        firstName: 'New',
-        lastName: 'User',
+        name: 'New User',
         roleIds: [],
       };
 
@@ -166,8 +163,7 @@ describe('AuthService', () => {
         user: {
           id: '1',
           email: 'test@example.com',
-          firstName: 'Test',
-          lastName: 'User',
+          name: 'Test',
           role: UserRole.USER,
           isActive: true,
         },
@@ -183,8 +179,7 @@ describe('AuthService', () => {
       const registerDto = {
         email: 'existing@example.com',
         password: 'password123',
-        firstName: 'New',
-        lastName: 'User',
+        name: 'New User',
         roleIds: [],
       };
 

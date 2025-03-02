@@ -85,12 +85,11 @@ export class AuthController {
     @Body() validateTokenDto: ValidateTokenDto,
     @Headers('cache-control') cacheControl?: string,
   ): Promise<TokenValidationResponse> {
-    if (!validateTokenDto || !validateTokenDto.token) {
+    if (!validateTokenDto?.token) {
       this.logger.warn('Token validation attempt with no token provided');
       return { isValid: false };
     }
 
-    // Check if token is already known to be invalidated (fast path)
     if (this.authService.isTokenInvalidated(validateTokenDto.token)) {
       this.logger.log('Token is already known to be invalidated');
       return { isValid: false };
@@ -120,7 +119,7 @@ export class AuthController {
     @Body() logoutDto: ValidateTokenDto,
   ): Promise<{ success: boolean; message: string }> {
     try {
-      if (!logoutDto || !logoutDto.token) {
+      if (!logoutDto.token) {
         this.logger.warn('Logout attempt with no token provided');
         return {
           success: true,
@@ -165,8 +164,8 @@ export class AuthController {
     description: 'User is not authenticated.',
   })
   getProfile(@Req() req: { user: User }): AuthUserResponse {
-    const { id, email, firstName, lastName, role, isActive } = req.user;
+    const { id, email, name, role, isActive } = req.user;
     this.logger.log(`Profile request for user: ${id}`);
-    return { id, email, firstName, lastName, role, isActive };
+    return { id, email, name, role, isActive };
   }
 }
