@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, reactive } from 'vue'
+import { ref, reactive, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth.store'
 import type { RegisterData } from '@/types/auth.types'
@@ -7,11 +7,19 @@ import type { RegisterData } from '@/types/auth.types'
 const router = useRouter()
 const authStore = useAuthStore()
 
-const form = reactive<RegisterData>({
+const form = reactive({
   email: '',
   password: '',
   firstName: '',
   lastName: ''
+})
+
+// Compute the full name from firstName and lastName
+const fullName = computed(() => {
+  const first = form.firstName.trim()
+  const last = form.lastName.trim()
+  if (first && last) return `${first} ${last}`
+  return first || last || ''
 })
 
 const errors = reactive({
@@ -61,7 +69,16 @@ const handleSubmit = async () => {
   isSubmitting.value = true
   
   try {
-    await authStore.register(form)
+    // Create the register data with the required name field
+    const registerData: RegisterData = {
+      email: form.email,
+      password: form.password,
+      name: fullName.value,
+      firstName: form.firstName,
+      lastName: form.lastName
+    }
+    
+    await authStore.register(registerData)
     router.push({ name: 'profile' })
   } catch (error: any) {
     errors.general = error.response?.data?.message || 'Registration failed. Please try again.'

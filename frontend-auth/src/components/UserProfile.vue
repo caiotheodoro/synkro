@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth.store'
 import { UserRole } from '@/types/auth.types'
@@ -8,6 +8,27 @@ const router = useRouter()
 const authStore = useAuthStore()
 const loading = ref(true)
 const error = ref<string | null>(null)
+
+// Computed properties to safely access user properties
+const fullName = computed(() => {
+  if (!authStore.user) return '-'
+  
+  // Try to use firstName and lastName if available
+  if (authStore.user.firstName || authStore.user.lastName) {
+    return `${authStore.user.firstName || ''} ${authStore.user.lastName || ''}`.trim() || '-'
+  }
+  
+  // Fall back to name property
+  return authStore.user.name || '-'
+})
+
+const userRole = computed(() => {
+  return authStore.user?.role || UserRole.USER
+})
+
+const isActive = computed(() => {
+  return authStore.user?.isActive !== undefined ? authStore.user.isActive : true
+})
 
 onMounted(async () => {
   try {
@@ -59,9 +80,7 @@ const getRoleBadgeClass = (role: UserRole) => {
         <div class="grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-6">
           <div class="sm:col-span-3">
             <dt class="text-sm font-medium text-gray-500">Full name</dt>
-            <dd class="mt-1 text-sm text-gray-900">
-              {{ authStore.user.firstName || '-' }} {{ authStore.user.lastName || '-' }}
-            </dd>
+            <dd class="mt-1 text-sm text-gray-900">{{ fullName }}</dd>
           </div>
           
           <div class="sm:col-span-3">
@@ -74,9 +93,9 @@ const getRoleBadgeClass = (role: UserRole) => {
             <dd class="mt-1">
               <span 
                 class="px-2 py-1 text-xs font-medium rounded-full" 
-                :class="getRoleBadgeClass(authStore.user.role)"
+                :class="getRoleBadgeClass(userRole)"
               >
-                {{ authStore.user.role }}
+                {{ userRole }}
               </span>
             </dd>
           </div>
@@ -86,9 +105,9 @@ const getRoleBadgeClass = (role: UserRole) => {
             <dd class="mt-1">
               <span 
                 class="px-2 py-1 text-xs font-medium rounded-full" 
-                :class="authStore.user.isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'"
+                :class="isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'"
               >
-                {{ authStore.user.isActive ? 'Active' : 'Inactive' }}
+                {{ isActive ? 'Active' : 'Inactive' }}
               </span>
             </dd>
           </div>

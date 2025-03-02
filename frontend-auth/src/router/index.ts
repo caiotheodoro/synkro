@@ -32,6 +32,11 @@ const router = createRouter({
       meta: { requiresAuth: true },
     },
     {
+      path: "/api/validate-token",
+      name: "validate-token",
+      component: () => import("@/views/ValidateTokenView.vue"),
+    },
+    {
       path: "/:pathMatch(.*)*",
       name: "not-found",
       component: () => import("@/views/NotFoundView.vue"),
@@ -40,6 +45,11 @@ const router = createRouter({
 });
 
 router.beforeEach(async (to, from, next) => {
+  // Skip auth check for API endpoints
+  if (to.path.startsWith("/api/")) {
+    return next();
+  }
+
   const authStore = useAuthStore();
 
   // Check if route requires authentication
