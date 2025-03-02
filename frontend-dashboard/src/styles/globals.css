@@ -1,0 +1,55 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-gray-50 text-black;
+  }
+}
+
+@layer components {
+  .shadow-neo {
+    box-shadow: 4px 4px 0 0 #000000;
+  }
+
+  .card-neo {
+    @apply bg-white border-[3px] border-black rounded-md shadow-neo;
+  }
+
+  .card-header {
+    @apply p-6 border-b border-gray-200;
+  }
+
+  .card-title {
+    @apply text-xl font-bold;
+  }
+
+  .card-description {
+    @apply text-sm text-gray-500 mt-1;
+  }
+
+  .card-content {
+    @apply p-6;
+  }
+
+  .card-footer {
+    @apply p-6 border-t border-gray-200;
+  }
+
+  .btn {
+    @apply inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none;
+  }
+
+  .btn-primary {
+    @apply bg-primary text-white border-[2px] border-black shadow-neo hover:bg-primary/90 px-4 py-2;
+  }
+
+  .btn-secondary {
+    @apply bg-secondary text-black border-[2px] border-black shadow-neo hover:bg-secondary/90 px-4 py-2;
+  }
+
+  .btn-outline {
+    @apply bg-white text-black border-[2px] border-black shadow-neo hover:bg-gray-100 px-4 py-2;
+  }
+} 
