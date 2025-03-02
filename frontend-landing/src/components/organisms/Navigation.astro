@@ -96,7 +96,7 @@ const navItems = [
         </div>
       </div>
       <Button
-        href="/dashboard"
+        href={import.meta.env.PUBLIC_DASHBOARD_SERVICE_URL}
         target="_blank"
         variant="primary"
         class="h-12 hidden dashboard-btn"
@@ -180,18 +180,31 @@ const navItems = [
       logoutButton.addEventListener("click", (e) => {
         e.preventDefault();
 
-        // Create a hidden iframe to trigger logout in the auth microservice
+        // Get the token
+        const token = authService.getToken();
+
+        // First, call the API gateway logout endpoint with the token
+        fetch(`${import.meta.env.PUBLIC_AUTH_SERVICE_URL}/api/auth/logout`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ token }),
+          credentials: "include",
+        })
+          .then((response) => response.json())
+          .then((data) => console.log("Logout response:", data))
+          .catch((err) => console.error("Error calling logout API:", err));
+
+        // Then, create a hidden iframe to trigger logout in the auth interface
         const logoutFrame = document.createElement("iframe");
         logoutFrame.style.display = "none";
-        logoutFrame.src = import.meta.env.PUBLIC_AUTH_SERVICE_URL + "/logout";
+        logoutFrame.src = `${import.meta.env.PUBLIC_AUTH_INTERFACE_URL}/logout`;
         document.body.appendChild(logoutFrame);
 
-        // Wait a moment to ensure the auth service processes the logout
         setTimeout(() => {
-          // Remove the frame
           document.body.removeChild(logoutFrame);
 
-          // Then logout from the landing page
           authService.logout();
         }, 500);
       });

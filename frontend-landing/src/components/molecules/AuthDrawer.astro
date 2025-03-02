@@ -5,7 +5,11 @@ interface Props {
 
 const { id = "auth-drawer" } = Astro.props;
 
+const authInterfaceUrl = import.meta.env.PUBLIC_AUTH_INTERFACE_URL;
 const authUrl = import.meta.env.PUBLIC_AUTH_SERVICE_URL;
+const dashboardUrl = import.meta.env.PUBLIC_DASHBOARD_SERVICE_URL;
+const tokenKey = import.meta.env.PUBLIC_AUTH_TOKEN_KEY || "synkro_token";
+const userKey = import.meta.env.PUBLIC_AUTH_USER_KEY || "synkro_user";
 ---
 
 <div id={id} class="fixed inset-0 z-40 bg-black bg-opacity-50 hidden">
@@ -29,16 +33,40 @@ const authUrl = import.meta.env.PUBLIC_AUTH_SERVICE_URL;
   </div>
 </div>
 
-<script is:inline define:vars={{ authUrl }}>
+<script
+  is:inline
+  define:vars={{ authInterfaceUrl, authUrl, dashboardUrl, tokenKey, userKey }}
+>
   document.addEventListener("DOMContentLoaded", () => {
     const drawer = document.getElementById("auth-drawer");
     const closeBtn = document.getElementById("close-auth-drawer");
     const iframe = document.getElementById("auth-iframe");
+    let authCheckInterval = null;
+    let lastValidationTime = 0;
+    const VALIDATION_COOLDOWN = 2000;
+    let lastStorageCheck = 0;
+    const STORAGE_CHECK_INTERVAL = 2000;
 
     function openDrawer(mode = "login", theme = "neobrutal") {
-      if (!drawer || !iframe) return;
+      if (!drawer || !iframe) {
+        console.error("Cannot open drawer: drawer or iframe element not found");
+        return;
+      }
 
-      iframe.src = `${authUrl}/${mode}?theme=${theme}`;
+      if (mode === "profile") {
+        const token =
+          localStorage.getItem(tokenKey) || localStorage.getItem("token");
+        const user =
+          localStorage.getItem(userKey) || localStorage.getItem("user");
+        const isAuthenticated = !!token && !!user;
+
+        if (!isAuthenticated) {
+          mode = "login";
+        }
+      }
+
+      const iframeSrc = `${authInterfaceUrl}/${mode}?theme=${theme}`;
+      iframe.src = iframeSrc;
 
       drawer.classList.remove("hidden");
 
@@ -46,6 +74,8 @@ const authUrl = import.meta.env.PUBLIC_AUTH_SERVICE_URL;
         const drawerContent = drawer.querySelector("div");
         if (drawerContent) {
           drawerContent.classList.remove("translate-x-full");
+        } else {
+          console.error("Drawer content element not found");
         }
       }, 10);
 
@@ -71,6 +101,189 @@ const authUrl = import.meta.env.PUBLIC_AUTH_SERVICE_URL;
       document.body.style.overflow = "";
     }
 
+    async function validateToken(forceCheck = false) {
+      const token =
+        localStorage.getItem(tokenKey) || localStorage.getItem("token");
+      if (!token) {
+        clearAuth();
+        return false;
+      }
+
+      if (isTokenExpired(token)) {
+        clearAuth();
+        return false;
+      }
+
+      const now = Date.now();
+      if (!forceCheck && now - lastValidationTime < VALIDATION_COOLDOWN) {
+        return true;
+      }
+
+      lastValidationTime = now;
+
+      try {
+        const response = await fetch(`${authUrl}/api/auth/validate-token`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Cache-Control": "no-cache, no-store, must-revalidate",
+            Pragma: "no-cache",
+            Expires: "0",
+          },
+          body: JSON.stringify({ token }),
+        });
+
+        const data = await response.json();
+
+        if (!response.ok || !data.isValid) {
+          clearAuth();
+          return false;
+        }
+
+        return true;
+      } catch (error) {
+        console.error("Error validating token:", error);
+        return false;
+      }
+    }
+
+    function isTokenExpired(token) {
+      if (!token) return true;
+
+      try {
+        const parts = token.split(".");
+        if (parts.length !== 3) return true;
+
+        const payload = JSON.parse(atob(parts[1]));
+
+        if (!payload.exp) return false;
+
+        const now = Math.floor(Date.now() / 1000);
+        return payload.exp < now;
+      } catch (error) {
+        console.error("Error checking token expiration:", error);
+        return true;
+      }
+    }
+
+    function clearAuth() {
+      localStorage.removeItem(tokenKey);
+      localStorage.removeItem(userKey);
+      localStorage.removeItem("token");
+      localStorage.removeItem("user");
+
+      notifyAuthChange(false);
+
+      stopAuthCheck();
+    }
+
+    function notifyAuthChange(isAuthenticated) {
+      window.dispatchEvent(
+        new CustomEvent("auth-state-changed", {
+          detail: {
+            isAuthenticated,
+            user: isAuthenticated
+              ? JSON.parse(
+                  localStorage.getItem(userKey) ||
+                    localStorage.getItem("user") ||
+                    "null"
+                )
+              : null,
+          },
+        })
+      );
+
+      try {
+        localStorage.setItem("auth_state_timestamp", Date.now().toString());
+      } catch (e) {
+        console.error("Error setting auth state timestamp:", e);
+      }
+    }
+
+    function startAuthCheck() {
+      if (authCheckInterval) {
+        clearInterval(authCheckInterval);
+      }
+
+      validateToken(true);
+
+      authCheckInterval = setInterval(() => {
+        validateToken(true);
+        checkStorageForAuthChanges();
+      }, 30000);
+
+      setInterval(checkStorageForAuthChanges, STORAGE_CHECK_INTERVAL);
+    }
+
+    function checkStorageForAuthChanges() {
+      const now = Date.now();
+      if (now - lastStorageCheck < 1000) return;
+      lastStorageCheck = now;
+
+      const broadcastEvent = localStorage.getItem("auth_broadcast_event");
+      if (broadcastEvent) {
+        try {
+          const eventData = JSON.parse(broadcastEvent);
+          if (now - eventData.timestamp < 5000) {
+            if (eventData.source === "react-devtools-content-script") {
+              return;
+            }
+
+            if (
+              eventData.type === "LOGIN_SUCCESS" ||
+              eventData.type === "AUTH_STATUS_AUTHENTICATED"
+            ) {
+              if (eventData.user && eventData.access_token) {
+                localStorage.setItem(tokenKey, eventData.access_token);
+                localStorage.setItem(userKey, JSON.stringify(eventData.user));
+                localStorage.setItem("token", eventData.access_token);
+                localStorage.setItem("user", JSON.stringify(eventData.user));
+
+                notifyAuthChange(true);
+
+                if (!drawer.classList.contains("hidden")) {
+                  closeDrawer();
+                }
+              }
+
+              window.dispatchEvent(new Event("auth-state-changed"));
+            } else if (
+              eventData.type === "LOGOUT_SUCCESS" ||
+              eventData.type === "AUTH_STATUS_UNAUTHENTICATED"
+            ) {
+              if (
+                localStorage.getItem(tokenKey) ||
+                localStorage.getItem("token")
+              ) {
+                clearAuth();
+              }
+
+              window.dispatchEvent(new Event("auth-state-changed"));
+
+              if (
+                !drawer.classList.contains("hidden") &&
+                eventData.type === "LOGOUT_SUCCESS"
+              ) {
+                closeDrawer();
+              }
+            }
+          }
+        } catch (e) {
+          console.error("Error processing broadcast event:", e);
+        }
+      }
+    }
+
+    function stopAuthCheck() {
+      if (authCheckInterval) {
+        clearInterval(authCheckInterval);
+        authCheckInterval = null;
+      }
+    }
+
+    validateToken(true);
+    startAuthCheck();
+
     closeBtn?.addEventListener("click", closeDrawer);
 
     drawer?.addEventListener("click", (e) => {
@@ -79,43 +292,134 @@ const authUrl = import.meta.env.PUBLIC_AUTH_SERVICE_URL;
       }
     });
 
+    window.addEventListener("storage", (event) => {
+      if (
+        event.key === "auth_state_timestamp" ||
+        event.key === tokenKey ||
+        event.key === userKey ||
+        event.key === "token" ||
+        event.key === "user" ||
+        event.key === "auth_broadcast_event"
+      ) {
+        validateToken(true);
+        checkStorageForAuthChanges();
+      }
+    });
+
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "visible") {
+        validateToken(true);
+        checkStorageForAuthChanges();
+      }
+    });
+
     window.addEventListener("message", (event) => {
+      const trustedOrigins = [authUrl, authInterfaceUrl, dashboardUrl];
+
+      const originUrl = new URL(event.origin);
+      const isTrusted = trustedOrigins.some((trusted) => {
+        try {
+          const trustedUrl = new URL(trusted);
+          return trustedUrl.hostname === originUrl.hostname;
+        } catch (e) {
+          return false;
+        }
+      });
+
+      if (!isTrusted) {
+        return;
+      }
+
+      const isDrawerOpening =
+        !drawer.classList.contains("hidden") &&
+        iframe &&
+        iframe.src &&
+        (iframe.src.includes("/login") ||
+          iframe.src.includes("/register") ||
+          iframe.src.includes("/profile"));
+
+      if (event.data.source === "react-devtools-content-script") {
+        return;
+      }
+
       if (event.data && event.data.type) {
         if (
           event.data.type === "AUTH_SUCCESS" ||
-          event.data.type === "REGISTRATION_SUCCESS"
+          event.data.type === "REGISTRATION_SUCCESS" ||
+          event.data.type === "LOGIN_SUCCESS" ||
+          event.data.type === "AUTH_STATUS_AUTHENTICATED"
         ) {
           if (event.data.user && event.data.access_token) {
-            localStorage.setItem("user", JSON.stringify(event.data.user));
+            localStorage.setItem(tokenKey, event.data.access_token);
+            localStorage.setItem(userKey, JSON.stringify(event.data.user));
+
             localStorage.setItem("token", event.data.access_token);
+            localStorage.setItem("user", JSON.stringify(event.data.user));
 
-            window.dispatchEvent(
-              new CustomEvent("auth-state-changed", {
-                detail: {
-                  isAuthenticated: true,
-                  user: event.data.user,
-                },
-              })
-            );
+            notifyAuthChange(true);
+            startAuthCheck();
 
+            if (
+              event.data.type !== "AUTH_STATUS_AUTHENTICATED" ||
+              !isDrawerOpening
+            ) {
+              closeDrawer();
+            }
+          } else if (
+            event.data.type === "LOGIN_SUCCESS" ||
+            event.data.type === "AUTH_STATUS_AUTHENTICATED"
+          ) {
+            checkStorageForAuthChanges();
+          }
+        } else if (
+          event.data.type === "AUTH_LOGOUT" ||
+          event.data.type === "LOGOUT_SUCCESS" ||
+          event.data.type === "AUTH_STATUS_UNAUTHENTICATED"
+        ) {
+          const token =
+            localStorage.getItem(tokenKey) || localStorage.getItem("token");
+
+          if (
+            token &&
+            (event.data.type === "AUTH_LOGOUT" ||
+              event.data.type === "LOGOUT_SUCCESS")
+          ) {
+            fetch(`${authUrl}/api/auth/logout`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "Cache-Control": "no-cache, no-store, must-revalidate",
+                Pragma: "no-cache",
+                Expires: "0",
+              },
+              body: JSON.stringify({ token }),
+            })
+              .then((response) => response.json())
+              .then((data) => console.log("Logout response:", data))
+              .catch((err) => console.error("Error invalidating token:", err));
+          }
+
+          clearAuth();
+
+          if (
+            !drawer.classList.contains("hidden") &&
+            event.data.type !== "AUTH_STATUS_UNAUTHENTICATED" &&
+            !isDrawerOpening
+          ) {
             closeDrawer();
           }
-        } else if (event.data.type === "AUTH_LOGOUT") {
-          localStorage.removeItem("user");
-          localStorage.removeItem("token");
-
-          window.dispatchEvent(
-            new CustomEvent("auth-state-changed", {
-              detail: {
-                isAuthenticated: false,
-              },
-            })
-          );
-
-          closeDrawer();
         }
       }
     });
+
+    window.checkAuthTokenDrawer = () => {
+      return validateToken(true);
+    };
+
+    window.forceOpenAuthDrawer = (mode = "login") => {
+      openDrawer(mode);
+      return true;
+    };
 
     window.openAuthDrawer = openDrawer;
     window.closeAuthDrawer = closeDrawer;

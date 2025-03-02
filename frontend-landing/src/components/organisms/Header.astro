@@ -37,7 +37,6 @@ const navItems = [
           >
           <Button
             class="bg-primary text-white ml-4"
-            class="bg-primary text-white ml-4"
             data-auth-button
             data-mode="register"
             size="sm">Register</Button
@@ -62,13 +61,42 @@ const navItems = [
   </Container>
 </header>
 
-<script is:inline>
+<script
+  define:vars={{
+    AUTH_TOKEN_KEY: import.meta.env.PUBLIC_AUTH_TOKEN_KEY || "synkro_token",
+    AUTH_USER_KEY: import.meta.env.PUBLIC_AUTH_USER_KEY || "synkro_user",
+    DASHBOARD_SERVICE_URL:
+      import.meta.env.PUBLIC_DASHBOARD_SERVICE_URL || "http://localhost:3003",
+    AUTH_SERVICE_URL:
+      import.meta.env.PUBLIC_AUTH_SERVICE_URL || "http://localhost:3000",
+    AUTH_INTERFACE_URL:
+      import.meta.env.PUBLIC_AUTH_INTERFACE_URL || "http://localhost:5173",
+  }}
+>
   function setupAuthButtons() {
-    const updateAuthButtons = () => {
-      const user = localStorage.getItem("user");
-      const token = localStorage.getItem("token");
+    let authCheckInterval = null;
+    let lastValidationTime = 0;
+    const VALIDATION_COOLDOWN = 2000;
+    let lastStorageCheck = 0;
+    const STORAGE_CHECK_INTERVAL = 2000;
+
+    const updateAuthButtons = (event) => {
+      if (event && event.detail) {
+        const { isAuthenticated, user } = event.detail;
+        updateButtonsVisibility(isAuthenticated, user);
+        return;
+      }
+
+      const user =
+        localStorage.getItem(AUTH_USER_KEY) || localStorage.getItem("user");
+      const token =
+        localStorage.getItem(AUTH_TOKEN_KEY) || localStorage.getItem("token");
       const isAuthenticated = !!user && !!token;
 
+      updateButtonsVisibility(isAuthenticated, user ? JSON.parse(user) : null);
+    };
+
+    const updateButtonsVisibility = (isAuthenticated, userData) => {
       const unauthenticatedButtons = document.getElementById(
         "unauthenticated-buttons"
       );
@@ -85,14 +113,9 @@ const navItems = [
         authenticatedButtons.classList.remove("hidden");
 
         try {
-          // Parse user data to get name
-          const userData = JSON.parse(user);
-          const userName = userData.name || "Profile";
-
-          // Update profile button text
+          const userName = userData?.name || "Profile";
           profileButton.textContent = userName;
         } catch (e) {
-          console.error("Error parsing user data:", e);
           profileButton.textContent = "Profile";
         }
       } else {
@@ -101,12 +124,189 @@ const navItems = [
       }
     };
 
+    async function validateToken(forceCheck = false) {
+      const token =
+        localStorage.getItem(AUTH_TOKEN_KEY) || localStorage.getItem("token");
+      if (!token) {
+        clearAuth();
+        return false;
+      }
+
+      if (isTokenExpired(token)) {
+        clearAuth();
+        return false;
+      }
+
+      const now = Date.now();
+      if (!forceCheck && now - lastValidationTime < VALIDATION_COOLDOWN) {
+        return true;
+      }
+
+      lastValidationTime = now;
+
+      try {
+        const response = await fetch(
+          `${AUTH_SERVICE_URL}/api/auth/validate-token`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Cache-Control": "no-cache, no-store, must-revalidate",
+              Pragma: "no-cache",
+              Expires: "0",
+            },
+            body: JSON.stringify({ token }),
+          }
+        );
+
+        const data = await response.json();
+
+        if (!response.ok || !data.isValid) {
+          clearAuth();
+          return false;
+        }
+
+        return true;
+      } catch (error) {
+        return false;
+      }
+    }
+
+    function isTokenExpired(token) {
+      if (!token) return true;
+
+      try {
+        const parts = token.split(".");
+        if (parts.length !== 3) return true;
+
+        const payload = JSON.parse(atob(parts[1]));
+
+        if (!payload.exp) return false;
+
+        const now = Math.floor(Date.now() / 1000);
+        return payload.exp < now;
+      } catch (error) {
+        return true;
+      }
+    }
+
+    function clearAuth() {
+      localStorage.removeItem(AUTH_TOKEN_KEY);
+      localStorage.removeItem(AUTH_USER_KEY);
+      localStorage.removeItem("token");
+      localStorage.removeItem("user");
+
+      notifyAuthChange(false);
+
+      if (authCheckInterval) {
+        clearInterval(authCheckInterval);
+        authCheckInterval = null;
+      }
+    }
+
+    function notifyAuthChange(isAuthenticated) {
+      window.dispatchEvent(
+        new CustomEvent("auth-state-changed", {
+          detail: {
+            isAuthenticated,
+            user: isAuthenticated
+              ? JSON.parse(
+                  localStorage.getItem(AUTH_USER_KEY) ||
+                    localStorage.getItem("user") ||
+                    "null"
+                )
+              : null,
+          },
+        })
+      );
+
+      try {
+        localStorage.setItem("auth_state_timestamp", Date.now().toString());
+      } catch (e) {}
+    }
+
+    function startAuthCheck() {
+      if (authCheckInterval) {
+        clearInterval(authCheckInterval);
+      }
+
+      validateToken(true);
+
+      authCheckInterval = setInterval(() => {
+        validateToken(true);
+        checkStorageForAuthChanges();
+      }, 30000);
+
+      setInterval(checkStorageForAuthChanges, STORAGE_CHECK_INTERVAL);
+    }
+
+    function checkStorageForAuthChanges() {
+      const now = Date.now();
+      if (now - lastStorageCheck < 1000) return;
+      lastStorageCheck = now;
+
+      const token =
+        localStorage.getItem(AUTH_TOKEN_KEY) || localStorage.getItem("token");
+      const user =
+        localStorage.getItem(AUTH_USER_KEY) || localStorage.getItem("user");
+
+      const isAuthenticated = !!token && !!user;
+
+      updateButtonsVisibility(isAuthenticated, user ? JSON.parse(user) : null);
+
+      const broadcastEvent = localStorage.getItem("auth_broadcast_event");
+      if (broadcastEvent) {
+        try {
+          const eventData = JSON.parse(broadcastEvent);
+          if (now - eventData.timestamp < 5000) {
+            if (
+              eventData.type === "LOGIN_SUCCESS" ||
+              eventData.type === "AUTH_STATUS_AUTHENTICATED"
+            ) {
+              if (eventData.user) {
+                updateButtonsVisibility(true, eventData.user);
+              } else {
+                updateButtonsVisibility(
+                  isAuthenticated,
+                  user ? JSON.parse(user) : null
+                );
+              }
+            } else if (
+              eventData.type === "LOGOUT_SUCCESS" ||
+              eventData.type === "AUTH_STATUS_UNAUTHENTICATED"
+            ) {
+              updateButtonsVisibility(false, null);
+            }
+          }
+        } catch (e) {}
+      }
+    }
+
     function setupAuthButtonListeners() {
       document.querySelectorAll("[data-auth-button]").forEach((button) => {
         button.addEventListener("click", () => {
           const mode = button.getAttribute("data-mode") || "login";
+
           if (typeof window.openAuthDrawer === "function") {
             window.openAuthDrawer(mode);
+          } else if (typeof window.forceOpenAuthDrawer === "function") {
+            window.forceOpenAuthDrawer(mode);
+          } else {
+            const script = document.createElement("script");
+            script.src = "/js/auth-drawer.js";
+            document.body.appendChild(script);
+
+            setTimeout(() => {
+              if (typeof window.openAuthDrawer === "function") {
+                window.openAuthDrawer(mode);
+              } else if (typeof window.forceOpenAuthDrawer === "function") {
+                window.forceOpenAuthDrawer(mode);
+              } else {
+                alert(
+                  "Could not open authentication drawer. Please try again later."
+                );
+              }
+            }, 500);
           }
         });
       });
@@ -118,8 +318,24 @@ const navItems = [
         profileButton.addEventListener("click", () => {
           if (typeof window.openAuthDrawer === "function") {
             window.openAuthDrawer("profile", "neobrutal");
+          } else if (typeof window.forceOpenAuthDrawer === "function") {
+            window.forceOpenAuthDrawer("profile");
           } else {
-            console.error("Auth drawer not initialized");
+            const script = document.createElement("script");
+            script.src = "/js/auth-drawer.js";
+            document.body.appendChild(script);
+
+            setTimeout(() => {
+              if (typeof window.openAuthDrawer === "function") {
+                window.openAuthDrawer("profile", "neobrutal");
+              } else if (typeof window.forceOpenAuthDrawer === "function") {
+                window.forceOpenAuthDrawer("profile");
+              } else {
+                alert(
+                  "Could not open authentication drawer. Please try again later."
+                );
+              }
+            }, 500);
           }
         });
       }
@@ -129,21 +345,85 @@ const navItems = [
       const dashboardButton = document.getElementById("dashboard-button");
       if (dashboardButton) {
         dashboardButton.addEventListener("click", () => {
-          window.location.href = "/dashboard";
+          window.location.href = DASHBOARD_SERVICE_URL;
         });
       }
     }
+
+    window.addEventListener("storage", (event) => {
+      if (
+        event.key === "auth_state_timestamp" ||
+        event.key === AUTH_TOKEN_KEY ||
+        event.key === AUTH_USER_KEY ||
+        event.key === "token" ||
+        event.key === "user"
+      ) {
+        validateToken(true);
+        checkStorageForAuthChanges();
+      }
+    });
+
+    window.addEventListener("message", (event) => {
+      const trustedOrigins = [
+        AUTH_SERVICE_URL,
+        AUTH_INTERFACE_URL,
+        DASHBOARD_SERVICE_URL,
+      ];
+
+      const originUrl = new URL(event.origin);
+      const isTrusted = trustedOrigins.some((trusted) => {
+        try {
+          const trustedUrl = new URL(trusted);
+          return trustedUrl.hostname === originUrl.hostname;
+        } catch (e) {
+          return false;
+        }
+      });
+
+      if (!isTrusted) {
+        return;
+      }
+
+      if (
+        event.data.type === "AUTH_SUCCESS" ||
+        event.data.type === "LOGIN_SUCCESS" ||
+        event.data.type === "AUTH_STATUS_AUTHENTICATED"
+      ) {
+        checkStorageForAuthChanges();
+      } else if (
+        event.data.type === "AUTH_LOGOUT" ||
+        event.data.type === "LOGOUT_SUCCESS" ||
+        event.data.type === "AUTH_STATUS_UNAUTHENTICATED"
+      ) {
+        checkStorageForAuthChanges();
+      }
+    });
 
     setupAuthButtonListeners();
     setupProfileButtonListener();
     setupDashboardButtonListener();
 
     updateAuthButtons();
+    validateToken(true);
+    startAuthCheck();
 
-    window.addEventListener("auth-state-changed", () => {
-      updateAuthButtons();
+    window.addEventListener("auth-state-changed", updateAuthButtons);
+
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "visible") {
+        validateToken(true);
+        checkStorageForAuthChanges();
+      }
     });
+
+    window.checkAuthToken = () => {
+      return validateToken(true);
+    };
   }
 
-  document.addEventListener("DOMContentLoaded", setupAuthButtons);
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", setupAuthButtons);
+  } else {
+    setupAuthButtons();
+  }
 </script>

@@ -35,7 +35,15 @@ export const AuthDrawer = defineComponent({
     );
 
     const handleAuthSuccess = (event: MessageEvent) => {
-      if (event.origin !== import.meta.env.PUBLIC_AUTH_SERVICE_URL) return;
+      const authServiceUrl = import.meta.env.PUBLIC_AUTH_SERVICE_URL;
+      const authInterfaceUrl = import.meta.env.PUBLIC_AUTH_INTERFACE_URL;
+
+      if (
+        event.origin !== authServiceUrl &&
+        event.origin !== authInterfaceUrl
+      ) {
+        return;
+      }
 
       if (event.data.type === "AUTH_SUCCESS") {
         localStorage.setItem("synkro_user", JSON.stringify(event.data.user));
@@ -61,7 +69,7 @@ export const AuthDrawer = defineComponent({
     });
 
     const iframeUrl = () => {
-      const baseUrl = import.meta.env.PUBLIC_AUTH_SERVICE_URL;
+      const baseUrl = import.meta.env.PUBLIC_AUTH_INTERFACE_URL;
       const path = props.type === "login" ? "/login" : "/register";
       return `${baseUrl}${path}?returnUrl=${encodeURIComponent(
         props.returnUrl
