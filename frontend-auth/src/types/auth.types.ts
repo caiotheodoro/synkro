@@ -6,9 +6,7 @@ export enum UserRole {
 export interface User {
   id: string;
   email: string;
-  firstName?: string;
-  lastName?: string;
-  name?: string;
+  name: string;
   role: UserRole;
   isActive: boolean;
 }
@@ -22,8 +20,6 @@ export interface RegisterData {
   email: string;
   password: string;
   name: string;
-  firstName?: string;
-  lastName?: string;
 }
 
 export interface AuthResponse {

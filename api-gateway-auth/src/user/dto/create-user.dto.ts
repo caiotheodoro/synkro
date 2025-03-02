@@ -18,15 +18,10 @@ export class CreateUserDto {
   @MinLength(8)
   password: string;
 
-  @ApiProperty({ example: 'John', required: false })
+  @ApiProperty({ example: 'John Doe', required: false })
   @IsString()
   @IsOptional()
-  firstName?: string;
-
-  @ApiProperty({ example: 'Doe', required: false })
-  @IsString()
-  @IsOptional()
-  lastName?: string;
+  name?: string;
 
   @ApiProperty({ enum: UserRole, example: UserRole.USER, required: false })
   @IsEnum(UserRole)

@@ -25,12 +25,10 @@ describe('User and Role Management (e2e)', () => {
     authService = app.get(AuthService);
     userService = app.get(UserService);
 
-    // Create admin user and get token
     const adminUser = await userService.create({
       email: 'admin@example.com',
       password: 'admin123',
-      firstName: 'Admin',
-      lastName: 'User',
+      name: 'Admin',
       role: UserRole.ADMIN,
     } as CreateUserDto & { role: UserRole });
 

@@ -35,8 +35,7 @@ describe('AppController (e2e)', () => {
           payload: {
             email: `test-${Date.now()}@example.com`,
             password: 'password123',
-            firstName: 'Test',
-            lastName: 'User',
+            name: 'Test',
           },
         });
 
@@ -56,8 +55,7 @@ describe('AppController (e2e)', () => {
           payload: {
             email: user.email,
             password: 'password123',
-            firstName: 'Test',
-            lastName: 'User',
+            name: 'Test',
           },
         });
 
@@ -188,7 +186,7 @@ describe('AppController (e2e)', () => {
         const response = await request(app.getHttpServer())
           .patch(`/users/${otherUser.id}`)
           .set('Authorization', `Bearer ${userToken}`)
-          .send({ firstName: 'Updated' });
+          .send({ name: 'Updated' });
 
         expect(response.statusCode).toBe(403);
       });
@@ -203,10 +201,10 @@ describe('AppController (e2e)', () => {
         const response = await request(app.getHttpServer())
           .patch(`/users/${otherUser.id}`)
           .set('Authorization', `Bearer ${adminToken}`)
-          .send({ firstName: 'Updated' });
+          .send({ name: 'Updated' });
 
         expect(response.statusCode).toBe(200);
-        expect(response.body.firstName).toBe('Updated');
+        expect(response.body.name).toBe('Updated');
       });
     });
 

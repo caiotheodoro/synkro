@@ -32,13 +32,9 @@ export class User {
   @Column()
   password: string;
 
-  @ApiProperty({ example: 'John', nullable: true })
+  @ApiProperty({ example: 'John Doe', nullable: true })
   @Column({ nullable: true })
-  firstName: string;
-
-  @ApiProperty({ example: 'Doe', nullable: true })
-  @Column({ nullable: true })
-  lastName: string;
+  name: string;
 
   @ApiProperty({ enum: UserRole, example: UserRole.USER })
   @Column({

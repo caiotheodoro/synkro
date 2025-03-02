@@ -135,8 +135,7 @@ export const createTestUser = async (
   const user = await userService.create({
     email: `test-${Date.now()}@example.com`,
     password,
-    firstName: 'Test',
-    lastName: 'User',
+    name: 'Test',
     role,
   });
 

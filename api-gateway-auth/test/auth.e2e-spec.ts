@@ -1,11 +1,4 @@
-import { Test, TestingModule } from '@nestjs/testing';
-import { ValidationPipe } from '@nestjs/common';
 import * as request from 'supertest';
-import { TypeOrmModule } from '@nestjs/typeorm';
-import { ConfigModule, ConfigService } from '@nestjs/config';
-import { AppModule } from '../src/app.module';
-import { User } from '../src/user/entities/user.entity';
-import { Role } from '../src/user/entities/role.entity';
 import { AuthService } from '../src/modules/auth/auth.service';
 import { UserService } from '../src/user/user.service';
 import { createTestApp, cleanupDatabase } from './utils/test-utils';
@@ -35,8 +28,7 @@ describe('AuthController (e2e)', () => {
         .send({
           email: 'test@example.com',
           password: 'password123',
-          firstName: 'Test',
-          lastName: 'User',
+          name: 'Test',
         })
         .expect(201)
         .expect((res) => {
@@ -52,8 +44,7 @@ describe('AuthController (e2e)', () => {
         .send({
           email: 'duplicate@example.com',
           password: 'password123',
-          firstName: 'Test',
-          lastName: 'User',
+          name: 'Test',
         })
         .expect(201);
 
@@ -62,8 +53,7 @@ describe('AuthController (e2e)', () => {
         .send({
           email: 'duplicate@example.com',
           password: 'password123',
-          firstName: 'Test',
-          lastName: 'User',
+          name: 'Test',
         })
         .expect(409);
     });
@@ -88,8 +78,7 @@ describe('AuthController (e2e)', () => {
     beforeEach(async () => {
       await userService.create({
         ...loginDto,
-        firstName: 'Test',
-        lastName: 'User',
+        name: 'Test',
       });
     });
 
@@ -125,8 +114,7 @@ describe('AuthController (e2e)', () => {
         .send({
           email: 'profile-test@example.com',
           password: 'password123',
-          firstName: 'Test',
-          lastName: 'User',
+          name: 'Test',
         });
 
       accessToken = response.body.access_token;

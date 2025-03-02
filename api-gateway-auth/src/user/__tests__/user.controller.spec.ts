@@ -10,8 +10,7 @@ describe('UserController', () => {
   const mockUser = {
     id: '1',
     email: 'test@example.com',
-    firstName: 'Test',
-    lastName: 'User',
+    name: 'Test',
     role: UserRole.ADMIN,
     isActive: true,
   } as User;
@@ -19,8 +18,7 @@ describe('UserController', () => {
   const mockNonAdminUser = {
     id: '2',
     email: 'user@example.com',
-    firstName: 'Regular',
-    lastName: 'User',
+    name: 'Regular User',
     role: UserRole.USER,
     isActive: true,
   } as User;
@@ -83,8 +81,7 @@ describe('UserController', () => {
 
   describe('update', () => {
     const updateDto = {
-      firstName: 'Updated',
-      lastName: 'Name',
+      name: 'Updated Name',
     };
 
     it('should update user profile for admin', async () => {

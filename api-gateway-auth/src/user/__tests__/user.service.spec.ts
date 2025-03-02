@@ -20,8 +20,7 @@ describe('UserService', () => {
     id: '1',
     email: 'test@example.com',
     password: 'hashedPassword',
-    firstName: 'Test',
-    lastName: 'User',
+    name: 'Test',
     role: UserRole.USER,
     isActive: true,
     roles: [],
@@ -81,8 +80,7 @@ describe('UserService', () => {
     const createDto: CreateUserDto = {
       email: 'new@example.com',
       password: 'password123',
-      firstName: 'New',
-      lastName: 'User',
+      name: 'New User',
       role: UserRole.USER,
     };
 
@@ -170,8 +168,7 @@ describe('UserService', () => {
 
   describe('update', () => {
     const updateDto: UpdateUserDto = {
-      firstName: 'Updated',
-      lastName: 'Name',
+      name: 'Updated Name',
       password: 'newpassword123',
     };
 
