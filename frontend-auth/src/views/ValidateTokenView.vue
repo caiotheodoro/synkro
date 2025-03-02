@@ -51,7 +51,7 @@ onMounted(async () => {
 
 async function parseRequestData() {
   try {
-    const request = await new Promise.resolve<Request>((resolve) => {
+    const request = await new Promise<Request>((resolve) => {
       resolve(new Request(window.location.href, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
