@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, reactive, computed } from 'vue'
+import { ref, reactive } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth.store'
 import type { RegisterData } from '@/types/auth.types'
@@ -10,23 +10,13 @@ const authStore = useAuthStore()
 const form = reactive({
   email: '',
   password: '',
-  firstName: '',
-  lastName: ''
-})
-
-// Compute the full name from firstName and lastName
-const fullName = computed(() => {
-  const first = form.firstName.trim()
-  const last = form.lastName.trim()
-  if (first && last) return `${first} ${last}`
-  return first || last || ''
+  name: ''
 })
 
 const errors = reactive({
   email: '',
   password: '',
-  firstName: '',
-  lastName: '',
+  name: '',
   general: ''
 })
 
@@ -38,8 +28,7 @@ const validateForm = (): boolean => {
   // Reset errors
   errors.email = ''
   errors.password = ''
-  errors.firstName = ''
-  errors.lastName = ''
+  errors.name = ''
   errors.general = ''
   
   // Email validation
@@ -60,6 +49,12 @@ const validateForm = (): boolean => {
     isValid = false
   }
   
+  // Name validation
+  if (!form.name) {
+    errors.name = 'Name is required'
+    isValid = false
+  }
+  
   return isValid
 }
 
@@ -69,13 +64,10 @@ const handleSubmit = async () => {
   isSubmitting.value = true
   
   try {
-    // Create the register data with the required name field
     const registerData: RegisterData = {
       email: form.email,
       password: form.password,
-      name: fullName.value,
-      firstName: form.firstName,
-      lastName: form.lastName
+      name: form.name
     }
     
     await authStore.register(registerData)
@@ -94,36 +86,19 @@ const handleSubmit = async () => {
       <p class="text-sm text-red-600">{{ errors.general }}</p>
     </div>
     
-    <div class="grid grid-cols-1 gap-6 sm:grid-cols-2">
-      <div>
-        <label for="firstName" class="form-label">First Name</label>
-        <input
-          id="firstName"
-          v-model="form.firstName"
-          type="text"
-          autocomplete="given-name"
-          class="form-input"
-          :class="{ 'border-red-300': errors.firstName }"
-          aria-label="First name"
-          tabindex="0"
-        />
-        <p v-if="errors.firstName" class="form-error">{{ errors.firstName }}</p>
-      </div>
-      
-      <div>
-        <label for="lastName" class="form-label">Last Name</label>
-        <input
-          id="lastName"
-          v-model="form.lastName"
-          type="text"
-          autocomplete="family-name"
-          class="form-input"
-          :class="{ 'border-red-300': errors.lastName }"
-          aria-label="Last name"
-          tabindex="0"
-        />
-        <p v-if="errors.lastName" class="form-error">{{ errors.lastName }}</p>
-      </div>
+    <div>
+      <label for="name" class="form-label">Full Name</label>
+      <input
+        id="name"
+        v-model="form.name"
+        type="text"
+        autocomplete="name"
+        class="form-input"
+        :class="{ 'border-red-300': errors.name }"
+        aria-label="Full name"
+        tabindex="0"
+      />
+      <p v-if="errors.name" class="form-error">{{ errors.name }}</p>
     </div>
     
     <div>

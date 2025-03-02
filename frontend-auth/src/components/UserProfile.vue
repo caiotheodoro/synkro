@@ -9,17 +9,9 @@ const authStore = useAuthStore()
 const loading = ref(true)
 const error = ref<string | null>(null)
 
-// Computed properties to safely access user properties
-const fullName = computed(() => {
-  if (!authStore.user) return '-'
-  
-  // Try to use firstName and lastName if available
-  if (authStore.user.firstName || authStore.user.lastName) {
-    return `${authStore.user.firstName || ''} ${authStore.user.lastName || ''}`.trim() || '-'
-  }
-  
-  // Fall back to name property
-  return authStore.user.name || '-'
+// Computed property to safely access user name
+const userName = computed(() => {
+  return authStore.user?.name || '-'
 })
 
 const userRole = computed(() => {
@@ -80,7 +72,7 @@ const getRoleBadgeClass = (role: UserRole) => {
         <div class="grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-6">
           <div class="sm:col-span-3">
             <dt class="text-sm font-medium text-gray-500">Full name</dt>
-            <dd class="mt-1 text-sm text-gray-900">{{ fullName }}</dd>
+            <dd class="mt-1 text-sm text-gray-900">{{ userName }}</dd>
           </div>
           
           <div class="sm:col-span-3">
