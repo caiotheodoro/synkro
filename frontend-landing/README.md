@@ -1,128 +1,236 @@
-# Synkro Landing Page
+# Synkro Frontend Landing Service
 
-This is the landing page for Synkro, an AI-Fueled Supply Chain Optimization Platform. The landing page is built using Astro and follows the Atomic Design methodology with a neobrutalism design style.
+## Overview
 
-## Features
+The Frontend Landing service is an Astro-powered microfrontend that serves as the public-facing entry point for the Synkro platform. It provides a highly optimized, SEO-friendly landing page with information about the platform, features, pricing, and direct links to authentication. Built with Astro, Vue integration, and TypeScript, it follows atomic design principles and implements a neobrutalism design aesthetic.
 
-- Responsive design
-- Neobrutalism design style
-- Built with Astro and TailwindCSS
-- Atomic Design methodology
-- Optimized for performance
+## Technology Stack
 
-## Project Structure
+- **Framework**: Astro 4.x
+- **Component Framework**: Vue.js 3 (as integration)
+- **Styling**: TailwindCSS with Neobrutalism approach
+- **Icons**: Lucide Astro
+- **Type Safety**: TypeScript
+- **Build System**: Astro Build
 
-The project follows the Atomic Design methodology with the following structure:
+## Architecture
+
+The Frontend Landing service follows a modular architecture with the following structure:
 
 ```
-src/
-├── components/
-│   ├── atoms/       # Basic building blocks (Button, Card, Container, etc.)
-│   ├── molecules/   # Combinations of atoms (FeatureCard, NavLink, etc.)
-│   ├── organisms/   # Sections of the page (Hero, Features, Footer, etc.)
-│   └── templates/   # Page templates
-├── layouts/         # Layout components
-├── pages/           # Astro pages
-└── styles/          # Global styles
+frontend-landing/
+├── src/
+│   ├── assets/           # Static assets (images, icons, etc.)
+│   ├── components/       # Reusable UI components following Atomic Design
+│   │   ├── atoms/        # Basic building blocks (buttons, labels, etc.)
+│   │   ├── molecules/    # Combinations of atoms (feature cards, pricing tables, etc.)
+│   │   ├── organisms/    # Complex UI components (hero sections, testimonials, etc.)
+│   │   └── vue/          # Vue components for interactive elements
+│   ├── content/          # Content collections (if using Astro content)
+│   ├── layouts/          # Page layouts and templates
+│   ├── pages/            # Astro page components (file-based routing)
+│   │   ├── index.astro   # Main landing page
+│   │   ├── about.astro   # About page
+│   │   ├── features.astro # Features page
+│   │   ├── pricing.astro # Pricing page
+│   │   └── contact.astro # Contact page
+│   └── utils/            # Utility functions and helpers
+├── public/               # Static files to be served as-is
+│   ├── favicon.svg      # Favicon
+│   ├── robots.txt       # SEO robots file
+│   └── sitemap.xml      # XML sitemap
+├── .env                  # Environment variables
+├── .env.example          # Example environment variables
+├── astro.config.mjs      # Astro configuration
+├── tailwind.config.js    # TailwindCSS configuration
+├── tsconfig.json         # TypeScript configuration
+└── package.json          # Project dependencies and scripts
 ```
 
-## Getting Started
+## Key Components
+
+### Page Components
+
+The service includes the following key pages:
+
+- **Homepage**: Main landing page with hero section, features overview, and call-to-action
+- **Features**: Detailed description of platform features and capabilities
+- **Pricing**: Pricing options and subscription plans
+- **About**: Company information and mission statement
+- **Contact**: Contact form and information
+- **Legal Pages**: Privacy policy, terms of service, etc.
+
+### UI Components
+
+Following atomic design methodology:
+
+- **Atoms**: Buttons, inputs, labels, icons, typography elements
+- **Molecules**: Navigation items, feature cards, pricing cards, testimonial cards
+- **Organisms**: Header, footer, hero section, feature grid, pricing table, testimonial carousel
+- **Templates**: Page layout templates with content placeholders
+- **Pages**: Complete pages with actual content
+
+### Special Sections
+
+- **Hero Section**: Eye-catching introduction with primary CTA
+- **Feature Showcase**: Highlighting key platform capabilities
+- **Testimonials**: User testimonials and success stories
+- **Pricing Comparison**: Side-by-side plan comparison
+- **FAQ Section**: Frequently asked questions
+- **CTA Sections**: Strategically placed calls-to-action
+
+## Content Management
+
+The landing page content is managed through:
+
+- Astro content collections (markdown/MDX)
+- Component props for dynamic content
+- Environment variables for configurable elements
+
+## Performance Optimization
+
+The service implements several performance optimizations:
+
+- Static site generation for fast loading
+- Minimal JavaScript with islands architecture
+- Image optimization with Astro's built-in tools
+- Font optimization with preloading
+- Critical CSS extraction
+- Lazy-loading for below-the-fold content
+
+## SEO Implementation
+
+The service includes comprehensive SEO features:
+
+- Semantic HTML structure
+- Meta tags management
+- Structured data (JSON-LD)
+- XML sitemap generation
+- Robots.txt configuration
+- Canonical URLs
+- Open Graph and Twitter card metadata
+
+## Integration with Other Services
+
+- **Frontend Auth**: Direct links to authentication service for login/registration
+- **API Gateway Auth**: Indirect connection via Frontend Auth for user data
+
+## Environment Configuration
+
+The service uses the following environment variables:
+
+```
+PUBLIC_API_URL=http://localhost:3000/api
+PUBLIC_AUTH_SERVICE_URL=http://localhost:5173
+PUBLIC_DASHBOARD_URL=http://localhost:3003
+PUBLIC_SITE_URL=http://localhost:3001
+PUBLIC_CONTACT_EMAIL=contact@example.com
+```
+
+## Development
 
 ### Prerequisites
 
-- Node.js (v18 or later)
-- pnpm (v8 or later)
+- Node.js 18.x or higher
+- pnpm 8.x or higher
 
 ### Installation
 
-1. Clone the repository
-2. Install dependencies:
-
 ```bash
+# Install dependencies
 pnpm install
 ```
 
-3. Start the development server:
+### Development Server
 
 ```bash
+# Start development server
 pnpm dev
 ```
 
-4. Open your browser and navigate to `http://localhost:4321`
-
-## Building for Production
-
-To build the site for production, run:
+### Building for Production
 
 ```bash
+# Build for production
 pnpm build
 ```
 
-The built site will be in the `dist/` directory.
-
-## Preview Production Build
-
-To preview the production build, run:
+### Preview Production Build
 
 ```bash
+# Preview production build locally
 pnpm preview
 ```
 
-## Design System
+## Neobrutalism Design Implementation
 
-The design system uses a neobrutalism style with the following color palette:
+The service implements a neobrutalism design approach with:
 
-- Primary: #FF5252
-- Secondary: #FFDE59
-- Accent: #4DFFB4
+- Bold, chunky elements with high contrast
+- Solid background colors with minimal gradients
+- Strong borders and defined edges
+- Playful typography
+- Deliberate "unrefined" appearance for UI elements
+- High-contrast color combinations
+- Oversized interactive elements
 
-## License
+## Responsiveness
 
-This project is licensed under the MIT License.
+The landing page is fully responsive with:
 
-```sh
-pnpm create astro@latest -- --template basics
-```
+- Mobile-first design approach
+- Breakpoint-specific layouts
+- Flexible grid system
+- Responsive typography
+- Optimized images for different screen sizes
+- Touch-friendly interactive elements
 
-[![Open in StackBlitz](https://developer.stackblitz.com/img/open_in_stackblitz.svg)](https://stackblitz.com/github/withastro/astro/tree/latest/examples/basics)
-[![Open with CodeSandbox](https://assets.codesandbox.io/github/button-edit-lime.svg)](https://codesandbox.io/p/sandbox/github/withastro/astro/tree/latest/examples/basics)
-[![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/withastro/astro?devcontainer_path=.devcontainer/basics/devcontainer.json)
+## Accessibility
 
-> 🧑‍🚀 **Seasoned astronaut?** Delete this file. Have fun!
+The service follows accessibility best practices:
 
-![just-the-basics](https://github.com/withastro/astro/assets/2244813/a0a5533c-a856-4198-8470-2d67b1d7c554)
+- Semantic HTML structure
+- ARIA attributes where necessary
+- Sufficient color contrast
+- Keyboard navigation support
+- Screen reader compatibility
+- Focus management for interactive elements
 
-## 🚀 Project Structure
+## Analytics Integration
 
-Inside of your Astro project, you'll see the following folders and files:
+The landing page can be configured with:
 
-```text
-/
-├── public/
-│   └── favicon.svg
-├── src/
-│   ├── layouts/
-│   │   └── Layout.astro
-│   └── pages/
-│       └── index.astro
-└── package.json
-```
+- Google Analytics
+- Plausible Analytics
+- Custom event tracking
+- Conversion tracking for CTA clicks
 
-To learn more about the folder structure of an Astro project, refer to [our guide on project structure](https://docs.astro.build/en/basics/project-structure/).
+## Deployment
 
-## 🧞 Commands
+The service is designed to be deployed as a static site:
 
-All commands are run from the root of the project, from a terminal:
+- Build artifacts can be deployed to any static hosting service
+- Configured for seamless deployment to:
+  - Netlify
+  - Vercel
+  - GitHub Pages
+  - Any static file server
+- Environment-specific builds can be created for different environments
 
-| Command                   | Action                                           |
-| :------------------------ | :----------------------------------------------- |
-| `pnpm install`             | Installs dependencies                            |
-| `pnpm dev`             | Starts local dev server at `localhost:4321`      |
-| `pnpm build`           | Build your production site to `./dist/`          |
-| `pnpm preview`         | Preview your build locally, before deploying     |
-| `pnpm astro ...`       | Run CLI commands like `astro add`, `astro check` |
-| `pnpm astro -- --help` | Get help using the Astro CLI                     |
+## CI/CD Integration
 
-## 👀 Want to learn more?
+The service supports continuous integration and deployment:
 
-Feel free to check [our documentation](https://docs.astro.build) or jump into our [Discord server](https://astro.build/chat).
+- GitHub Actions workflows
+- Automated testing and linting
+- Preview deployments for pull requests
+- Automatic production deployments
+
+## Troubleshooting
+
+Common issues and solutions:
+
+- **Build Errors**: Check Astro configuration and dependency versions
+- **CSS Styling Issues**: Ensure TailwindCSS is properly configured
+- **Missing Assets**: Verify files in public directory
+- **Integration Issues**: Check environment variables for correct service URLs

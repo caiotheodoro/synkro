@@ -1,10 +1,83 @@
-graph TD;
-    A[Customer Order] -->|Data Ingestion| B[AI Data Processing]
-    B -->|Demand Forecasting| C[Predictive Analytics]
-    B -->|Real-time Monitoring| D[Inventory Management]
-    C -->|Optimized Demand| E[Supplier Coordination]
-    D -->|Stock Updates| F[Warehouse Management]
-    E -->|Procurement Optimization| G[AI-Based Logistics]
-    F -->|Distribution Planning| G
-    G -->|Route & Cost Optimization| H[Delivery & Fulfillment]
-    H -->|Customer Feedback| I[Continuous Learning & Improvement]
+graph TB
+    %% Define styles
+    classDef frontend fill:#f9d6ff,stroke:#333,stroke-width:2px
+    classDef backend fill:#b8f9d6,stroke:#333,stroke-width:2px
+    classDef database fill:#f9e0b8,stroke:#333,stroke-width:2px
+    classDef client fill:#e0e0e0,stroke:#333,stroke-width:1px
+    
+    %% Client
+    Client[End User Browser]:::client
+    
+    %% Frontend Services
+    FE_Landing[Frontend Landing<br/>Astro]:::frontend
+    FE_Auth[Frontend Auth<br/>Vue.js]:::frontend
+    FE_Dashboard[Frontend Dashboard<br/>Next.js]:::frontend
+    
+    %% Backend Services
+    API_Gateway[API Gateway Auth<br/>NestJS]:::backend
+    NotificationService[Notification Service]:::backend
+    InventoryService[Inventory Service]:::backend
+    AIMLService[AI/ML Service]:::backend
+    
+    %% Database
+    PostgreSQL[(PostgreSQL<br/>User Data)]:::database
+    
+    %% Monitoring Systems
+    Prometheus{{Prometheus Metrics}}
+    ELK{{ELK Stack Logging}}
+    
+    %% Client Flows
+    Client --> FE_Landing
+    Client --> FE_Auth
+    Client --> FE_Dashboard
+    
+    %% Frontend to API Gateway Auth
+    FE_Landing -- "API Calls" --> API_Gateway
+    FE_Auth -- "Auth API Calls" --> API_Gateway
+    FE_Dashboard -- "Protected API Calls" --> API_Gateway
+    
+    %% API Gateway to Microservices
+    API_Gateway -- "TCP/gRPC" --> NotificationService
+    API_Gateway -- "TCP/gRPC" --> InventoryService
+    API_Gateway -- "TCP/gRPC" --> AIMLService
+    
+    %% Database Connections
+    API_Gateway -- "TypeORM" --> PostgreSQL
+    
+    %% Monitoring Connections
+    API_Gateway -.-> Prometheus
+    API_Gateway -.-> ELK
+    NotificationService -.-> ELK
+    InventoryService -.-> ELK
+    AIMLService -.-> ELK
+    
+    %% Authentication Flow
+    subgraph "Authentication Flow"
+        direction TB
+        Register[User Registration]
+        Login[User Login]
+        Validate[Token Validation]
+        Logout[User Logout]
+        
+        Register --> API_Gateway
+        Login --> API_Gateway
+        Validate --> API_Gateway
+        Logout --> API_Gateway
+    end
+    
+    %% Frontend Service Details
+    subgraph "Frontend Services"
+        direction LR
+        FE_Landing
+        FE_Auth
+        FE_Dashboard
+    end
+    
+    %% Backend Service Details
+    subgraph "Backend Services"
+        direction TB
+        API_Gateway
+        NotificationService
+        InventoryService
+        AIMLService
+    end
