@@ -1,29 +1,137 @@
-use axum::{routing::get, Router};
+use sqlx::postgres::PgPoolOptions;
 use std::net::SocketAddr;
-use tokio::net::TcpListener;
+use std::sync::Arc;
+use tokio::signal;
+use tracing::{info, Level};
+use tracing_subscriber::FmtSubscriber;
 
-async fn health() -> &'static str {
-    println!("Health check called");
-    "OK"
-}
+mod api;
+mod config;
+mod db;
+mod error;
+mod errors;
+mod models;
+mod services;
+
+use config::get as get_config;
+use services::{
+    CustomerService, InventoryService, OrderService, PaymentService, ShippingService,
+    WarehouseService,
+};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    println!("Starting logistics engine...");
+    // Initialize configuration
+    config::init();
+    let config = get_config();
 
-    let app = Router::new().route("/health", get(health));
+    // Setup logging
+    let subscriber = FmtSubscriber::builder()
+        .with_max_level(match config.tracing.log_level.as_str() {
+            "trace" => Level::TRACE,
+            "debug" => Level::DEBUG,
+            "info" => Level::INFO,
+            "warn" => Level::WARN,
+            "error" => Level::ERROR,
+            _ => Level::INFO,
+        })
+        .finish();
+    tracing::subscriber::set_global_default(subscriber)?;
 
-    println!("Router configured");
+    info!("Starting Logistics Engine API");
+    info!("Environment: {}", config.tracing.environment);
 
-    let port = 5050;
-    let addr = SocketAddr::from(([0, 0, 0, 0], port));
-    println!("Binding to address: {}", addr);
+    // Setup database connection pool
+    let database_url = &config.database.url;
+    info!("Connecting to database: {}", database_url);
 
-    let listener = TcpListener::bind(addr).await?;
-    println!("Listener bound successfully on port {}", port);
+    let pool = PgPoolOptions::new()
+        .max_connections(config.database.max_connections)
+        .min_connections(config.database.min_connections)
+        .acquire_timeout(std::time::Duration::from_secs(
+            config.database.connect_timeout_seconds,
+        ))
+        .idle_timeout(std::time::Duration::from_secs(
+            config.database.idle_timeout_seconds,
+        ))
+        .max_lifetime(std::time::Duration::from_secs(
+            config.database.max_lifetime_seconds,
+        ))
+        .connect(database_url)
+        .await?;
 
-    println!("Starting server...");
-    axum::serve(listener, app).await?;
+    info!("Database connection established");
 
+    // Initialize repositories
+    let customer_repo = Arc::new(db::repository::CustomerRepository::new(pool.clone()));
+    let warehouse_repo = Arc::new(db::repository::WarehouseRepository::new(pool.clone()));
+    let inventory_repo = Arc::new(db::repository::InventoryRepository::new(pool.clone()));
+    let order_repo = Arc::new(db::repository::OrderRepository::new(pool.clone()));
+    let order_item_repo = Arc::new(db::repository::OrderItemRepository::new(pool.clone()));
+    let payment_repo = Arc::new(db::repository::PaymentRepository::new(pool.clone()));
+    let shipping_repo = Arc::new(db::repository::ShippingRepository::new(pool.clone()));
+
+    // Initialize services
+    let customer_service = Arc::new(CustomerService::new(customer_repo.clone()));
+    let warehouse_service = Arc::new(WarehouseService::new(warehouse_repo.clone()));
+    let inventory_service = Arc::new(InventoryService::new(inventory_repo.clone()));
+    let order_service = Arc::new(OrderService::new(
+        order_repo.clone(),
+        order_item_repo.clone(),
+    ));
+    let payment_service = Arc::new(PaymentService::new(payment_repo.clone()));
+    let shipping_service = Arc::new(ShippingService::new(shipping_repo.clone()));
+
+    // Create shared application state
+    let app_state = api::AppState {
+        customer_service,
+        warehouse_service,
+        inventory_service,
+        order_service,
+        payment_service,
+        shipping_service,
+    };
+
+    // Setup API router
+    let app = api::create_router(Arc::new(app_state)).await;
+
+    // Start the server
+    let addr = SocketAddr::from(([0, 0, 0, 0], config.server.port));
+    info!("Listening on http://{}", addr);
+
+    let listener = tokio::net::TcpListener::bind(addr).await?;
+    axum::serve(listener, app)
+        .with_graceful_shutdown(shutdown_signal())
+        .await?;
+
+    info!("Server shutdown complete");
     Ok(())
+}
+
+async fn shutdown_signal() {
+    let ctrl_c = async {
+        signal::ctrl_c()
+            .await
+            .expect("Failed to install Ctrl+C handler");
+    };
+
+    #[cfg(unix)]
+    let terminate = async {
+        signal::unix::signal(signal::unix::SignalKind::terminate())
+            .expect("Failed to install signal handler")
+            .recv()
+            .await;
+    };
+
+    #[cfg(not(unix))]
+    let terminate = std::future::pending::<()>();
+
+    tokio::select! {
+        _ = ctrl_c => {
+            info!("Received Ctrl+C signal, starting graceful shutdown");
+        },
+        _ = terminate => {
+            info!("Received terminate signal, starting graceful shutdown");
+        },
+    }
 }
