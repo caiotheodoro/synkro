@@ -67,7 +67,7 @@ cargo run --bin migrate
 
 # Display running services
 print_header "Services running"
-echo "PostgreSQL: localhost:5432"
+echo "PostgreSQL: localhost:5433"
 echo "RabbitMQ: localhost:5672 (AMQP), localhost:15672 (Management UI)"
 echo "Jaeger UI: http://localhost:16686"
 
