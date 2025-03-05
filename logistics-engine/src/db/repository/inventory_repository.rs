@@ -1,0 +1,608 @@
+use chrono::{DateTime, Utc};
+use sqlx::{types::time::OffsetDateTime, Error, PgPool, Row};
+use uuid::Uuid;
+
+use crate::models::inventory::{
+    CreateInventoryItemDto, CreateReservationDto, InventoryItem, InventoryReservation,
+    ReservationStatus, UpdateInventoryItemDto, UpdateReservationDto,
+};
+
+pub struct InventoryRepository {
+    pool: PgPool,
+}
+
+impl InventoryRepository {
+    pub fn new(pool: PgPool) -> Self {
+        Self { pool }
+    }
+
+    // Helper function to convert OffsetDateTime to DateTime<Utc>
+    fn convert_datetime(offset_dt: OffsetDateTime) -> DateTime<Utc> {
+        DateTime::<Utc>::from_timestamp(offset_dt.unix_timestamp(), offset_dt.nanosecond() as u32)
+            .unwrap_or_else(|| Utc::now())
+    }
+
+    // Helper function to map PostgreSQL row to InventoryItem
+    fn map_row_to_inventory_item(row: sqlx::postgres::PgRow) -> Result<InventoryItem, Error> {
+        let id: Uuid = row.try_get("id")?;
+        let sku: String = row.try_get("sku")?;
+        let name: String = row.try_get("name")?;
+        let description: Option<String> = row.try_get("description")?;
+        let warehouse_id: Uuid = row.try_get("warehouse_id")?;
+        let quantity: i32 = row.try_get("quantity")?;
+        let created_at: OffsetDateTime = row.try_get("created_at")?;
+        let updated_at: OffsetDateTime = row.try_get("updated_at")?;
+
+        Ok(InventoryItem {
+            id,
+            sku,
+            name,
+            description,
+            warehouse_id,
+            quantity,
+            created_at: Self::convert_datetime(created_at),
+            updated_at: Self::convert_datetime(updated_at),
+        })
+    }
+
+    pub async fn find_all_items(
+        &self,
+        limit: i64,
+        offset: i64,
+    ) -> Result<Vec<InventoryItem>, Error> {
+        // Replace sqlx::query_as! with plain sqlx::query and custom mapper
+        let rows = sqlx::query(
+            r#"
+            SELECT
+                id,
+                sku,
+                name,
+                description,
+                warehouse_id,
+                quantity,
+                created_at,
+                updated_at
+            FROM inventory_items
+            ORDER BY created_at DESC
+            LIMIT $1 OFFSET $2
+            "#,
+        )
+        .bind(limit)
+        .bind(offset)
+        .map(Self::map_row_to_inventory_item)
+        .fetch_all(&self.pool)
+        .await?;
+
+        // Process results to handle nested Result
+        let mut items = Vec::new();
+        for row_result in rows {
+            items.push(row_result?);
+        }
+
+        Ok(items)
+    }
+
+    pub async fn find_item_by_id(&self, id: Uuid) -> Result<Option<InventoryItem>, Error> {
+        // Replace sqlx::query_as! with plain sqlx::query and custom mapper
+        let row_result = sqlx::query(
+            r#"
+            SELECT
+                id,
+                sku,
+                name,
+                description,
+                warehouse_id,
+                quantity,
+                created_at,
+                updated_at
+            FROM inventory_items
+            WHERE id = $1
+            "#,
+        )
+        .bind(id)
+        .map(Self::map_row_to_inventory_item)
+        .fetch_optional(&self.pool)
+        .await?;
+
+        // Process optional result to handle nested Result
+        match row_result {
+            Some(row_result) => Ok(Some(row_result?)),
+            None => Ok(None),
+        }
+    }
+
+    pub async fn find_items_by_sku(&self, sku: &str) -> Result<Vec<InventoryItem>, Error> {
+        // Replace sqlx::query_as! with plain sqlx::query and custom mapper
+        let row_results = sqlx::query(
+            r#"
+            SELECT * FROM inventory_items
+            WHERE sku = $1
+            ORDER BY created_at DESC
+            "#,
+        )
+        .bind(sku)
+        .map(Self::map_row_to_inventory_item)
+        .fetch_all(&self.pool)
+        .await?;
+
+        // Process results to handle nested Result
+        let mut items = Vec::new();
+        for row_result in row_results {
+            items.push(row_result?);
+        }
+
+        Ok(items)
+    }
+
+    pub async fn find_items_by_warehouse_id(
+        &self,
+        warehouse_id: Uuid,
+        limit: i64,
+        offset: i64,
+    ) -> Result<Vec<InventoryItem>, Error> {
+        // Replace sqlx::query_as! with plain sqlx::query and custom mapper
+        let row_results = sqlx::query(
+            r#"
+            SELECT * FROM inventory_items
+            WHERE warehouse_id = $1
+            ORDER BY created_at DESC
+            LIMIT $2 OFFSET $3
+            "#,
+        )
+        .bind(warehouse_id)
+        .bind(limit)
+        .bind(offset)
+        .map(Self::map_row_to_inventory_item)
+        .fetch_all(&self.pool)
+        .await?;
+
+        // Process results to handle nested Result
+        let mut items = Vec::new();
+        for row_result in row_results {
+            items.push(row_result?);
+        }
+
+        Ok(items)
+    }
+
+    pub async fn create_item(&self, dto: CreateInventoryItemDto) -> Result<InventoryItem, Error> {
+        // Replace sqlx::query_as! with plain sqlx::query and custom mapper
+        let row_result = sqlx::query(
+            r#"
+            INSERT INTO inventory_items
+            (sku, name, description, warehouse_id, quantity)
+            VALUES ($1, $2, $3, $4, $5)
+            RETURNING
+                id,
+                sku,
+                name,
+                description,
+                warehouse_id,
+                quantity,
+                created_at,
+                updated_at
+            "#,
+        )
+        .bind(&dto.sku)
+        .bind(&dto.name)
+        .bind(&dto.description)
+        .bind(&dto.warehouse_id)
+        .bind(&dto.quantity)
+        .map(Self::map_row_to_inventory_item)
+        .fetch_one(&self.pool)
+        .await?;
+
+        // Process result to handle nested Result
+        Ok(row_result?)
+    }
+
+    pub async fn update_item(
+        &self,
+        id: Uuid,
+        dto: UpdateInventoryItemDto,
+    ) -> Result<Option<InventoryItem>, Error> {
+        let current_item = self.find_item_by_id(id).await?;
+        if current_item.is_none() {
+            return Ok(None);
+        }
+
+        let current_item = current_item.unwrap();
+
+        // Replace sqlx::query_as! with plain sqlx::query and custom mapper
+        let row_result = sqlx::query(
+            r#"
+            UPDATE inventory_items
+            SET
+                sku = $1,
+                name = $2,
+                description = $3,
+                warehouse_id = $4,
+                quantity = $5,
+                updated_at = NOW()
+            WHERE id = $6
+            RETURNING
+                id,
+                sku,
+                name,
+                description,
+                warehouse_id,
+                quantity,
+                created_at,
+                updated_at
+            "#,
+        )
+        .bind(dto.sku.unwrap_or(current_item.sku))
+        .bind(dto.name.unwrap_or(current_item.name))
+        .bind(dto.description.or(current_item.description))
+        .bind(dto.warehouse_id.unwrap_or(current_item.warehouse_id))
+        .bind(dto.quantity.unwrap_or(current_item.quantity))
+        .bind(id)
+        .map(Self::map_row_to_inventory_item)
+        .fetch_optional(&self.pool)
+        .await?;
+
+        // Process optional result to handle nested Result
+        match row_result {
+            Some(row_result) => Ok(Some(row_result?)),
+            None => Ok(None),
+        }
+    }
+
+    pub async fn delete_item(&self, id: Uuid) -> Result<bool, Error> {
+        let result = sqlx::query!(
+            r#"
+            DELETE FROM inventory_items
+            WHERE id = $1
+            "#,
+            id
+        )
+        .execute(&self.pool)
+        .await?;
+
+        Ok(result.rows_affected() > 0)
+    }
+
+    pub async fn adjust_quantity(
+        &self,
+        id: Uuid,
+        quantity_delta: i32,
+    ) -> Result<Option<InventoryItem>, Error> {
+        // Replace sqlx::query_as! with plain sqlx::query and custom mapper
+        let row_result = sqlx::query(
+            r#"
+            UPDATE inventory_items
+            SET
+                quantity = quantity + $1,
+                updated_at = NOW()
+            WHERE id = $2
+            RETURNING *
+            "#,
+        )
+        .bind(quantity_delta)
+        .bind(id)
+        .map(Self::map_row_to_inventory_item)
+        .fetch_optional(&self.pool)
+        .await?;
+
+        // Process optional result to handle nested Result
+        match row_result {
+            Some(row_result) => Ok(Some(row_result?)),
+            None => Ok(None),
+        }
+    }
+
+    pub async fn count_items(&self) -> Result<i64, Error> {
+        let result = sqlx::query!(
+            r#"
+            SELECT COUNT(*) as count FROM inventory_items
+            "#
+        )
+        .fetch_one(&self.pool)
+        .await?;
+
+        Ok(result.count.unwrap_or(0))
+    }
+
+    // Generic method to map from database row to InventoryReservation
+    fn map_row_to_inventory_reservation(
+        row: &sqlx::postgres::PgRow,
+    ) -> Result<InventoryReservation, Error> {
+        let id: Uuid = row.try_get("id")?;
+        let order_id: Uuid = row.try_get("order_id")?;
+        let status: String = row.try_get("status")?;
+        let created_at: OffsetDateTime = row.try_get("created_at")?;
+        let updated_at: OffsetDateTime = row.try_get("updated_at")?;
+
+        // Convert OffsetDateTime to chrono::DateTime<Utc>
+        let created_at_chrono = DateTime::<Utc>::from_timestamp(
+            created_at.unix_timestamp(),
+            created_at.nanosecond() as u32,
+        )
+        .unwrap_or_else(|| Utc::now());
+
+        let updated_at_chrono = DateTime::<Utc>::from_timestamp(
+            updated_at.unix_timestamp(),
+            updated_at.nanosecond() as u32,
+        )
+        .unwrap_or_else(|| Utc::now());
+
+        Ok(InventoryReservation {
+            id,
+            order_id,
+            product_id: String::from(""), // Default value
+            sku: String::from(""),        // Default value
+            quantity: 0,                  // Default value
+            status,
+            expires_at: None,
+            created_at: created_at_chrono,
+            updated_at: updated_at_chrono,
+        })
+    }
+
+    pub async fn find_all_reservations(
+        &self,
+        limit: i64,
+        offset: i64,
+    ) -> Result<Vec<InventoryReservation>, Error> {
+        let query = "
+            SELECT id, order_id, status, created_at, updated_at 
+            FROM inventory_reservations
+            ORDER BY created_at DESC
+            LIMIT $1 OFFSET $2
+        ";
+
+        let rows = sqlx::query(query)
+            .bind(limit)
+            .bind(offset)
+            .fetch_all(&self.pool)
+            .await?;
+
+        let mut reservations = Vec::with_capacity(rows.len());
+        for row in rows {
+            reservations.push(Self::map_row_to_inventory_reservation(&row)?);
+        }
+
+        Ok(reservations)
+    }
+
+    pub async fn find_reservation_by_id(
+        &self,
+        id: Uuid,
+    ) -> Result<Option<InventoryReservation>, Error> {
+        let query = "
+            SELECT id, order_id, status, created_at, updated_at 
+            FROM inventory_reservations
+            WHERE id = $1
+        ";
+
+        let row = sqlx::query(query)
+            .bind(id)
+            .fetch_optional(&self.pool)
+            .await?;
+
+        match row {
+            Some(row) => Ok(Some(Self::map_row_to_inventory_reservation(&row)?)),
+            None => Ok(None),
+        }
+    }
+
+    pub async fn find_reservations_by_order_id(
+        &self,
+        order_id: Uuid,
+    ) -> Result<Vec<InventoryReservation>, Error> {
+        let query = "
+            SELECT id, order_id, status, created_at, updated_at 
+            FROM inventory_reservations
+            WHERE order_id = $1
+            ORDER BY created_at DESC
+        ";
+
+        let rows = sqlx::query(query)
+            .bind(order_id)
+            .fetch_all(&self.pool)
+            .await?;
+
+        let mut reservations = Vec::with_capacity(rows.len());
+        for row in rows {
+            reservations.push(Self::map_row_to_inventory_reservation(&row)?);
+        }
+
+        Ok(reservations)
+    }
+
+    pub async fn find_reservations_by_status(
+        &self,
+        status: ReservationStatus,
+        limit: i64,
+        offset: i64,
+    ) -> Result<Vec<InventoryReservation>, Error> {
+        let status_str = status.to_string();
+        let query = "
+            SELECT id, order_id, status, created_at, updated_at 
+            FROM inventory_reservations
+            WHERE status = $1
+            ORDER BY created_at DESC
+            LIMIT $2 OFFSET $3
+        ";
+
+        let rows = sqlx::query(query)
+            .bind(status_str)
+            .bind(limit)
+            .bind(offset)
+            .fetch_all(&self.pool)
+            .await?;
+
+        let mut reservations = Vec::with_capacity(rows.len());
+        for row in rows {
+            reservations.push(Self::map_row_to_inventory_reservation(&row)?);
+        }
+
+        Ok(reservations)
+    }
+
+    pub async fn create_reservation(
+        &self,
+        dto: CreateReservationDto,
+    ) -> Result<InventoryReservation, Error> {
+        let status = ReservationStatus::default();
+        let status_str = status.to_string();
+
+        let query = "
+            INSERT INTO inventory_reservations
+            (order_id, status, created_at, updated_at)
+            VALUES ($1, $2, NOW(), NOW())
+            RETURNING id, order_id, status, created_at, updated_at
+        ";
+
+        let row = sqlx::query(query)
+            .bind(dto.order_id)
+            .bind(status_str)
+            .fetch_one(&self.pool)
+            .await?;
+
+        let mut reservation = Self::map_row_to_inventory_reservation(&row)?;
+
+        // Populate with DTO data
+        reservation.product_id = dto.product_id;
+        reservation.sku = dto.sku;
+        reservation.quantity = dto.quantity;
+        reservation.expires_at = dto.expires_at;
+
+        Ok(reservation)
+    }
+
+    pub async fn update_reservation_status(
+        &self,
+        id: Uuid,
+        status: ReservationStatus,
+    ) -> Result<Option<InventoryReservation>, Error> {
+        let status_str = status.to_string();
+
+        // First fetch the existing reservation
+        let existing = self.find_reservation_by_id(id).await?;
+        if existing.is_none() {
+            return Ok(None);
+        }
+
+        let query = "
+            UPDATE inventory_reservations
+            SET
+                status = $1,
+                updated_at = NOW()
+            WHERE id = $2
+            RETURNING id, order_id, status, created_at, updated_at
+        ";
+
+        let row = sqlx::query(query)
+            .bind(status_str)
+            .bind(id)
+            .fetch_optional(&self.pool)
+            .await?;
+
+        match row {
+            Some(row) => {
+                let mut updated = Self::map_row_to_inventory_reservation(&row)?;
+                let existing = existing.unwrap();
+
+                // Preserve fields not in the database
+                updated.product_id = existing.product_id;
+                updated.sku = existing.sku;
+                updated.quantity = existing.quantity;
+                updated.expires_at = existing.expires_at;
+
+                Ok(Some(updated))
+            }
+            None => Ok(None),
+        }
+    }
+
+    pub async fn update_reservation(
+        &self,
+        id: Uuid,
+        dto: UpdateReservationDto,
+    ) -> Result<Option<InventoryReservation>, Error> {
+        // First fetch the existing reservation
+        let existing = self.find_reservation_by_id(id).await?;
+        if existing.is_none() {
+            return Ok(None);
+        }
+
+        let existing = existing.unwrap();
+        let status_str = dto
+            .status
+            .map(|s| s.to_string())
+            .unwrap_or(existing.status.clone());
+
+        let query = "
+            UPDATE inventory_reservations
+            SET
+                status = $1,
+                updated_at = NOW()
+            WHERE id = $2
+            RETURNING id, order_id, status, created_at, updated_at
+        ";
+
+        let row = sqlx::query(query)
+            .bind(status_str)
+            .bind(id)
+            .fetch_optional(&self.pool)
+            .await?;
+
+        match row {
+            Some(row) => {
+                let mut updated = Self::map_row_to_inventory_reservation(&row)?;
+
+                // Update with DTO and preserve values
+                updated.product_id = existing.product_id;
+                updated.sku = existing.sku;
+                updated.quantity = dto.quantity.unwrap_or(existing.quantity);
+                updated.expires_at = dto.expires_at.or(existing.expires_at);
+
+                Ok(Some(updated))
+            }
+            None => Ok(None),
+        }
+    }
+
+    pub async fn delete_reservation(&self, id: Uuid) -> Result<bool, Error> {
+        let query = "
+            DELETE FROM inventory_reservations
+            WHERE id = $1
+        ";
+
+        let result = sqlx::query(query).bind(id).execute(&self.pool).await?;
+
+        Ok(result.rows_affected() > 0)
+    }
+
+    pub async fn count_reservations(&self) -> Result<i64, Error> {
+        let query = "
+            SELECT COUNT(*) as count FROM inventory_reservations
+        ";
+
+        let row = sqlx::query(query).fetch_one(&self.pool).await?;
+
+        let count: i64 = row.try_get("count")?;
+        Ok(count)
+    }
+
+    pub async fn count_reservations_by_status(
+        &self,
+        status: ReservationStatus,
+    ) -> Result<i64, Error> {
+        let status_str = status.to_string();
+
+        let query = "
+            SELECT COUNT(*) as count FROM inventory_reservations
+            WHERE status = $1
+        ";
+
+        let row = sqlx::query(query)
+            .bind(status_str)
+            .fetch_one(&self.pool)
+            .await?;
+
+        let count: i64 = row.try_get("count")?;
+        Ok(count)
+    }
+}

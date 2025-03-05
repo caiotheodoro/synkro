@@ -6,17 +6,19 @@ use sqlx::Executor;
 
 pub type DbPool = PgPool;
 
+pub mod repository;
+
 pub async fn create_pool() -> Result<PgPool, sqlx::Error> {
     let database_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
-    let max_connections = env::var("DATABASE_MAX_CONNECTIONS")
-        .unwrap_or_else(|_| "5".to_string())
+    let max_connections = env::var("DB_MAX_CONNECTIONS")
+        .unwrap_or_else(|_| "10".to_string())
         .parse::<u32>()
-        .unwrap_or(5);
+        .unwrap_or(10);
 
-    let timeout_seconds = env::var("DATABASE_TIMEOUT_SECONDS")
-        .unwrap_or_else(|_| "5".to_string())
+    let timeout_seconds = env::var("DB_TIMEOUT_SECONDS")
+        .unwrap_or_else(|_| "30".to_string())
         .parse::<u64>()
-        .unwrap_or(5);
+        .unwrap_or(30);
 
     tracing::info!("Creating database connection pool");
 
@@ -31,19 +33,10 @@ pub async fn create_pool() -> Result<PgPool, sqlx::Error> {
     Ok(pool)
 }
 
-pub async fn run_migrations(pool: &PgPool) -> Result<(), sqlx::Error> {
+pub async fn run_migrations(pool: &PgPool) -> Result<(), sqlx::migrate::MigrateError> {
     tracing::info!("Running database migrations");
 
-    match sqlx::migrate!("./migrations").run(pool).await {
-        Ok(_) => {
-            tracing::info!("Database migrations completed successfully");
-            Ok(())
-        }
-        Err(e) => {
-            tracing::error!("Failed to run database migrations: {}", e);
-            Err(e)
-        }
-    }
+    sqlx::migrate!().run(pool).await
 }
 
 pub async fn check_database_connection(pool: &PgPool) -> bool {
