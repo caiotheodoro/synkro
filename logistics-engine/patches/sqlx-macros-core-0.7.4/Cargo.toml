@@ -1,0 +1,45 @@
+[package]
+name = "sqlx-macros-core"
+version = "0.7.4"
+edition = "2021"
+publish = false
+authors = ["Ryan Leckey <leckey.ryan@gmail.com>", "Austin Bonander <austin.bonander@gmail.com>", "Remi Bernotavicius"]
+description = "Macros for SQLx, the rust SQL toolkit. Not intended to be used directly."
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/launchbadge/sqlx"
+readme = "../README.md"
+
+[package.metadata.docs.rs]
+features = ["all-types"]
+
+[dependencies]
+bitflags = "2.4.1"
+proc-macro2 = "1.0.66"
+quote = "1.0.28"
+syn = { version = "2.0.23", features = ["full"] }
+thiserror = "1.0.44"
+url = { version = "2.4.0", default-features = false }
+sqlx-core = { version = "0.7.4", default-features = false }
+
+[features]
+_rt-async-std = ["sqlx-core/_rt-async-std"]
+_rt-tokio = ["sqlx-core/_rt-tokio"]
+
+# database
+mysql = ["sqlx-core/mysql"]
+postgres = ["sqlx-core/postgres"]
+sqlite = ["sqlx-core/sqlite"]
+
+# type
+all-types = ["bigdecimal", "rust_decimal", "time", "chrono", "ipnetwork", "mac_address", "json", "uuid", "bit", "bstr"]
+
+json = ["sqlx-core/json"]
+chrono = ["sqlx-core/chrono"]
+time = ["sqlx-core/time"]
+bigdecimal = ["sqlx-core/bigdecimal"]
+rust_decimal = ["sqlx-core/rust_decimal"]
+ipnetwork = ["sqlx-core/ipnetwork"]
+mac_address = ["sqlx-core/mac_address"]
+uuid = ["sqlx-core/uuid"]
+bit = ["sqlx-core/bit"]
+bstr = ["sqlx-core/bstr"]
