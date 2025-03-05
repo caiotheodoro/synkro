@@ -1,0 +1,4 @@
+# Remove the patch configuration as we're trying a different approach 
+
+[env]
+RUSTFLAGS = "--cfg=procmacro2_semver_exempt" 

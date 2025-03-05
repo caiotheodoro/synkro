@@ -18,6 +18,15 @@ CREATE TYPE payment_status AS ENUM (
     'refunded'
 );
 
+CREATE TYPE shipping_status AS ENUM (
+    'pending',
+    'processing',
+    'shipped',
+    'delivered',
+    'cancelled',
+    'returned'
+);
+
 -- Customers table
 CREATE TABLE IF NOT EXISTS customers (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -28,9 +37,22 @@ CREATE TABLE IF NOT EXISTS customers (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- Orders table
-CREATE TABLE IF NOT EXISTS orders (
+-- Create warehouses table
+CREATE TABLE IF NOT EXISTS warehouses (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    code VARCHAR(100) NOT NULL UNIQUE,
+    name VARCHAR(255) NOT NULL,
+    address_line1 VARCHAR(255) NOT NULL,
+    address_line2 VARCHAR(255),
+    city VARCHAR(100) NOT NULL,
+    state VARCHAR(100) NOT NULL,
+    postal_code VARCHAR(20) NOT NULL,
+    country VARCHAR(100) NOT NULL,
+    contact_name VARCHAR(255),
+    contact_phone VARCHAR(50),
+    contact_email VARCHAR(255),
+    active BOOLEAN NOT NULL DEFAULT true,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     customer_id UUID NOT NULL REFERENCES customers(id),
     status order_status NOT NULL DEFAULT 'pending',
     total_amount DECIMAL(10, 2) NOT NULL,
@@ -108,6 +130,25 @@ CREATE TABLE IF NOT EXISTS inventory_reservations (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+-- Create inventory_items table
+CREATE TABLE IF NOT EXISTS inventory_items (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    sku VARCHAR(100) NOT NULL,
+    name VARCHAR(255) NOT NULL,
+    description TEXT,
+    warehouse_id UUID NOT NULL REFERENCES warehouses(id),
+    quantity INTEGER NOT NULL DEFAULT 0,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_inventory_items_sku ON inventory_items(sku);
+CREATE INDEX idx_inventory_items_warehouse_id ON inventory_items(warehouse_id);
+
+CREATE TRIGGER update_inventory_items_updated_at
+BEFORE UPDATE ON inventory_items
+FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 -- Create indexes for performance
 CREATE INDEX idx_orders_customer_id ON orders(customer_id);
