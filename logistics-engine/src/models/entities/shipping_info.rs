@@ -3,6 +3,8 @@ use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
 use uuid::Uuid;
 
+use crate::models::shipping::ShippingStatus;
+
 #[derive(Debug, Serialize, Deserialize, FromRow, Clone)]
 pub struct ShippingInfo {
     pub id: Uuid,
@@ -17,6 +19,9 @@ pub struct ShippingInfo {
     pub recipient_phone: Option<String>,
     pub shipping_method: String,
     pub shipping_cost: rust_decimal::Decimal,
+    pub tracking_number: Option<String>,
+    pub carrier: Option<String>,
+    pub status_str: String, // This will be a string representation in the DB
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
@@ -49,9 +54,21 @@ impl ShippingInfo {
             recipient_phone,
             shipping_method,
             shipping_cost,
+            tracking_number: None,
+            carrier: None,
+            status_str: ShippingStatus::Pending.as_str().to_string(),
             created_at: now,
             updated_at: now,
         }
+    }
+
+    pub fn status(&self) -> ShippingStatus {
+        ShippingStatus::from_str(&self.status_str).unwrap_or_default()
+    }
+
+    pub fn set_status(&mut self, status: ShippingStatus) {
+        self.status_str = status.as_str().to_string();
+        self.updated_at = Utc::now();
     }
 
     pub fn formatted_address(&self) -> String {
@@ -70,5 +87,15 @@ impl ShippingInfo {
         self.shipping_method = method;
         self.shipping_cost = cost;
         self.updated_at = Utc::now();
+    }
+
+    pub fn add_tracking_info(&mut self, tracking_number: String, carrier: String) {
+        self.tracking_number = Some(tracking_number);
+        self.carrier = Some(carrier);
+        self.set_status(ShippingStatus::Shipped);
+    }
+
+    pub fn mark_as_delivered(&mut self) {
+        self.set_status(ShippingStatus::Delivered);
     }
 }
