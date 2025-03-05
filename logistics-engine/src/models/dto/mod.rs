@@ -1,8 +1,8 @@
-mod customer;
-mod order;
-mod order_item;
-mod payment;
-mod shipping;
+pub mod customer;
+pub mod order;
+pub mod order_item;
+pub mod payment;
+pub mod shipping;
 
 pub use customer::*;
 pub use order::*;

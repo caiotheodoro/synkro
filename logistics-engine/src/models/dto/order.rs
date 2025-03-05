@@ -7,20 +7,19 @@ use super::{
     CreateOrderItemDto, CreatePaymentInfoDto, CreateShippingInfoDto, OrderItemDto, PaymentInfoDto,
     ShippingInfoDto,
 };
-use crate::models::entities::OrderStatus;
 
-#[derive(Debug, Serialize, Deserialize, Validate)]
+#[derive(Debug, Serialize, Deserialize, Validate, Clone)]
 pub struct CreateOrderDto {
     #[validate(length(equal = 36, message = "Customer ID must be a valid UUID"))]
     pub customer_id: String,
 
-    #[validate]
+    #[validate(length(min = 1, message = "Items are required"))]
     pub items: Vec<CreateOrderItemDto>,
 
-    #[validate]
+    #[validate(nested)]
     pub shipping_info: CreateShippingInfoDto,
 
-    #[validate]
+    #[validate(nested)]
     pub payment_info: CreatePaymentInfoDto,
 
     pub notes: Option<String>,

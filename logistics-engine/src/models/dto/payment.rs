@@ -3,10 +3,12 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 use validator::Validate;
 
-use crate::models::entities::{PaymentInfo, PaymentStatus};
+use crate::models::payment::{PaymentInfo, PaymentStatus};
 
 #[derive(Debug, Serialize, Deserialize, Validate, Clone)]
 pub struct CreatePaymentInfoDto {
+    pub order_id: Uuid,
+
     #[validate(length(
         min = 1,
         max = 100,
@@ -36,7 +38,7 @@ pub struct UpdatePaymentInfoDto {
     pub amount: Option<f64>,
 
     pub currency: Option<String>,
-    pub status: Option<String>,
+    pub status: Option<PaymentStatus>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -56,15 +58,18 @@ pub struct PaymentInfoDto {
 
 impl From<PaymentInfo> for PaymentInfoDto {
     fn from(info: PaymentInfo) -> Self {
+        let currency = info.currency.clone();
+        let transaction_id = info.transaction_id.clone();
+
         Self {
             id: info.id,
             order_id: info.order_id,
-            payment_method: info.payment_method,
-            transaction_id: info.transaction_id,
+            payment_method: info.payment_method.clone(),
+            transaction_id,
             amount: info.amount.to_string(),
-            currency: info.currency,
+            currency,
             status: info.status.to_string(),
-            is_paid: info.is_paid(),
+            is_paid: matches!(info.status, PaymentStatus::Succeeded),
             payment_date: info.payment_date,
             created_at: info.created_at,
             updated_at: info.updated_at,
