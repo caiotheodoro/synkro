@@ -32,19 +32,6 @@ pub async fn get_shipment(
     Ok((StatusCode::OK, success(shipment)))
 }
 
-pub async fn get_shipment_by_order(
-    Path(order_id): Path<String>,
-    State(state): State<SharedState>,
-) -> Result<impl IntoResponse, LogisticsError> {
-    let order_id = parse_uuid(&order_id)?;
-    let shipment = state
-        .shipping_service
-        .get_shipment_by_order(&order_id)
-        .await?;
-
-    Ok((StatusCode::OK, success(shipment)))
-}
-
 pub async fn get_shipment_by_tracking(
     Path(tracking_number): Path<String>,
     State(state): State<SharedState>,

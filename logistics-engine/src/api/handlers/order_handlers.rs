@@ -1,79 +1,67 @@
 use axum::{
     extract::{Path, Query, State},
+    http::StatusCode,
+    response::{IntoResponse, Response},
     Json,
 };
 
-use crate::api::utils::{parse_uuid, PaginationParams, SuccessResponse};
-use crate::models::entities::order::{Order, OrderStatus};
+use crate::api::utils::{parse_uuid, success, PaginationParams};
+use crate::models::entities::order::OrderStatus;
 use crate::models::order_item::OrderItem;
 use crate::models::{
     dto::order::{CreateOrderDto, UpdateOrderDto},
     order_item::UpdateOrderItemDto,
 };
 use crate::{api::SharedState, errors::LogisticsError};
-use rust_decimal::Decimal;
 use sqlx::types::BigDecimal;
-use std::str::FromStr;
 
 pub async fn list_orders(
     pagination: Query<PaginationParams>,
     State(state): State<SharedState>,
-) -> Result<Json<SuccessResponse<Vec<Order>>>, LogisticsError> {
+) -> Result<Response, LogisticsError> {
     let orders = state
         .order_service
         .get_all_orders(pagination.page, pagination.limit)
         .await?;
 
-    Ok(Json(SuccessResponse {
-        success: true,
-        data: orders,
-    }))
+    Ok((StatusCode::OK, success(orders)).into_response())
 }
 
 pub async fn get_order(
     Path(id): Path<String>,
     State(state): State<SharedState>,
-) -> Result<Json<SuccessResponse<Order>>, LogisticsError> {
+) -> Result<Response, LogisticsError> {
     let id = parse_uuid(&id)?;
     let order = state.order_service.get_order_by_id(id).await?;
 
-    Ok(Json(SuccessResponse {
-        success: true,
-        data: order,
-    }))
+    Ok((StatusCode::OK, success(order)).into_response())
 }
 
 pub async fn create_order(
     State(state): State<SharedState>,
     Json(payload): Json<CreateOrderDto>,
-) -> Result<Json<SuccessResponse<Order>>, LogisticsError> {
+) -> Result<Response, LogisticsError> {
     let order = state.order_service.create_order(payload).await?;
 
-    Ok(Json(SuccessResponse {
-        success: true,
-        data: order,
-    }))
+    Ok((StatusCode::CREATED, success(order)).into_response())
 }
 
 pub async fn update_order(
     Path(id): Path<String>,
     State(state): State<SharedState>,
     Json(payload): Json<UpdateOrderDto>,
-) -> Result<Json<SuccessResponse<Order>>, LogisticsError> {
+) -> Result<Response, LogisticsError> {
     let id = parse_uuid(&id)?;
     let order = state.order_service.update_order(id, payload).await?;
 
-    Ok(Json(SuccessResponse {
-        success: true,
-        data: order,
-    }))
+    Ok((StatusCode::OK, success(order)).into_response())
 }
 
 pub async fn update_order_status(
     Path(id): Path<String>,
     State(state): State<SharedState>,
     Json(payload): Json<serde_json::Value>,
-) -> Result<Json<SuccessResponse<Order>>, LogisticsError> {
+) -> Result<Response, LogisticsError> {
     let id = parse_uuid(&id)?;
 
     let status_str = payload
@@ -100,21 +88,18 @@ pub async fn update_order_status(
 
     let order = state.order_service.update_order_status(id, status).await?;
 
-    Ok(Json(SuccessResponse {
-        success: true,
-        data: order,
-    }))
+    Ok((StatusCode::OK, success(order)).into_response())
 }
 
 pub async fn get_order_items(
     Path(id): Path<String>,
     State(state): State<SharedState>,
-) -> Result<Json<SuccessResponse<Vec<OrderItem>>>, LogisticsError> {
+) -> Result<Response, LogisticsError> {
     let uuid = parse_uuid(&id)?;
 
     let entity_items = state.order_service.get_order_items(uuid).await?;
 
-    let items = entity_items
+    let items: Vec<OrderItem> = entity_items
         .into_iter()
         .map(|item| OrderItem {
             id: item.id,
@@ -130,17 +115,15 @@ pub async fn get_order_items(
         })
         .collect();
 
-    Ok(Json(SuccessResponse {
-        success: true,
-        data: items,
-    }))
+    Ok((StatusCode::OK, success(items)).into_response())
 }
 
 pub async fn update_order_item(
     Path((id, item_id)): Path<(String, String)>,
     State(state): State<SharedState>,
     Json(payload): Json<UpdateOrderItemDto>,
-) -> Result<Json<SuccessResponse<OrderItem>>, LogisticsError> {
+) -> Result<Response, LogisticsError> {
+    let _id = parse_uuid(&id)?;
     let item_id = parse_uuid(&item_id)?;
 
     let order_item = state
@@ -148,13 +131,17 @@ pub async fn update_order_item(
         .update_order_item(item_id, payload.quantity.unwrap())
         .await?;
 
-    Ok(Json(SuccessResponse {
-        success: true,
-        data: order_item,
-    }))
+    Ok((StatusCode::OK, success(order_item)).into_response())
 }
 
-// Helper function to convert BigDecimal to Decimal
-fn to_decimal(bd: BigDecimal) -> Decimal {
-    Decimal::from_str(&bd.to_string()).unwrap_or_default()
+pub async fn delete_order_item(
+    Path((id, item_id)): Path<(String, String)>,
+    State(state): State<SharedState>,
+) -> Result<Response, LogisticsError> {
+    let _id = parse_uuid(&id)?;
+    let item_id = parse_uuid(&item_id)?;
+
+    let result = state.order_service.delete_order_item(item_id).await?;
+
+    Ok((StatusCode::OK, success(result)).into_response())
 }

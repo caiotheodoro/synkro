@@ -8,7 +8,10 @@ use axum::{
 use crate::api::utils::{parse_uuid, success, PaginationParams};
 use crate::api::SharedState;
 use crate::errors::LogisticsError;
-use crate::models::inventory::{CreateInventoryItemDto, UpdateInventoryItemDto};
+use crate::models::inventory::{
+    CreateInventoryItemDto, CreateReservationDto, ReservationStatus, UpdateInventoryItemDto,
+    UpdateReservationDto,
+};
 
 pub async fn list_inventory_items(
     pagination: Query<PaginationParams>,
@@ -88,4 +91,83 @@ pub async fn adjust_quantity(
         .await?;
 
     Ok((StatusCode::OK, success(item)))
+}
+
+pub async fn list_reservations(
+    pagination: Query<PaginationParams>,
+    State(state): State<SharedState>,
+) -> Result<impl IntoResponse, LogisticsError> {
+    let reservations = state
+        .inventory_service
+        .get_all_reservations(pagination.page, pagination.limit)
+        .await?;
+
+    Ok((StatusCode::OK, success(reservations)))
+}
+
+pub async fn get_reservation(
+    Path(id): Path<String>,
+    State(state): State<SharedState>,
+) -> Result<impl IntoResponse, LogisticsError> {
+    let id = parse_uuid(&id)?;
+    let reservation = state.inventory_service.get_reservation_by_id(id).await?;
+
+    Ok((StatusCode::OK, success(reservation)))
+}
+
+pub async fn create_reservation(
+    State(state): State<SharedState>,
+    Json(payload): Json<CreateReservationDto>,
+) -> Result<impl IntoResponse, LogisticsError> {
+    let reservation = state.inventory_service.create_reservation(payload).await?;
+
+    Ok((StatusCode::CREATED, success(reservation)))
+}
+
+pub async fn update_reservation(
+    Path(id): Path<String>,
+    State(state): State<SharedState>,
+    Json(payload): Json<UpdateReservationDto>,
+) -> Result<impl IntoResponse, LogisticsError> {
+    let id = parse_uuid(&id)?;
+    let reservation = state
+        .inventory_service
+        .update_reservation(id, payload)
+        .await?;
+
+    Ok((StatusCode::OK, success(reservation)))
+}
+
+pub async fn delete_reservation(
+    Path(id): Path<String>,
+    State(state): State<SharedState>,
+) -> Result<impl IntoResponse, LogisticsError> {
+    let id = parse_uuid(&id)?;
+    let result = state.inventory_service.delete_reservation(id).await?;
+
+    Ok((
+        StatusCode::OK,
+        success(serde_json::json!({ "deleted": result })),
+    ))
+}
+
+pub async fn update_reservation_status(
+    Path(id): Path<String>,
+    State(state): State<SharedState>,
+    Json(payload): Json<serde_json::Value>,
+) -> Result<impl IntoResponse, LogisticsError> {
+    let id = parse_uuid(&id)?;
+
+    let status_value = payload
+        .get("status")
+        .and_then(|s| s.as_str())
+        .ok_or_else(|| LogisticsError::ValidationError("Status is required".to_string()))?;
+
+    let status = ReservationStatus::from(status_value.to_string());
+    let reservation = state
+        .inventory_service
+        .update_reservation_status(id, status)
+        .await?;
+
+    Ok((StatusCode::OK, success(reservation)))
 }
