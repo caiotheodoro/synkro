@@ -1,5 +1,4 @@
 use axum::{
-    extract::rejection::JsonRejection,
     http::StatusCode,
     response::{IntoResponse, Response},
     Json,
@@ -45,20 +44,6 @@ pub fn parse_uuid(id: &str) -> Result<Uuid, LogisticsError> {
         .map_err(|_| LogisticsError::ValidationError(format!("Invalid UUID format: {}", id)))
 }
 
-pub fn handle_json_extraction_error(error: JsonRejection) -> (StatusCode, Json<ApiError>) {
-    let status = StatusCode::BAD_REQUEST;
-    let message = format!("JSON extraction error: {}", error);
-
-    (
-        status,
-        Json(ApiError {
-            status: status.as_u16(),
-            message,
-        }),
-    )
-}
-
-// Pagination params for list endpoints
 #[derive(Debug, Deserialize)]
 pub struct PaginationParams {
     #[serde(default = "default_page")]
@@ -93,9 +78,4 @@ pub fn success<T: Serialize>(data: T) -> Json<SuccessResponse<T>> {
         success: true,
         data,
     })
-}
-
-// Convert page (1-based) to offset (0-based)
-pub fn page_to_offset(page: u32, limit: u32) -> u32 {
-    (page.saturating_sub(1)) * limit
 }

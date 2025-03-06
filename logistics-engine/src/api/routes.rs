@@ -1,4 +1,5 @@
 use axum::{
+    extract::Path,
     extract::Request,
     routing::{delete, get, post, put},
     Router,
@@ -43,44 +44,57 @@ pub fn create_router(state: SharedState) -> Router {
         .route(
             "/items/{id}/adjust",
             put(inventory_handlers::adjust_quantity),
+        )
+        .route("/reservations", get(inventory_handlers::list_reservations))
+        .route(
+            "/reservations",
+            post(inventory_handlers::create_reservation),
+        )
+        .route(
+            "/reservations/{id}",
+            get(inventory_handlers::get_reservation),
+        )
+        .route(
+            "/reservations/{id}",
+            put(inventory_handlers::update_reservation),
+        )
+        .route(
+            "/reservations/{id}",
+            delete(inventory_handlers::delete_reservation),
+        )
+        .route(
+            "/reservations/{id}/status",
+            put(inventory_handlers::update_reservation_status),
         );
-    /* .route("/reservations", get(inventory_handlers::list_reservations))
-    .route(
-        "/reservations",
-        post(inventory_handlers::create_reservation),
-    )
-    .route(
-        "/reservations/:id",
-        get(inventory_handlers::get_reservation),
-    )
-    .route(
-        "/reservations/:id",
-        put(inventory_handlers::update_reservation),
-    )
-    .route(
-        "/reservations/:id",
-        delete(inventory_handlers::delete_reservation),
-    )
-    .route(
-        "/reservations/:id/status",
-        put(inventory_handlers::update_reservation_status),
-    );*/
 
     let order_routes = Router::new()
         .route("/", get(order_handlers::list_orders))
         .route("/", post(order_handlers::create_order))
         .route("/{id}", get(order_handlers::get_order))
         .route("/{id}", put(order_handlers::update_order))
-        .route("/{id}/status", put(order_handlers::update_order_status));
-    /*  .route("/:id/items", get(order_handlers::get_order_items))
-    .route(
-        "/:id/items/:item_id",
-        put(order_handlers::update_order_item),
-    )
-    .route(
-        "/:id/items/:item_id",
-        delete(order_handlers::delete_order_item),
-    );*/
+        .route("/{id}/status", put(order_handlers::update_order_status))
+        .route(
+            "/{id}/items",
+            get(|path, state| order_handlers::get_order_items(path, state)),
+        )
+        .route(
+            "/{order_id}/items/{item_id}",
+            put(
+                |Path((order_id, item_id)): Path<(String, String)>, state, payload| async move {
+                    let path = Path((order_id, item_id));
+                    order_handlers::update_order_item(path, state, payload).await
+                },
+            ),
+        )
+        .route(
+            "/{order_id}/items/{item_id}",
+            delete(
+                |Path((order_id, item_id)): Path<(String, String)>, state| async move {
+                    let path = Path((order_id, item_id));
+                    order_handlers::delete_order_item(path, state).await
+                },
+            ),
+        );
 
     let payment_routes = Router::new()
         .route("/", get(payment_handlers::list_payments))

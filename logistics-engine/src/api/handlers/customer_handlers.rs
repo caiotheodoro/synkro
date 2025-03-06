@@ -22,6 +22,12 @@ pub async fn list_customers(
         .get_all_customers(pagination.page, pagination.limit)
         .await?;
 
+    println!(
+        "pagination params: page={}, limit={}",
+        pagination.page, pagination.limit
+    );
+    println!("customers: {:?}", customers);
+
     Ok(success(customers))
 }
 
