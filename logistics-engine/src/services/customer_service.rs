@@ -19,7 +19,7 @@ impl CustomerService {
 
     pub async fn get_all_customers(&self, page: u32, limit: u32) -> Result<Vec<Customer>> {
         let limit = limit as i64;
-        let offset = (page as i64) * limit;
+        let offset = ((page - 1) as i64) * limit;
 
         self.repository
             .find_all(limit, offset)
@@ -36,17 +36,7 @@ impl CustomerService {
         }
     }
 
-    pub async fn get_customer_by_email(&self, email: &str) -> Result<Customer> {
-        let customer = self.repository.find_by_email(email).await?;
-
-        match customer {
-            Some(customer) => Ok(customer),
-            None => Err(LogisticsError::NotFound("Customer", email.to_string())),
-        }
-    }
-
     pub async fn create_customer(&self, dto: CreateCustomerDto) -> Result<Customer> {
-        // Check if a customer with this email already exists
         let existing = self.repository.find_by_email(&dto.email).await?;
         if existing.is_some() {
             return Err(LogisticsError::ValidationError(format!(
@@ -55,7 +45,6 @@ impl CustomerService {
             )));
         }
 
-        // Create new customer
         self.repository
             .create(dto)
             .await
@@ -63,7 +52,6 @@ impl CustomerService {
     }
 
     pub async fn update_customer(&self, id: Uuid, dto: UpdateCustomerDto) -> Result<Customer> {
-        // Validate email uniqueness if it's being changed
         if let Some(ref email) = dto.email {
             let existing = self.repository.find_by_email(email).await?;
             if let Some(existing) = existing {
@@ -95,9 +83,5 @@ impl CustomerService {
             .delete(id)
             .await
             .map_err(LogisticsError::from)
-    }
-
-    pub async fn count_customers(&self) -> Result<i64> {
-        self.repository.count().await.map_err(LogisticsError::from)
     }
 }

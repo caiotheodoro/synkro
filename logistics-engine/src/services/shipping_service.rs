@@ -13,7 +13,6 @@ use crate::{
     },
 };
 
-// Helper function to convert from repository ShippingInfo to ShippingDto
 fn convert_to_dto(shipping: ShippingInfo) -> ShippingDto {
     ShippingDto {
         id: shipping.id,
@@ -34,8 +33,8 @@ fn convert_to_dto(shipping: ShippingInfo) -> ShippingDto {
         ),
         carrier: shipping.carrier,
         tracking_number: shipping.tracking_number,
-        expected_delivery: None, // These fields don't exist in the entity model
-        actual_delivery: None,   // These fields don't exist in the entity model
+        expected_delivery: None,
+        actual_delivery: None,
         created_at: shipping.created_at,
         updated_at: shipping.updated_at,
     }
@@ -171,16 +170,12 @@ impl ShippingService {
         carrier: String,
         tracking_number: String,
     ) -> Result<Option<ShippingDto>> {
-        // First, update the status to Shipped
         let shipping = self.update_status(id, ShippingStatus::Shipped).await?;
 
         if shipping.is_none() {
             return Err(LogisticsError::NotFound("Shipping", id.to_string()));
         }
 
-        // Since we don't have carrier or tracking fields in the DTO, we need to handle this differently
-        // For now, we'll just return the shipping info with the updated status
-        // In a real implementation, we'd need to modify the DTO to include these fields or create a separate method
         return Ok(shipping);
     }
 

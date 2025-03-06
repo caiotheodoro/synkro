@@ -83,7 +83,6 @@ impl WarehouseService {
     }
 
     pub async fn create_warehouse(&self, dto: CreateWarehouseDto) -> Result<Warehouse> {
-        // Check if warehouse with this code already exists
         let existing = self.repository.find_by_code(&dto.code).await?;
         if existing.is_some() {
             return Err(LogisticsError::ValidationError(format!(
@@ -99,7 +98,6 @@ impl WarehouseService {
     }
 
     pub async fn update_warehouse(&self, id: Uuid, dto: UpdateWarehouseDto) -> Result<Warehouse> {
-        // Validate code uniqueness if it's being changed
         if let Some(ref code) = dto.code {
             let existing = self.repository.find_by_code(code).await?;
             if let Some(existing) = existing {
@@ -130,7 +128,6 @@ impl WarehouseService {
     }
 
     pub async fn delete_warehouse(&self, id: Uuid) -> Result<bool> {
-        // Ensure warehouse exists
         let warehouse = self.repository.find_by_id(id).await?;
         if warehouse.is_none() {
             return Err(LogisticsError::NotFound("Warehouse", id.to_string()));

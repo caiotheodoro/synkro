@@ -1,4 +1,3 @@
-use rust_decimal::prelude::ToPrimitive;
 use std::sync::Arc;
 use uuid::Uuid;
 
@@ -12,7 +11,6 @@ use crate::{
     },
 };
 
-// Helper function to convert from repository PaymentInfo to PaymentDto
 fn convert_to_dto(payment: PaymentInfo) -> PaymentDto {
     let status_str = payment.status_str.clone();
     let is_paid = status_str == PaymentStatus::Succeeded.as_str();
@@ -87,7 +85,6 @@ impl PaymentService {
     }
 
     pub async fn create_payment(&self, dto: CreatePaymentInfoDto) -> Result<PaymentDto> {
-        // Validate payment amount is greater than 0
         if dto.amount <= 0.0 {
             return Err(LogisticsError::ValidationError(
                 "Payment amount must be greater than 0".to_string(),
@@ -108,7 +105,6 @@ impl PaymentService {
         id: &Uuid,
         dto: UpdatePaymentInfoDto,
     ) -> Result<Option<PaymentDto>> {
-        // Validate payment amount is greater than 0 if provided
         if let Some(amount) = dto.amount {
             if amount <= 0.0 {
                 return Err(LogisticsError::ValidationError(
@@ -131,7 +127,6 @@ impl PaymentService {
         id: &Uuid,
         transaction_id: Option<String>,
     ) -> Result<Option<PaymentDto>> {
-        // For now, use update_status since we don't have a dedicated process_payment method
         let updated = self
             .repository
             .update_status(*id, PaymentStatus::Succeeded)
@@ -151,7 +146,6 @@ impl PaymentService {
                 ));
             }
 
-            // Use update_status for now
             let updated = self
                 .repository
                 .update_status(*id, PaymentStatus::Refunded)
@@ -174,7 +168,6 @@ impl PaymentService {
                 ));
             }
 
-            // Use update_status for now
             let updated = self
                 .repository
                 .update_status(*id, PaymentStatus::Cancelled)
