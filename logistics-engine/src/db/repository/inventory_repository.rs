@@ -605,4 +605,42 @@ impl InventoryRepository {
         let count: i64 = row.try_get("count")?;
         Ok(count)
     }
+
+    pub async fn search_items(
+        &self,
+        search_term: &str,
+        limit: i64,
+        offset: i64,
+    ) -> Result<Vec<InventoryItem>, Error> {
+        let search_pattern = format!("%{}%", search_term);
+        let quantity_search = search_term.parse::<i32>().ok();
+
+        let rows = sqlx::query(
+            r#"
+            SELECT *
+            FROM inventory_items
+            WHERE id::text ILIKE $1
+            OR name ILIKE $1
+            OR sku ILIKE $1
+            OR description ILIKE $1
+            OR ($2::int IS NOT NULL AND quantity = $2)
+            ORDER BY created_at DESC
+            LIMIT $3 OFFSET $4
+            "#,
+        )
+        .bind(search_pattern)
+        .bind(quantity_search)
+        .bind(limit)
+        .bind(offset)
+        .map(Self::map_row_to_inventory_item)
+        .fetch_all(&self.pool)
+        .await?;
+
+        let mut items = Vec::new();
+        for row_result in rows {
+            items.push(row_result?);
+        }
+
+        Ok(items)
+    }
 }

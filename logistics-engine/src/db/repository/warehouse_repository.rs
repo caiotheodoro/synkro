@@ -368,4 +368,41 @@ impl WarehouseRepository {
 
         Ok(row.get::<i64, _>("count"))
     }
+
+    pub async fn search_warehouses(
+        &self,
+        search_term: &str,
+        limit: i64,
+        offset: i64,
+    ) -> Result<Vec<Warehouse>, Error> {
+        let search_pattern = format!("%{}%", search_term);
+
+        let rows = sqlx::query(
+            r#"
+            SELECT *
+            FROM warehouses
+            WHERE id::text ILIKE $1
+            OR name ILIKE $1
+            OR code ILIKE $1
+            OR address_line1 ILIKE $1
+            OR city ILIKE $1
+            OR state ILIKE $1
+            OR postal_code ILIKE $1
+            OR country ILIKE $1
+            ORDER BY created_at DESC
+            LIMIT $2 OFFSET $3
+            "#,
+        )
+        .bind(search_pattern)
+        .bind(limit)
+        .bind(offset)
+        .fetch_all(&self.pool)
+        .await?;
+
+        let mut warehouses = Vec::with_capacity(rows.len());
+        for row in rows {
+            warehouses.push(Self::map_row_to_warehouse(row)?);
+        }
+        Ok(warehouses)
+    }
 }

@@ -1,5 +1,5 @@
 use chrono::{DateTime, TimeZone, Utc};
-use sqlx::{types::time::OffsetDateTime, Error, PgPool};
+use sqlx::{types::time::OffsetDateTime, Error, PgPool, Row};
 use uuid::Uuid;
 
 use crate::models::{
@@ -26,6 +26,7 @@ impl CustomerRepository {
     }
 
     pub async fn find_all(&self, limit: i64, offset: i64) -> Result<Vec<Customer>, Error> {
+        println!("limit: {:?}", limit);
         sqlx::query!(
             r#"
             SELECT id, name, email, phone, created_at, updated_at
@@ -185,5 +186,46 @@ impl CustomerRepository {
         .await?;
 
         Ok(result.count.unwrap_or(0))
+    }
+
+    pub async fn search_customers(
+        &self,
+        search_term: &str,
+        limit: i64,
+        offset: i64,
+    ) -> Result<Vec<Customer>, Error> {
+        println!("search_term: {:?}", search_term);
+        let search_pattern = format!("%{}%", search_term);
+
+        let rows = sqlx::query(
+            r#"
+            SELECT id, name, email, phone, created_at, updated_at
+            FROM customers
+            WHERE id::text ILIKE $1
+            OR name ILIKE $1
+            OR email ILIKE $1
+            OR phone ILIKE $1
+            ORDER BY created_at DESC
+            LIMIT $2 OFFSET $3
+            "#,
+        )
+        .bind(search_pattern)
+        .bind(limit)
+        .bind(offset)
+        .fetch_all(&self.pool)
+        .await?;
+
+        let mut customers = Vec::with_capacity(rows.len());
+        for row in rows {
+            customers.push(Customer {
+                id: row.try_get("id")?,
+                name: row.try_get("name")?,
+                email: row.try_get("email")?,
+                phone: row.try_get("phone")?,
+                created_at: Self::convert_datetime(row.try_get("created_at")?),
+                updated_at: Self::convert_datetime(row.try_get("updated_at")?),
+            });
+        }
+        Ok(customers)
     }
 }

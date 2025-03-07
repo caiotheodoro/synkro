@@ -335,4 +335,54 @@ impl OrderRepository {
         .await
         .map(|row| row.count)
     }
+
+    pub async fn search_orders(
+        &self,
+        search_term: &str,
+        limit: i64,
+        offset: i64,
+    ) -> Result<Vec<Order>, Error> {
+        let search_pattern = format!("%{}%", search_term);
+
+        sqlx::query!(
+            r#"
+            SELECT 
+                id, 
+                customer_id, 
+                total_amount as "total_amount!: BigDecimal", 
+                status as "status!: OrderStatus",
+                currency,
+                tracking_number,
+                notes,
+                created_at, 
+                updated_at
+            FROM orders
+            WHERE status::text ILIKE $1
+            OR currency ILIKE $1
+            ORDER BY created_at DESC
+            LIMIT $2 OFFSET $3
+            "#,
+            search_pattern,
+            limit,
+            offset
+        )
+        .fetch_all(&self.pool)
+        .await
+        .map(|rows| {
+            rows.into_iter()
+                .map(|row| Order {
+                    id: row.id,
+                    customer_id: row.customer_id,
+                    total_amount: Decimal::from_str(&row.total_amount.to_string())
+                        .unwrap_or_default(),
+                    status: row.status,
+                    currency: row.currency,
+                    tracking_number: row.tracking_number,
+                    notes: row.notes,
+                    created_at: Self::convert_datetime(row.created_at),
+                    updated_at: Self::convert_datetime(row.updated_at),
+                })
+                .collect()
+        })
+    }
 }
