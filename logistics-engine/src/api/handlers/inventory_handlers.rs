@@ -19,7 +19,7 @@ pub async fn list_inventory_items(
 ) -> Result<impl IntoResponse, LogisticsError> {
     let items = state
         .inventory_service
-        .get_all_items(pagination.page, pagination.limit)
+        .get_all_items(pagination.page, pagination.limit, pagination.search.clone())
         .await?;
 
     Ok((StatusCode::OK, success(items)))

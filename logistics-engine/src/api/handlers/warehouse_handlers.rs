@@ -16,7 +16,7 @@ pub async fn list_warehouses(
 ) -> Result<impl IntoResponse, LogisticsError> {
     let warehouses = state
         .warehouse_service
-        .get_all_warehouses(pagination.page, pagination.limit)
+        .get_all_warehouses(pagination.page, pagination.limit, pagination.search.clone())
         .await?;
 
     Ok((StatusCode::OK, success(warehouses)))

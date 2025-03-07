@@ -17,16 +17,11 @@ pub async fn list_customers(
     pagination: Query<PaginationParams>,
     State(state): State<SharedState>,
 ) -> Result<impl IntoResponse, LogisticsError> {
+    println!("pagination: {:?}", pagination);
     let customers = state
         .customer_service
-        .get_all_customers(pagination.page, pagination.limit)
+        .get_all_customers(pagination.page, pagination.limit, pagination.search.clone())
         .await?;
-
-    println!(
-        "pagination params: page={}, limit={}",
-        pagination.page, pagination.limit
-    );
-    println!("customers: {:?}", customers);
 
     Ok(success(customers))
 }

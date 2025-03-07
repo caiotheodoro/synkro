@@ -52,6 +52,8 @@ pub struct PaginationParams {
     pub limit: u32,
     #[serde(default = "default_offset")]
     pub offset: u32,
+    #[serde(default)]
+    pub search: Option<String>,
 }
 
 fn default_page() -> u32 {
