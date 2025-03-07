@@ -127,7 +127,7 @@ Build and run with Docker:
 
 ```
 docker build -t logistics-engine .
-docker run -p 8080:8080 --env-file .env logistics-engine
+docker run -p 5050:5050 --env-file .env logistics-engine
 ```
 
 ## API Endpoints

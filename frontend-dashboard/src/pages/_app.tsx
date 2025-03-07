@@ -4,8 +4,18 @@ import { useRouter } from 'next/router';
 import { useEffect, useState } from 'react';
 import '@/styles/globals.css';
 import { authService } from '@/services/auth.service';
+import { QueryClientProvider, QueryClient } from '@tanstack/react-query';
 
 const inter = Inter({ subsets: ['latin'] });
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      refetchOnWindowFocus: false,
+      staleTime: 30000,
+    },
+  },
+});
 
 export default function App({ Component, pageProps }: AppProps) {
   const router = useRouter();
@@ -136,8 +146,10 @@ export default function App({ Component, pageProps }: AppProps) {
   }
 
   return (
-    <main className={inter.className}>
-      <Component {...pageProps} />
-    </main>
+    <QueryClientProvider client={queryClient}>
+      <main className={inter.className}>
+        <Component {...pageProps} />
+      </main>
+    </QueryClientProvider>
   );
 } 
