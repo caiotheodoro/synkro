@@ -1,12 +1,11 @@
 use axum::{
     extract::Path,
-    extract::Request,
+    middleware::from_fn,
     routing::{delete, get, post, put},
     Router,
 };
-use http::header::{HeaderName, HeaderValue};
-use tracing::info;
-use uuid::Uuid;
+use http::header::HeaderName;
+use tower_http::cors::CorsLayer;
 
 use crate::api::{handlers::customer_handlers, middleware::auth_middleware, SharedState};
 
@@ -121,50 +120,63 @@ pub fn create_router(state: SharedState) -> Router {
             get(shipping_handlers::get_shipment_by_tracking),
         );
 
-    // Build the router
+    // Configure CORS middleware
+    let cors = CorsLayer::new()
+        // Allow requests from the frontend origin
+        .allow_origin([
+            "http://localhost:3000".parse().unwrap(),
+            "http://localhost:3001".parse().unwrap(),
+            "http://localhost:3003".parse().unwrap(),
+            "http://localhost:5173".parse().unwrap(),
+        ])
+        .allow_methods([
+            http::Method::GET,
+            http::Method::POST,
+            http::Method::PUT,
+            http::Method::DELETE,
+            http::Method::OPTIONS,
+            http::Method::HEAD,
+            http::Method::PATCH,
+        ])
+        .allow_headers([
+            http::header::AUTHORIZATION,
+            http::header::ACCEPT,
+            http::header::CONTENT_TYPE,
+            http::header::CONTENT_LENGTH,
+            http::header::ACCEPT_ENCODING,
+            http::header::ACCEPT_LANGUAGE,
+            http::header::ORIGIN,
+            http::header::HOST,
+            http::header::USER_AGENT,
+            http::header::REFERER,
+            http::header::CONNECTION,
+            http::header::CACHE_CONTROL,
+            HeaderName::from_static("x-requested-with"),
+            HeaderName::from_static("x-user-id"),
+        ])
+        .expose_headers([
+            http::header::AUTHORIZATION,
+            http::header::CONTENT_TYPE,
+            HeaderName::from_static("x-user-id"),
+        ])
+        .allow_credentials(true)
+        .max_age(std::time::Duration::from_secs(3600));
+
+    // Create API router with all routes and apply auth middleware
+    let api_routes = Router::new()
+        .nest("/customers", customer_routes)
+        .nest("/warehouses", warehouse_routes)
+        .nest("/inventory", inventory_routes)
+        .nest("/orders", order_routes)
+        .nest("/shipping", shipping_routes)
+        .nest("/payments", payment_routes)
+        .layer(from_fn(auth_middleware));
+
+    // Create main router and apply CORS
     Router::new()
-        .route("/api/health", get(|| async { "OK" }))
-        // Protected routes with auth
-        .nest(
-            "/api/customers",
-            customer_routes.route_layer(axum::middleware::from_fn(auth_middleware)),
-        )
-        .nest(
-            "/api/warehouses",
-            warehouse_routes.route_layer(axum::middleware::from_fn(auth_middleware)),
-        )
-        .nest(
-            "/api/inventory",
-            inventory_routes.route_layer(axum::middleware::from_fn(auth_middleware)),
-        )
-        .nest(
-            "/api/orders",
-            order_routes.route_layer(axum::middleware::from_fn(auth_middleware)),
-        )
-        .nest(
-            "/api/payments",
-            payment_routes.route_layer(axum::middleware::from_fn(auth_middleware)),
-        )
-        .nest(
-            "/api/shipping",
-            shipping_routes.route_layer(axum::middleware::from_fn(auth_middleware)),
-        )
-        // Global middleware
-        .layer(axum::middleware::map_response(|response| async {
-            info!("Request completed with response");
-            response
-        }))
-        .layer(axum::middleware::map_request(
-            |mut request: Request| async move {
-                let request_id = Uuid::new_v4().to_string();
-                if let Ok(value) = HeaderValue::from_str(&request_id) {
-                    request
-                        .headers_mut()
-                        .insert(HeaderName::from_static("x-request-id"), value);
-                }
-                info!("Request received with ID: {}", request_id);
-                request
-            },
-        ))
+        .route("/health", get(|| async { "OK" }))
+        .nest("/api", api_routes)
+        // Apply CORS middleware last, so it processes the response
+        .layer(cors)
         .with_state(state)
 }

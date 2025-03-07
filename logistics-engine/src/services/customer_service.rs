@@ -17,14 +17,27 @@ impl CustomerService {
         Self { repository }
     }
 
-    pub async fn get_all_customers(&self, page: u32, limit: u32) -> Result<Vec<Customer>> {
+    pub async fn get_all_customers(
+        &self,
+        page: u32,
+        limit: u32,
+        search: Option<String>,
+    ) -> Result<Vec<Customer>> {
         let limit = limit as i64;
-        let offset = ((page - 1) as i64) * limit;
+        let offset = (page - 1) as i64 * limit;
 
-        self.repository
-            .find_all(limit, offset)
-            .await
-            .map_err(LogisticsError::from)
+        match search {
+            Some(search_term) => self
+                .repository
+                .search_customers(&search_term, limit, offset)
+                .await
+                .map_err(LogisticsError::from),
+            None => self
+                .repository
+                .find_all(limit, offset)
+                .await
+                .map_err(LogisticsError::from),
+        }
     }
 
     pub async fn get_customer_by_id(&self, id: Uuid) -> Result<Customer> {

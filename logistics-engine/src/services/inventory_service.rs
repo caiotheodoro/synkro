@@ -18,14 +18,27 @@ impl InventoryService {
     }
 
     // Inventory Item Methods
-    pub async fn get_all_items(&self, page: u32, limit: u32) -> Result<Vec<InventoryItem>> {
+    pub async fn get_all_items(
+        &self,
+        page: u32,
+        limit: u32,
+        search: Option<String>,
+    ) -> Result<Vec<InventoryItem>> {
         let limit = limit as i64;
         let offset = (page as i64) * limit;
 
-        self.repository
-            .find_all_items(limit, offset)
-            .await
-            .map_err(LogisticsError::from)
+        match search {
+            Some(search_term) => self
+                .repository
+                .search_items(&search_term, limit, offset)
+                .await
+                .map_err(LogisticsError::from),
+            None => self
+                .repository
+                .find_all_items(limit, offset)
+                .await
+                .map_err(LogisticsError::from),
+        }
     }
 
     pub async fn get_item_by_id(&self, id: Uuid) -> Result<InventoryItem> {
@@ -37,30 +50,7 @@ impl InventoryService {
         }
     }
 
-    pub async fn get_items_by_sku(&self, sku: &str) -> Result<Vec<InventoryItem>> {
-        self.repository
-            .find_items_by_sku(sku)
-            .await
-            .map_err(LogisticsError::from)
-    }
-
-    pub async fn get_items_by_warehouse(
-        &self,
-        warehouse_id: Uuid,
-        page: u32,
-        limit: u32,
-    ) -> Result<Vec<InventoryItem>> {
-        let limit = limit as i64;
-        let offset = (page as i64) * limit;
-
-        self.repository
-            .find_items_by_warehouse_id(warehouse_id, limit, offset)
-            .await
-            .map_err(LogisticsError::from)
-    }
-
     pub async fn create_item(&self, dto: CreateInventoryItemDto) -> Result<InventoryItem> {
-        // Validate quantity is non-negative
         if dto.quantity < 0 {
             return Err(LogisticsError::ValidationError(
                 "Inventory item quantity cannot be negative".to_string(),
@@ -78,7 +68,6 @@ impl InventoryService {
         id: Uuid,
         dto: UpdateInventoryItemDto,
     ) -> Result<InventoryItem> {
-        // Validate quantity is non-negative if provided
         if let Some(quantity) = dto.quantity {
             if quantity < 0 {
                 return Err(LogisticsError::ValidationError(
@@ -133,13 +122,6 @@ impl InventoryService {
             .map_err(LogisticsError::from)
     }
 
-    pub async fn count_items(&self) -> Result<i64> {
-        self.repository
-            .count_items()
-            .await
-            .map_err(LogisticsError::from)
-    }
-
     pub async fn get_all_reservations(
         &self,
         page: u32,
@@ -161,31 +143,6 @@ impl InventoryService {
             Some(reservation) => Ok(reservation),
             None => Err(LogisticsError::NotFound("Reservation", id.to_string())),
         }
-    }
-
-    pub async fn get_reservations_by_order(
-        &self,
-        order_id: Uuid,
-    ) -> Result<Vec<InventoryReservation>> {
-        self.repository
-            .find_reservations_by_order_id(order_id)
-            .await
-            .map_err(LogisticsError::from)
-    }
-
-    pub async fn get_reservations_by_status(
-        &self,
-        status: ReservationStatus,
-        page: u32,
-        limit: u32,
-    ) -> Result<Vec<InventoryReservation>> {
-        let limit = limit as i64;
-        let offset = (page as i64) * limit;
-
-        self.repository
-            .find_reservations_by_status(status, limit, offset)
-            .await
-            .map_err(LogisticsError::from)
     }
 
     pub async fn create_reservation(
@@ -228,7 +185,6 @@ impl InventoryService {
     }
 
     pub async fn delete_reservation(&self, id: Uuid) -> Result<bool> {
-        // Ensure reservation exists
         let reservation = self.repository.find_reservation_by_id(id).await?;
         if reservation.is_none() {
             return Err(LogisticsError::NotFound("Reservation", id.to_string()));
@@ -236,20 +192,6 @@ impl InventoryService {
 
         self.repository
             .delete_reservation(id)
-            .await
-            .map_err(LogisticsError::from)
-    }
-
-    pub async fn count_reservations(&self) -> Result<i64> {
-        self.repository
-            .count_reservations()
-            .await
-            .map_err(LogisticsError::from)
-    }
-
-    pub async fn count_reservations_by_status(&self, status: ReservationStatus) -> Result<i64> {
-        self.repository
-            .count_reservations_by_status(status)
             .await
             .map_err(LogisticsError::from)
     }

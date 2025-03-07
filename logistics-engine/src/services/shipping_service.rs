@@ -69,16 +69,6 @@ impl ShippingService {
         Ok(shipping.map(convert_to_dto))
     }
 
-    pub async fn get_shipment_by_order(&self, order_id: &Uuid) -> Result<Option<ShippingDto>> {
-        let shipping = self
-            .repository
-            .find_by_order_id(*order_id)
-            .await
-            .map_err(LogisticsError::from)?;
-
-        Ok(shipping.map(convert_to_dto))
-    }
-
     pub async fn get_shipment_by_tracking(
         &self,
         tracking_number: &str,
@@ -90,36 +80,6 @@ impl ShippingService {
             .map_err(LogisticsError::from)?;
 
         Ok(shipping.map(convert_to_dto))
-    }
-
-    pub async fn get_shipments_by_customer(
-        &self,
-        customer_id: &Uuid,
-        limit: i64,
-        offset: i64,
-    ) -> Result<Vec<ShippingDto>> {
-        let shipments = self
-            .repository
-            .find_by_customer_id(*customer_id, limit, offset)
-            .await
-            .map_err(LogisticsError::from)?;
-
-        Ok(shipments.into_iter().map(convert_to_dto).collect())
-    }
-
-    pub async fn get_shipments_by_status(
-        &self,
-        status: ShippingStatus,
-        limit: i64,
-        offset: i64,
-    ) -> Result<Vec<ShippingDto>> {
-        let shipments = self
-            .repository
-            .find_by_status(status, limit, offset)
-            .await
-            .map_err(LogisticsError::from)?;
-
-        Ok(shipments.into_iter().map(convert_to_dto).collect())
     }
 
     pub async fn create_shipment(&self, dto: CreateShippingInfoDto) -> Result<ShippingDto> {
@@ -164,21 +124,6 @@ impl ShippingService {
         self.update_status(id, ShippingStatus::Delivered).await
     }
 
-    pub async fn add_tracking_info(
-        &self,
-        id: &Uuid,
-        carrier: String,
-        tracking_number: String,
-    ) -> Result<Option<ShippingDto>> {
-        let shipping = self.update_status(id, ShippingStatus::Shipped).await?;
-
-        if shipping.is_none() {
-            return Err(LogisticsError::NotFound("Shipping", id.to_string()));
-        }
-
-        return Ok(shipping);
-    }
-
     pub async fn delete_shipment(&self, id: &Uuid) -> Result<bool> {
         let result = self
             .repository
@@ -187,26 +132,6 @@ impl ShippingService {
             .map_err(LogisticsError::from)?;
 
         Ok(result)
-    }
-
-    pub async fn count_shipments(&self) -> Result<i64> {
-        let count = self
-            .repository
-            .count()
-            .await
-            .map_err(LogisticsError::from)?;
-
-        Ok(count)
-    }
-
-    pub async fn count_shipments_by_status(&self, status: ShippingStatus) -> Result<i64> {
-        let count = self
-            .repository
-            .count_by_status(status)
-            .await
-            .map_err(LogisticsError::from)?;
-
-        Ok(count)
     }
 
     pub async fn update_status(

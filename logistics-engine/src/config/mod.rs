@@ -71,9 +71,9 @@ pub fn init() {
     let server_config = ServerConfig {
         host: env::var("SERVER_HOST").unwrap_or_else(|_| "0.0.0.0".to_string()),
         port: env::var("SERVER_PORT")
-            .unwrap_or_else(|_| "8080".to_string())
+            .unwrap_or_else(|_| "5050".to_string())
             .parse::<u16>()
-            .unwrap_or(8080),
+            .unwrap_or(5050),
         env: env::var("NODE_ENV").unwrap_or_else(|_| "development".to_string()),
         request_timeout_seconds: env::var("REQUEST_TIMEOUT_SECONDS")
             .unwrap_or_else(|_| "30".to_string())

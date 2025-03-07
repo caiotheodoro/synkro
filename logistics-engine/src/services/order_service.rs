@@ -26,14 +26,27 @@ impl OrderService {
         }
     }
 
-    pub async fn get_all_orders(&self, page: u32, limit: u32) -> Result<Vec<Order>> {
+    pub async fn get_all_orders(
+        &self,
+        page: u32,
+        limit: u32,
+        search: Option<String>,
+    ) -> Result<Vec<Order>> {
         let limit = limit as i64;
         let offset = (page as i64) * limit;
 
-        self.order_repository
-            .find_all(limit, offset)
-            .await
-            .map_err(LogisticsError::from)
+        match search {
+            Some(search_term) => self
+                .order_repository
+                .search_orders(&search_term, limit, offset)
+                .await
+                .map_err(LogisticsError::from),
+            None => self
+                .order_repository
+                .find_all(limit, offset)
+                .await
+                .map_err(LogisticsError::from),
+        }
     }
 
     pub async fn get_order_by_id(&self, id: Uuid) -> Result<Order> {

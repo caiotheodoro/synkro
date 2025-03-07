@@ -189,38 +189,4 @@ impl PaymentService {
 
         Ok(result)
     }
-
-    pub async fn count_payments(&self) -> Result<i64> {
-        let count = self
-            .repository
-            .count()
-            .await
-            .map_err(LogisticsError::from)?;
-
-        Ok(count)
-    }
-
-    pub async fn count_payments_by_status(&self, status: PaymentStatus) -> Result<i64> {
-        let count = self
-            .repository
-            .count_by_status(status)
-            .await
-            .map_err(LogisticsError::from)?;
-
-        Ok(count)
-    }
-
-    pub async fn update_status(
-        &self,
-        id: &Uuid,
-        status: PaymentStatus,
-    ) -> Result<Option<PaymentDto>> {
-        let updated = self
-            .repository
-            .update_status(*id, status)
-            .await
-            .map_err(LogisticsError::from)?;
-
-        Ok(updated.map(convert_to_dto))
-    }
 }
