@@ -6,8 +6,8 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { AuthService } from '../auth.service';
-import { User, UserRole } from '../../../user/entities/user.entity';
-import { UserService } from '../../../user/user.service';
+import { User, UserRole } from '../../user/entities/user.entity';
+import { UserService } from '../../user/user.service';
 import * as bcrypt from 'bcrypt';
 
 jest.mock('bcrypt', () => ({

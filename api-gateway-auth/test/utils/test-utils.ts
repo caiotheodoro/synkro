@@ -6,13 +6,13 @@ import {
   NestFastifyApplication,
 } from '@nestjs/platform-fastify';
 import { AuthModule } from '../../src/modules/auth/auth.module';
-import { UserModule } from '../../src/user/user.module';
-import { User, UserRole } from '../../src/user/entities/user.entity';
-import { Role } from '../../src/user/entities/role.entity';
+import { UserModule } from '../../src/modules/user/user.module';
+import { User, UserRole } from '../../src/modules/user/entities/user.entity';
+import { Role } from '../../src/modules/user/entities/role.entity';
 import { ClassSerializerInterceptor, ValidationPipe } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { DataSource } from 'typeorm';
-import { UserService } from '../../src/user/user.service';
+import { UserService } from '../../src/modules/user/user.service';
 import { AuthService } from '../../src/modules/auth/auth.service';
 
 export const createTestApp = async (): Promise<NestFastifyApplication> => {

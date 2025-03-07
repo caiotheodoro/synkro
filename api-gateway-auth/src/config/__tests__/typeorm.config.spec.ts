@@ -1,7 +1,7 @@
 import { ConfigService } from '@nestjs/config';
 import { getTypeOrmConfig } from '../typeorm.config';
-import { User } from '../../user/entities/user.entity';
-import { Role } from '../../user/entities/role.entity';
+import { User } from '../../modules/user/entities/user.entity';
+import { Role } from '../../modules/user/entities/role.entity';
 
 describe('TypeORM Config', () => {
   it('should use default values when environment variables are not set', () => {

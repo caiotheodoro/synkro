@@ -1,7 +1,7 @@
 import { registerAs } from '@nestjs/config';
 import { DataSource, DataSourceOptions } from 'typeorm';
-import { User } from '../user/entities/user.entity';
-import { Role } from '../user/entities/role.entity';
+import { User } from '../modules/user/entities/user.entity';
+import { Role } from '../modules/user/entities/role.entity';
 
 const config = {
   type: 'postgres',

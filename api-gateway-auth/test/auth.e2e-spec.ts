@@ -1,6 +1,6 @@
 import * as request from 'supertest';
 import { AuthService } from '../src/modules/auth/auth.service';
-import { UserService } from '../src/user/user.service';
+import { UserService } from '../src/modules/user/user.service';
 import { createTestApp, cleanupDatabase } from './utils/test-utils';
 import { NestFastifyApplication } from '@nestjs/platform-fastify';
 

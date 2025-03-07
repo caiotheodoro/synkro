@@ -1,15 +1,15 @@
 import { Injectable, UnauthorizedException, Logger } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import { UserService } from '../../user/user.service';
-import { CreateUserDto } from '../../user/dto/create-user.dto';
+import { UserService } from '../user/user.service';
+import { CreateUserDto } from '../user/dto/create-user.dto';
 import { AuthResponse } from './dto/auth.response';
-import { User, UserRole } from '../../user/entities/user.entity';
+import { User, UserRole } from '../user/entities/user.entity';
 import { TokenValidationResponse } from './dto/validate-token.dto';
 
 @Injectable()
 export class AuthService {
   private readonly logger = new Logger(AuthService.name);
-  private invalidatedTokens: Set<string> = new Set();
+  private readonly invalidatedTokens: Set<string> = new Set();
 
   constructor(
     private readonly jwtService: JwtService,
@@ -128,7 +128,6 @@ export class AuthService {
       return false;
     }
 
-    // Each part should be base64url encoded
     try {
       for (const part of parts) {
         if (!/^[A-Za-z0-9_-]+$/i.test(part)) {

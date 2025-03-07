@@ -1,8 +1,8 @@
 import * as request from 'supertest';
-import { UserRole } from '../src/user/entities/user.entity';
+import { UserRole } from '../src/modules/user/entities/user.entity';
 import { AuthService } from '../src/modules/auth/auth.service';
-import { UserService } from '../src/user/user.service';
-import { CreateUserDto } from '../src/user/dto/create-user.dto';
+import { UserService } from '../src/modules/user/user.service';
+import { CreateUserDto } from '../src/modules/user/dto/create-user.dto';
 import {
   createTestApp,
   cleanupDatabase,

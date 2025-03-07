@@ -1,7 +1,7 @@
 import { DataSource, DataSourceOptions } from 'typeorm';
 import { join } from 'path';
-import { User } from './user/entities/user.entity';
-import { Role } from './user/entities/role.entity';
+import { User } from './modules/user/entities/user.entity';
+import { Role } from './modules/user/entities/role.entity';
 
 // Load environment variables from .env file
 const env = process.env.NODE_ENV || 'development';

@@ -9,7 +9,7 @@ import {
   cleanupDatabase,
   createTestUser,
 } from './utils/test-utils';
-import { UserRole } from '../src/user/entities/user.entity';
+import { UserRole } from '../src/modules/user/entities/user.entity';
 
 jest.setTimeout(30000);
 

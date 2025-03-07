@@ -8,7 +8,7 @@ import {
 } from '@nestjs/common';
 import { RoutingService } from './routing.service';
 import { RateLimit } from 'nestjs-rate-limiter';
-import { JwtAuthGuard } from '../../user/guards/auth.guard';
+import { JwtAuthGuard } from '../user/guards/auth.guard';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 
 @ApiTags('Gateway')
