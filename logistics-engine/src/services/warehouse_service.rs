@@ -14,14 +14,27 @@ impl WarehouseService {
         Self { repository }
     }
 
-    pub async fn get_all_warehouses(&self, page: u32, limit: u32) -> Result<Vec<Warehouse>> {
+    pub async fn get_all_warehouses(
+        &self,
+        page: u32,
+        limit: u32,
+        search: Option<String>,
+    ) -> Result<Vec<Warehouse>> {
         let limit = limit as i64;
         let offset = (page as i64) * limit;
 
-        self.repository
-            .find_all(limit, offset)
-            .await
-            .map_err(LogisticsError::from)
+        match search {
+            Some(search_term) => self
+                .repository
+                .search_warehouses(&search_term, limit, offset)
+                .await
+                .map_err(LogisticsError::from),
+            None => self
+                .repository
+                .find_all(limit, offset)
+                .await
+                .map_err(LogisticsError::from),
+        }
     }
 
     pub async fn get_active_warehouses(&self, page: u32, limit: u32) -> Result<Vec<Warehouse>> {
@@ -41,45 +54,6 @@ impl WarehouseService {
             Some(warehouse) => Ok(warehouse),
             None => Err(LogisticsError::NotFound("Warehouse", id.to_string())),
         }
-    }
-
-    pub async fn get_warehouse_by_code(&self, code: &str) -> Result<Warehouse> {
-        let warehouse = self.repository.find_by_code(code).await?;
-
-        match warehouse {
-            Some(warehouse) => Ok(warehouse),
-            None => Err(LogisticsError::NotFound("Warehouse", code.to_string())),
-        }
-    }
-
-    pub async fn get_warehouses_by_city(
-        &self,
-        city: &str,
-        page: u32,
-        limit: u32,
-    ) -> Result<Vec<Warehouse>> {
-        let limit = limit as i64;
-        let offset = (page as i64) * limit;
-
-        self.repository
-            .find_by_city(city, limit, offset)
-            .await
-            .map_err(LogisticsError::from)
-    }
-
-    pub async fn get_warehouses_by_country(
-        &self,
-        country: &str,
-        page: u32,
-        limit: u32,
-    ) -> Result<Vec<Warehouse>> {
-        let limit = limit as i64;
-        let offset = (page as i64) * limit;
-
-        self.repository
-            .find_by_country(country, limit, offset)
-            .await
-            .map_err(LogisticsError::from)
     }
 
     pub async fn create_warehouse(&self, dto: CreateWarehouseDto) -> Result<Warehouse> {
