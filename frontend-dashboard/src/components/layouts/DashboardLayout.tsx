@@ -14,7 +14,6 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   useEffect(() => {
-    // Get user data from auth service
     const userData = authService.getUser();
     if (userData) {
       setUser(userData);
