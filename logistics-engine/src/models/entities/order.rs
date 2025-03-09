@@ -72,6 +72,7 @@ impl From<OrderStatus> for i32 {
 pub struct Order {
     pub id: Uuid,
     pub customer_id: Uuid,
+    pub customer_name: Option<String>,
     pub status: OrderStatus,
     pub total_amount: rust_decimal::Decimal,
     pub currency: String,
@@ -92,6 +93,7 @@ impl Order {
         Self {
             id: Uuid::new_v4(),
             customer_id,
+            customer_name: None,
             status: OrderStatus::Pending,
             total_amount,
             currency,

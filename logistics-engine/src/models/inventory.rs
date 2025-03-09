@@ -91,6 +91,7 @@ pub struct InventoryItem {
     pub description: Option<String>,
     pub warehouse_id: Uuid,
     pub quantity: i32,
+    pub price: rust_decimal::Decimal,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
@@ -102,6 +103,7 @@ pub struct CreateInventoryItemDto {
     pub description: Option<String>,
     pub warehouse_id: Uuid,
     pub quantity: i32,
+    pub price: rust_decimal::Decimal,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -111,4 +113,5 @@ pub struct UpdateInventoryItemDto {
     pub description: Option<String>,
     pub warehouse_id: Option<Uuid>,
     pub quantity: Option<i32>,
+    pub price: Option<rust_decimal::Decimal>,
 }
