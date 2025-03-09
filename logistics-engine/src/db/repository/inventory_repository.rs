@@ -1,11 +1,13 @@
-use chrono::{DateTime, Utc};
-use sqlx::{types::time::OffsetDateTime, Error, PgPool, Row};
-use uuid::Uuid;
-
 use crate::models::inventory::{
     CreateInventoryItemDto, CreateReservationDto, InventoryItem, InventoryReservation,
     ReservationStatus, UpdateInventoryItemDto, UpdateReservationDto,
 };
+use chrono::{DateTime, Utc};
+use num_traits::ToPrimitive;
+use rust_decimal;
+use sqlx::{types::time::OffsetDateTime, Error, PgPool, Row};
+use std::str::FromStr;
+use uuid::Uuid;
 
 pub struct InventoryRepository {
     pool: PgPool,
@@ -33,6 +35,11 @@ impl InventoryRepository {
         let created_at: OffsetDateTime = row.try_get("created_at")?;
         let updated_at: OffsetDateTime = row.try_get("updated_at")?;
 
+        // Get price as BigDecimal and convert to rust_decimal::Decimal via string
+        let price_bd: sqlx::types::BigDecimal = row.try_get("price")?;
+        let price_str = price_bd.to_string();
+        let price = rust_decimal::Decimal::from_str(&price_str).unwrap_or_default();
+
         Ok(InventoryItem {
             id,
             sku,
@@ -40,6 +47,7 @@ impl InventoryRepository {
             description,
             warehouse_id,
             quantity,
+            price,
             created_at: Self::convert_datetime(created_at),
             updated_at: Self::convert_datetime(updated_at),
         })
@@ -60,6 +68,7 @@ impl InventoryRepository {
                 description,
                 warehouse_id,
                 quantity,
+                price,
                 created_at,
                 updated_at
             FROM inventory_items
@@ -93,6 +102,7 @@ impl InventoryRepository {
                 description,
                 warehouse_id,
                 quantity,
+                price,
                 created_at,
                 updated_at
             FROM inventory_items
@@ -170,8 +180,8 @@ impl InventoryRepository {
         let row_result = sqlx::query(
             r#"
             INSERT INTO inventory_items
-            (sku, name, description, warehouse_id, quantity)
-            VALUES ($1, $2, $3, $4, $5)
+            (sku, name, description, warehouse_id, quantity, price)
+            VALUES ($1, $2, $3, $4, $5, $6)
             RETURNING
                 id,
                 sku,
@@ -179,6 +189,7 @@ impl InventoryRepository {
                 description,
                 warehouse_id,
                 quantity,
+                price,
                 created_at,
                 updated_at
             "#,
@@ -188,6 +199,7 @@ impl InventoryRepository {
         .bind(&dto.description)
         .bind(&dto.warehouse_id)
         .bind(&dto.quantity)
+        .bind(dto.price.to_f64().unwrap_or(0.0))
         .map(Self::map_row_to_inventory_item)
         .fetch_one(&self.pool)
         .await?;
@@ -218,8 +230,9 @@ impl InventoryRepository {
                 description = $3,
                 warehouse_id = $4,
                 quantity = $5,
+                price = $6,
                 updated_at = NOW()
-            WHERE id = $6
+            WHERE id = $7
             RETURNING
                 id,
                 sku,
@@ -227,6 +240,7 @@ impl InventoryRepository {
                 description,
                 warehouse_id,
                 quantity,
+                price,
                 created_at,
                 updated_at
             "#,
@@ -236,6 +250,11 @@ impl InventoryRepository {
         .bind(dto.description.or(current_item.description))
         .bind(dto.warehouse_id.unwrap_or(current_item.warehouse_id))
         .bind(dto.quantity.unwrap_or(current_item.quantity))
+        .bind(
+            dto.price
+                .map(|p| p.to_f64().unwrap_or(0.0))
+                .unwrap_or(current_item.price.to_f64().unwrap_or(0.0)),
+        )
         .bind(id)
         .map(Self::map_row_to_inventory_item)
         .fetch_optional(&self.pool)
@@ -289,18 +308,6 @@ impl InventoryRepository {
             Some(row_result) => Ok(Some(row_result?)),
             None => Ok(None),
         }
-    }
-
-    pub async fn count_items(&self) -> Result<i64, Error> {
-        let result = sqlx::query!(
-            r#"
-            SELECT COUNT(*) as count FROM inventory_items
-            "#
-        )
-        .fetch_one(&self.pool)
-        .await?;
-
-        Ok(result.count.unwrap_or(0))
     }
 
     // Generic method to map from database row to InventoryReservation
@@ -623,6 +630,7 @@ impl InventoryRepository {
             OR name ILIKE $1
             OR sku ILIKE $1
             OR description ILIKE $1
+            OR price::text ILIKE $1
             OR ($2::int IS NOT NULL AND quantity = $2)
             ORDER BY created_at DESC
             LIMIT $3 OFFSET $4

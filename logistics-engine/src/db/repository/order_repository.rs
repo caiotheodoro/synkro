@@ -1,5 +1,5 @@
 use chrono::{DateTime, TimeZone, Utc};
-use rust_decimal::{prelude::FromPrimitive, Decimal};
+use rust_decimal::Decimal;
 use sqlx::{
     types::{time::OffsetDateTime, BigDecimal},
     Error, PgPool,
@@ -34,17 +34,19 @@ impl OrderRepository {
         sqlx::query!(
             r#"
             SELECT 
-                id, 
-                customer_id, 
-                total_amount as "total_amount!: BigDecimal", 
-                status as "status!: OrderStatus",
-                currency,
-                tracking_number,
+                orders.id, 
+                orders.customer_id, 
+                customers.name as "customer_name!: Option<String>",
+                orders.total_amount as "total_amount!: BigDecimal", 
+                orders.status as "status!: OrderStatus",
+                orders.currency,
+                orders.tracking_number,
                 notes,
-                created_at, 
-                updated_at
+                orders.created_at, 
+                orders.updated_at
             FROM orders
-            ORDER BY created_at DESC
+            LEFT JOIN customers ON orders.customer_id = customers.id
+            ORDER BY orders.created_at DESC
             LIMIT $1
             OFFSET $2
             "#,
@@ -58,6 +60,7 @@ impl OrderRepository {
                 .map(|row| Order {
                     id: row.id,
                     customer_id: row.customer_id,
+                    customer_name: row.customer_name,
                     total_amount: Decimal::from_str(&row.total_amount.to_string())
                         .unwrap_or_default(),
                     status: row.status,
@@ -75,17 +78,19 @@ impl OrderRepository {
         sqlx::query!(
             r#"
             SELECT 
-                id, 
-                customer_id, 
-                total_amount as "total_amount!: BigDecimal", 
-                status as "status!: OrderStatus",
-                currency,
-                tracking_number,
-                notes,
-                created_at, 
-                updated_at
+                orders.id, 
+                orders.customer_id, 
+                customers.name as "customer_name!: Option<String>",
+                orders.total_amount as "total_amount!: BigDecimal", 
+                orders.status as "status!: OrderStatus",
+                orders.currency,
+                orders.tracking_number,
+                orders.notes,
+                orders.created_at, 
+                orders.updated_at
             FROM orders
-            WHERE id = $1
+            LEFT JOIN customers ON orders.customer_id = customers.id
+            WHERE orders.id = $1
             "#,
             id
         )
@@ -95,6 +100,7 @@ impl OrderRepository {
             opt.map(|row| Order {
                 id: row.id,
                 customer_id: row.customer_id,
+                customer_name: row.customer_name,
                 total_amount: Decimal::from_str(&row.total_amount.to_string()).unwrap_or_default(),
                 status: row.status,
                 currency: row.currency,
@@ -141,6 +147,7 @@ impl OrderRepository {
                 .map(|row| Order {
                     id: row.id,
                     customer_id: row.customer_id,
+                    customer_name: None,
                     total_amount: Decimal::from_str(&row.total_amount.to_string())
                         .unwrap_or_default(),
                     status: row.status,
@@ -203,6 +210,7 @@ impl OrderRepository {
         .map(|row| Order {
             id: row.id,
             customer_id: row.customer_id,
+            customer_name: None,
             total_amount: Decimal::from_str(&row.total_amount.to_string()).unwrap_or_default(),
             status: row.status,
             currency: row.currency,
@@ -260,6 +268,7 @@ impl OrderRepository {
             opt.map(|row| Order {
                 id: row.id,
                 customer_id: row.customer_id,
+                customer_name: None,
                 total_amount: Decimal::from_str(&row.total_amount.to_string()).unwrap_or_default(),
                 status: row.status,
                 currency: row.currency,
@@ -347,16 +356,18 @@ impl OrderRepository {
         sqlx::query!(
             r#"
             SELECT 
-                id, 
-                customer_id, 
-                total_amount as "total_amount!: BigDecimal", 
-                status as "status!: OrderStatus",
-                currency,
-                tracking_number,
-                notes,
-                created_at, 
-                updated_at
+                orders.id, 
+                orders.customer_id,
+                customers.name as "customer_name: Option<String>",
+                orders.total_amount as "total_amount!: BigDecimal", 
+                orders.status as "status!: OrderStatus",
+                orders.currency,
+                orders.tracking_number,
+                orders.notes,
+                orders.created_at, 
+                orders.updated_at
             FROM orders
+            LEFT JOIN customers ON orders.customer_id = customers.id
             WHERE status::text ILIKE $1
             OR currency ILIKE $1
             ORDER BY created_at DESC
@@ -373,6 +384,7 @@ impl OrderRepository {
                 .map(|row| Order {
                     id: row.id,
                     customer_id: row.customer_id,
+                    customer_name: row.customer_name,
                     total_amount: Decimal::from_str(&row.total_amount.to_string())
                         .unwrap_or_default(),
                     status: row.status,
