@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { BackofficeListConfig } from '../core/BackofficeBuilder';
+import React, { useState } from "react";
+import { BackofficeListConfig } from "../core/BackofficeBuilder";
 
 interface DataTableProps {
   data: any[];
@@ -17,20 +17,20 @@ export const DataTable: React.FC<DataTableProps> = ({
   onView,
 }) => {
   const [sortField, setSortField] = useState<string | null>(null);
-  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
   const [selectedItems, setSelectedItems] = useState<any[]>([]);
 
   const handleSort = (field: string) => {
     if (sortField === field) {
-      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+      setSortDirection(sortDirection === "asc" ? "desc" : "asc");
     } else {
       setSortField(field);
-      setSortDirection('asc');
+      setSortDirection("asc");
     }
   };
 
   const getNestedValue = (obj: any, path: string) => {
-    return path.split('.').reduce((prev, curr) => {
+    return path.split(".").reduce((prev, curr) => {
       return prev ? prev[curr] : null;
     }, obj);
   };
@@ -47,7 +47,7 @@ export const DataTable: React.FC<DataTableProps> = ({
       if (bValue === null || bValue === undefined) return -1;
 
       const comparison = aValue > bValue ? 1 : -1;
-      return sortDirection === 'asc' ? comparison : -comparison;
+      return sortDirection === "asc" ? comparison : -comparison;
     });
   }, [data, sortField, sortDirection]);
 
@@ -61,7 +61,7 @@ export const DataTable: React.FC<DataTableProps> = ({
     if (isSelected) {
       setSelectedItems([...selectedItems, item]);
     } else {
-      setSelectedItems(selectedItems.filter(i => i.id !== item.id));
+      setSelectedItems(selectedItems.filter((i) => i.id !== item.id));
     }
   };
 
@@ -69,37 +69,51 @@ export const DataTable: React.FC<DataTableProps> = ({
     setSelectedItems(isSelected ? [...data] : []);
   };
 
-  const renderCell = (item: any, column: { field: string; header: string; render?: (value: any, item: any) => React.ReactNode }) => {
+  const renderCell = (
+    item: any,
+    column: {
+      field: string;
+      header: string;
+      render?: (value: any, item: any) => React.ReactNode;
+    }
+  ) => {
     const value = getNestedValue(item, column.field);
-    
+
     if (column.render) {
       return column.render(value, item);
     }
-    
+
     return value;
   };
 
+  const hasActions =
+    onEdit || onDelete || (config.actions && config.actions.length > 0);
+
   return (
-    <div className="overflow-x-auto">
-      <div className="min-w-full bg-white border border-neutral-300 shadow-md rounded-md">
-        <div className="flex items-center justify-between p-4 bg-white border-b">
+    <div className="overflow-hidden rounded-md border border-neutral-300 shadow-md">
+      <div className="bg-white border-b">
+        <div className="flex items-center justify-between p-4">
           <h3 className="text-lg font-bold">Results ({data.length})</h3>
-          
-          {config.bulkActions && config.bulkActions.length > 0 && selectedItems.length > 0 && (
-            <div className="flex space-x-2">
-              {config.bulkActions.map((action, index) => (
-                <button
-                  key={index}
-                  onClick={() => action.action(selectedItems)}
-                  className="px-4 py-2 text-white bg-orange-500 border-4 border-black rounded-md shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]"
-                >
-                  {action.label}
-                </button>
-              ))}
-            </div>
-          )}
+
+          {config.bulkActions &&
+            config.bulkActions.length > 0 &&
+            selectedItems.length > 0 && (
+              <div className="flex space-x-2">
+                {config.bulkActions.map((action, index) => (
+                  <button
+                    key={index}
+                    onClick={() => action.action(selectedItems)}
+                    className="px-4 py-2 text-white bg-orange-500 border-4 border-black rounded-md shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]"
+                  >
+                    {action.label}
+                  </button>
+                ))}
+              </div>
+            )}
         </div>
-        
+      </div>
+
+      <div className="overflow-x-auto">
         <table className="min-w-full divide-y divide-neutral-300">
           <thead className="bg-neutral-100">
             <tr>
@@ -108,12 +122,14 @@ export const DataTable: React.FC<DataTableProps> = ({
                   <input
                     type="checkbox"
                     className="w-4 h-4 border-2 border-black rounded"
-                    checked={selectedItems.length === data.length && data.length > 0}
+                    checked={
+                      selectedItems.length === data.length && data.length > 0
+                    }
                     onChange={(e) => handleSelectAll(e.target.checked)}
                   />
                 </th>
               )}
-              
+
               {config.columns.map((column, index) => (
                 <th
                   key={index}
@@ -124,27 +140,31 @@ export const DataTable: React.FC<DataTableProps> = ({
                     {column.header}
                     {sortField === column.field && (
                       <span className="ml-1">
-                        {sortDirection === 'asc' ? '↑' : '↓'}
+                        {sortDirection === "asc" ? "↑" : "↓"}
                       </span>
                     )}
                   </div>
                 </th>
               ))}
-              
-              {(onEdit || onDelete || config.actions) && (
-                <th className="p-4 text-right">Actions</th>
+
+              {hasActions && (
+                <th className="p-4 text-right sticky right-0 bg-neutral-100 z-10 min-w-[170px]">
+                  Actions
+                </th>
               )}
             </tr>
           </thead>
-          
+
           <tbody className="divide-y divide-neutral-300">
             {sortedData.length === 0 ? (
               <tr>
                 <td
                   colSpan={
                     config.columns.length +
-                    (config.bulkActions && config.bulkActions.length > 0 ? 1 : 0) +
-                    ((onEdit || onDelete || config.actions) ? 1 : 0)
+                    (config.bulkActions && config.bulkActions.length > 0
+                      ? 1
+                      : 0) +
+                    (hasActions ? 1 : 0)
                   }
                   className="p-4 text-center text-neutral-500"
                 >
@@ -163,20 +183,25 @@ export const DataTable: React.FC<DataTableProps> = ({
                       <input
                         type="checkbox"
                         className="w-4 h-4 border-2 border-black rounded"
-                        checked={selectedItems.some(i => i.id === item.id)}
-                        onChange={(e) => handleSelectItem(item, e.target.checked)}
+                        checked={selectedItems.some((i) => i.id === item.id)}
+                        onChange={(e) =>
+                          handleSelectItem(item, e.target.checked)
+                        }
                       />
                     </td>
                   )}
-                  
+
                   {config.columns.map((column, colIndex) => (
-                    <td key={colIndex} className="p-4">
+                    <td key={colIndex} className="p-4 whitespace-nowrap">
                       {renderCell(item, column)}
                     </td>
                   ))}
-                  
-                  {(onEdit || onDelete || (config.actions && config.actions.length > 0)) && (
-                    <td className="p-4 text-right" onClick={(e) => e.stopPropagation()}>
+
+                  {hasActions && (
+                    <td
+                      className="p-4 text-right sticky right-0 bg-white z-10 min-w-[170px] shadow-[-4px_0_4px_rgba(0,0,0,0.05)]"
+                      onClick={(e) => e.stopPropagation()}
+                    >
                       <div className="flex justify-end space-x-2">
                         {config.actions?.map((action, actionIndex) => (
                           <button
@@ -187,7 +212,7 @@ export const DataTable: React.FC<DataTableProps> = ({
                             {action.label}
                           </button>
                         ))}
-                        
+
                         {onEdit && (
                           <button
                             onClick={() => onEdit(item)}
@@ -196,7 +221,7 @@ export const DataTable: React.FC<DataTableProps> = ({
                             Edit
                           </button>
                         )}
-                        
+
                         {onDelete && (
                           <button
                             onClick={() => onDelete(item)}
@@ -216,4 +241,4 @@ export const DataTable: React.FC<DataTableProps> = ({
       </div>
     </div>
   );
-}; 
+};

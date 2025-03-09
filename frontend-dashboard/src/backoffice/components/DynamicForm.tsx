@@ -116,11 +116,10 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
     const error = touched[name] && errors[name];
     
     if (component) {
-      const formComponent = component as FormComponent;
       return (
         <div key={name} className="mb-4">
           <label className="block mb-2 font-bold">{label}{required && <span className="text-red-500">*</span>}</label>
-          {React.cloneElement(formComponent, {
+          {component({
             value,
             onChange: (val: any) => {
               setValues({
