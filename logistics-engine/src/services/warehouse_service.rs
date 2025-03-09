@@ -21,7 +21,7 @@ impl WarehouseService {
         search: Option<String>,
     ) -> Result<Vec<Warehouse>> {
         let limit = limit as i64;
-        let offset = (page as i64) * limit;
+        let offset = (page - 1) as i64 * limit;
 
         match search {
             Some(search_term) => self
@@ -39,7 +39,7 @@ impl WarehouseService {
 
     pub async fn get_active_warehouses(&self, page: u32, limit: u32) -> Result<Vec<Warehouse>> {
         let limit = limit as i64;
-        let offset = (page as i64) * limit;
+        let offset = (page - 1) as i64 * limit;
 
         self.repository
             .find_active(limit, offset)

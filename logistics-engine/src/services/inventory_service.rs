@@ -25,7 +25,7 @@ impl InventoryService {
         search: Option<String>,
     ) -> Result<Vec<InventoryItem>> {
         let limit = limit as i64;
-        let offset = (page as i64) * limit;
+        let offset = (page - 1) as i64 * limit;
 
         match search {
             Some(search_term) => self
@@ -128,7 +128,7 @@ impl InventoryService {
         limit: u32,
     ) -> Result<Vec<InventoryReservation>> {
         let limit = limit as i64;
-        let offset = (page as i64) * limit;
+        let offset = (page - 1) as i64 * limit;
 
         self.repository
             .find_all_reservations(limit, offset)

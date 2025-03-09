@@ -33,7 +33,7 @@ impl OrderService {
         search: Option<String>,
     ) -> Result<Vec<Order>> {
         let limit = limit as i64;
-        let offset = (page as i64) * limit;
+        let offset = (page - 1) as i64 * limit;
 
         match search {
             Some(search_term) => self
@@ -65,7 +65,7 @@ impl OrderService {
         limit: u32,
     ) -> Result<Vec<Order>> {
         let limit = limit as i64;
-        let offset = (page as i64) * limit;
+        let offset = (page - 1) as i64 * limit;
 
         self.order_repository
             .find_by_customer_id(customer_id, limit, offset)
