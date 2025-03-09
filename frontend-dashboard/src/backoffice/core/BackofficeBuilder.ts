@@ -35,26 +35,32 @@ export interface BackofficeListConfig {
   }>;
 }
 
+export interface BackofficeFormField {
+  name: string;
+  label: string;
+  type:
+    | "text"
+    | "textarea"
+    | "select"
+    | "number"
+    | "boolean"
+    | "date"
+    | "file"
+    | "custom"
+    | "autocomplete";
+  required?: boolean;
+  placeholder?: string;
+  helperText?: string;
+  validation?: (value: any) => string | undefined;
+  options?: Array<{ value: string; label: string }>;
+  component?: (props: {
+    value: any;
+    onChange: (value: any) => void;
+  }) => ReactNode;
+}
+
 export interface BackofficeFormConfig {
-  fields: Array<{
-    name: string;
-    label: string;
-    type:
-      | "text"
-      | "textarea"
-      | "select"
-      | "date"
-      | "number"
-      | "boolean"
-      | "file"
-      | "custom";
-    options?: Array<{ value: string | number; label: string }>;
-    required?: boolean;
-    placeholder?: string;
-    helperText?: string;
-    validation?: (value: any) => string | undefined;
-    component?: ReactNode;
-  }>;
+  fields: Array<BackofficeFormField>;
   sections?: Array<{
     title: string;
     fields: string[];

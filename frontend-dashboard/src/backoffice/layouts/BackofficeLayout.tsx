@@ -1,14 +1,16 @@
-import React, { useEffect, useState } from 'react';
-import { Menu, X } from 'lucide-react';
-import { BackofficeNavigation } from '@/backoffice/components/BackofficeNavigation';
-import UserProfile from '@/components/user/UserProfile';
-import { authService } from '@/services/auth.service';
+import React, { useEffect, useState } from "react";
+import { Menu, X } from "lucide-react";
+import { BackofficeNavigation } from "@/backoffice/components/BackofficeNavigation";
+import UserProfile from "@/components/user/UserProfile";
+import { authService } from "@/services/auth.service";
 
 interface BackofficeLayoutProps {
   children: React.ReactNode;
 }
 
-export const BackofficeLayout: React.FC<BackofficeLayoutProps> = ({ children }) => {
+export const BackofficeLayout: React.FC<BackofficeLayoutProps> = ({
+  children,
+}) => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [user, setUser] = useState<any>(null);
 
@@ -25,7 +27,7 @@ export const BackofficeLayout: React.FC<BackofficeLayoutProps> = ({ children }) 
 
   return (
     <div className="min-h-screen flex flex-col">
-        <header className="bg-white border-b-[3px] border-black sticky top-0 z-40">
+      <header className="bg-white border-b-[3px] border-black sticky top-0 z-40">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center">
             <a href="/" className="text-2xl font-bold">
@@ -34,9 +36,7 @@ export const BackofficeLayout: React.FC<BackofficeLayoutProps> = ({ children }) 
           </div>
 
           <div className="hidden md:flex items-center space-x-4">
-            {user && (
-              <UserProfile user={user} />
-            )}
+            {user && <UserProfile user={user} />}
           </div>
 
           <button
@@ -73,7 +73,7 @@ export const BackofficeLayout: React.FC<BackofficeLayoutProps> = ({ children }) 
       <div className="flex flex-1">
         <aside
           className={`w-64 border-r-[3px] border-black bg-white fixed inset-y-0 pt-16 z-30 transition-transform duration-300 ease-in-out ${
-            isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
+            isMobileMenuOpen ? "translate-x-0" : "-translate-x-full"
           } md:translate-x-0`}
         >
           <div className="p-4">
@@ -83,12 +83,15 @@ export const BackofficeLayout: React.FC<BackofficeLayoutProps> = ({ children }) 
 
         <main
           className={`flex-1 transition-all duration-300 ease-in-out ${
-            isMobileMenuOpen ? 'md:ml-64' : 'ml-0 md:ml-64'
+            isMobileMenuOpen ? "md:ml-64" : "ml-0 md:ml-64"
           } p-6`}
+          style={{
+            maxWidth: "-webkit-fill-available",
+          }}
         >
           {children}
         </main>
       </div>
     </div>
   );
-}; 
+};

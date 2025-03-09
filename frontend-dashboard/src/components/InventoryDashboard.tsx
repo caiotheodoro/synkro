@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Package, AlertTriangle, TrendingUp, Plus } from 'lucide-react';
+import React, { useState } from "react";
+import { Package, AlertTriangle, TrendingUp, Plus } from "lucide-react";
 
 interface InventoryItem {
   id: string;
@@ -7,7 +7,7 @@ interface InventoryItem {
   sku: string;
   category: string;
   quantity: number;
-  status: 'In Stock' | 'Low Stock' | 'Out of Stock';
+  status: "In Stock" | "Low Stock" | "Out of Stock";
   lastUpdated: string;
 }
 
@@ -28,14 +28,14 @@ export const InventoryDashboard: React.FC<InventoryDashboardProps> = ({
 
   const getStatusClass = (status: string) => {
     switch (status) {
-      case 'In Stock':
-        return 'text-green-500';
-      case 'Low Stock':
-        return 'text-amber-500';
-      case 'Out of Stock':
-        return 'text-red-500';
+      case "In Stock":
+        return "text-green-500";
+      case "Low Stock":
+        return "text-amber-500";
+      case "Out of Stock":
+        return "text-red-500";
       default:
-        return 'text-gray-500';
+        return "text-gray-500";
     }
   };
 
@@ -43,7 +43,7 @@ export const InventoryDashboard: React.FC<InventoryDashboardProps> = ({
     <div className="p-6">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-bold">Inventory Management</h1>
-        <button 
+        <button
           onClick={onAddItem}
           className="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded-md border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] transition-all flex items-center"
         >
@@ -60,7 +60,9 @@ export const InventoryDashboard: React.FC<InventoryDashboardProps> = ({
             </div>
             <div>
               <p className="text-sm text-gray-500">Total Items</p>
-              <p className="text-2xl font-bold">{totalItems.toLocaleString()}</p>
+              <p className="text-2xl font-bold">
+                {totalItems.toLocaleString()}
+              </p>
             </div>
           </div>
         </div>
@@ -147,7 +149,9 @@ export const InventoryDashboard: React.FC<InventoryDashboardProps> = ({
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-500">{item.lastUpdated}</div>
+                      <div className="text-sm text-gray-500">
+                        {item.lastUpdated}
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -158,4 +162,4 @@ export const InventoryDashboard: React.FC<InventoryDashboardProps> = ({
       </div>
     </div>
   );
-}; 
+};
