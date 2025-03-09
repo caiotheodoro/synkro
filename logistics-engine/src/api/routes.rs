@@ -10,7 +10,8 @@ use tower_http::cors::CorsLayer;
 use crate::api::{handlers::customer_handlers, middleware::auth_middleware, SharedState};
 
 use super::handlers::{
-    inventory_handlers, order_handlers, payment_handlers, shipping_handlers, warehouse_handlers,
+    dashboard_handlers, inventory_handlers, order_handlers, payment_handlers, shipping_handlers,
+    warehouse_handlers,
 };
 
 pub fn create_router(state: SharedState) -> Router {
@@ -111,9 +112,23 @@ pub fn create_router(state: SharedState) -> Router {
             get(shipping_handlers::get_shipment_by_tracking),
         );
 
-    // Configure CORS middleware
+    // Dashboard routes
+    let dashboard_routes = Router::new()
+        .route("/overview", get(dashboard_handlers::get_dashboard_overview))
+        .route(
+            "/inventory",
+            get(dashboard_handlers::get_inventory_overview_handler),
+        )
+        .route(
+            "/orders",
+            get(dashboard_handlers::get_order_status_overview_handler),
+        )
+        .route(
+            "/activities",
+            get(dashboard_handlers::get_recent_activities_handler),
+        );
+
     let cors = CorsLayer::new()
-        // Allow requests from the frontend origin
         .allow_origin([
             "http://localhost:3000".parse().unwrap(),
             "http://localhost:3001".parse().unwrap(),
@@ -153,7 +168,6 @@ pub fn create_router(state: SharedState) -> Router {
         .allow_credentials(true)
         .max_age(std::time::Duration::from_secs(3600));
 
-    // Create API router with all routes and apply auth middleware
     let api_routes = Router::new()
         .nest("/customers", customer_routes)
         .nest("/warehouses", warehouse_routes)
@@ -161,13 +175,12 @@ pub fn create_router(state: SharedState) -> Router {
         .nest("/orders", order_routes)
         .nest("/shipping", shipping_routes)
         .nest("/payments", payment_routes)
+        .nest("/dashboard", dashboard_routes) // Add dashboard routes
         .layer(from_fn(auth_middleware));
 
-    // Create main router and apply CORS
     Router::new()
         .route("/health", get(|| async { "OK" }))
         .nest("/api", api_routes)
-        // Apply CORS middleware last, so it processes the response
         .layer(cors)
         .with_state(state)
 }
