@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect } from "react";
 import { useRouter } from "next/router";
 import { BackofficeModule } from "../core/BackofficeRegistry";
 import { DataTable, Column, TableAction } from "@/components/ui/DataTable";
@@ -57,7 +57,7 @@ export const ListPage: React.FC<ListPageProps> = ({ module }) => {
     placeholderData: (previousData) => previousData,
     refetchOnWindowFocus: false,
     select: (response: any) => response.data || response,
-    staleTime: 30000, // Consider data fresh for 30 seconds
+    staleTime: 30000,
   });
 
   // Set up mutation for delete operations

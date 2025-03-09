@@ -1,0 +1,139 @@
+import React from "react";
+import { useRecentActivities, ActivityItem } from "@/api/hooks/useDashboard";
+
+// Map of activity types to colors
+const activityTypeColorMap = {
+  order: "bg-blue-500",
+  shipment: "bg-green-500",
+  inventory: "bg-yellow-500",
+  system: "bg-purple-500",
+};
+
+// Map of severity to colors
+const severityColorMap = {
+  info: "text-blue-600",
+  warning: "text-amber-600",
+  error: "text-red-600",
+  success: "text-green-600",
+};
+
+const RecentActivity = () => {
+  const { data, isLoading, error } = useRecentActivities(5); // Fetch 5 most recent activities
+
+  if (isLoading) {
+    return (
+      <div className="card-neo animate-pulse">
+        <div className="h-40 flex items-center justify-center">
+          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-black"></div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="card-neo">
+        <div className="card-header">
+          <h3 className="card-title">Recent Activity</h3>
+        </div>
+        <div className="card-content">
+          <div className="text-red-500">Error loading activity data</div>
+        </div>
+      </div>
+    );
+  }
+
+  // If no data yet or empty activities list, show some placeholder activities
+  const activities =
+    data && data.length > 0
+      ? data
+      : ([
+          {
+            id: "1",
+            type: "order",
+            message: "New order received",
+            timestamp: new Date(Date.now() - 10 * 60 * 1000).toISOString(), // 10 minutes ago
+            severity: "info",
+          },
+          {
+            id: "2",
+            type: "shipment",
+            message: "Shipment #3321 delivered",
+            timestamp: new Date(Date.now() - 60 * 60 * 1000).toISOString(), // 1 hour ago
+            severity: "success",
+          },
+          {
+            id: "3",
+            type: "inventory",
+            message: "Low stock alert: SKU-12345",
+            timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(), // 2 hours ago
+            severity: "warning",
+          },
+        ] as ActivityItem[]);
+
+  return (
+    <div className="card-neo">
+      <div className="card-header">
+        <h3 className="card-title">Recent Activity</h3>
+        <p className="card-description">Latest system events</p>
+      </div>
+      <div className="card-content">
+        <div className="space-y-4">
+          {activities.map((activity) => (
+            <div key={activity.id} className="flex items-start space-x-3">
+              <div
+                className={`w-2 h-2 rounded-full mt-2 ${
+                  activityTypeColorMap[activity.type] || "bg-gray-500"
+                }`}
+              ></div>
+              <div>
+                <p
+                  className={`text-sm font-medium ${
+                    severityColorMap[activity.severity] || ""
+                  }`}
+                >
+                  {activity.message}
+                </p>
+                <p className="text-xs text-gray-500">
+                  {formatRelativeTime(activity.timestamp)}
+                </p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Helper function to format timestamps in a human-readable way without requiring date-fns
+const formatRelativeTime = (timestamp: string) => {
+  try {
+    const date = new Date(timestamp);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+
+    // Convert to appropriate units
+    const diffSec = Math.floor(diffMs / 1000);
+    const diffMin = Math.floor(diffSec / 60);
+    const diffHour = Math.floor(diffMin / 60);
+    const diffDay = Math.floor(diffHour / 24);
+
+    if (diffSec < 60) {
+      return "just now";
+    } else if (diffMin < 60) {
+      return `${diffMin} minute${diffMin !== 1 ? "s" : ""} ago`;
+    } else if (diffHour < 24) {
+      return `${diffHour} hour${diffHour !== 1 ? "s" : ""} ago`;
+    } else if (diffDay < 30) {
+      return `${diffDay} day${diffDay !== 1 ? "s" : ""} ago`;
+    } else {
+      // For older timestamps, show the actual date
+      return date.toLocaleDateString();
+    }
+  } catch (e) {
+    return "Unknown time";
+  }
+};
+
+export default RecentActivity;

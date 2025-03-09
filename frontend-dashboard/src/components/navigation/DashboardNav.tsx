@@ -1,9 +1,9 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
-import Link from 'next/link';
-import { useRouter } from 'next/router';
-import { authService } from '@/services/auth.service';
+import { useState, useEffect } from "react";
+import Link from "next/link";
+import { useRouter } from "next/router";
+import { authService } from "@/services/auth.service";
 import {
   LayoutDashboard,
   Package,
@@ -13,7 +13,7 @@ import {
   Settings,
   Bell,
   LogOut,
-} from 'lucide-react';
+} from "lucide-react";
 
 interface NavItem {
   label: string;
@@ -27,46 +27,26 @@ const DashboardNav = () => {
 
   const mainNavItems: NavItem[] = [
     {
-      label: 'Dashboard',
-      href: '/',
+      label: "Dashboard",
+      href: "/",
       icon: <LayoutDashboard className="w-5 h-5" />,
     },
     {
-      label: 'Inventory',
-      href: '/inventory',
-      icon: <Package className="w-5 h-5" />,
-    },
-    {
-      label: 'Orders',
-      href: '/orders',
+      label: "Backoffice",
+      href: "/backoffice",
       icon: <Truck className="w-5 h-5" />,
     },
     {
-      label: 'Suppliers',
-      href: '/suppliers',
-      icon: <Users className="w-5 h-5" />,
-    },
-    {
-      label: 'Analytics',
-      href: '/analytics',
+      label: "Analytics",
+      href: "/analytics",
       icon: <BarChart3 className="w-5 h-5" />,
     },
   ];
 
   const secondaryNavItems: NavItem[] = [
     {
-      label: 'Notifications',
-      href: '/notifications',
-      icon: <Bell className="w-5 h-5" />,
-    },
-    {
-      label: 'Settings',
-      href: '/settings',
-      icon: <Settings className="w-5 h-5" />,
-    },
-    {
-      label: 'Logout',
-      href: '/logout',
+      label: "Logout",
+      href: "/logout",
       icon: <LogOut className="w-5 h-5" />,
     },
   ];
@@ -77,7 +57,7 @@ const DashboardNav = () => {
   };
 
   const isActive = (href: string) => {
-    if (href === '/') {
+    if (href === "/") {
       return router.pathname === href;
     }
     return router.pathname.startsWith(href);
@@ -97,8 +77,8 @@ const DashboardNav = () => {
                   href={item.href}
                   className={`flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${
                     isActive(item.href)
-                      ? 'bg-primary text-white shadow-neo border-[2px] border-black'
-                      : 'text-gray-900 hover:bg-gray-100'
+                      ? "bg-primary text-white shadow-neo border-[2px] border-black"
+                      : "text-gray-900 hover:bg-gray-100"
                   }`}
                 >
                   {item.icon}
@@ -118,11 +98,11 @@ const DashboardNav = () => {
               <li key={item.href}>
                 <Link
                   href={item.href}
-                  onClick={item.href === '/logout' ? handleLogout : undefined}
+                  onClick={item.href === "/logout" ? handleLogout : undefined}
                   className={`flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${
                     isActive(item.href)
-                      ? 'bg-primary text-white shadow-neo border-[2px] border-black'
-                      : 'text-gray-900 hover:bg-gray-100'
+                      ? "bg-primary text-white shadow-neo border-[2px] border-black"
+                      : "text-gray-900 hover:bg-gray-100"
                   }`}
                 >
                   {item.icon}
@@ -137,4 +117,4 @@ const DashboardNav = () => {
   );
 };
 
-export default DashboardNav; 
+export default DashboardNav;

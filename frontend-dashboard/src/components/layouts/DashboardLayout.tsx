@@ -1,9 +1,9 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
-import DashboardNav from '@/components/navigation/DashboardNav';
-import UserProfile from '@/components/user/UserProfile';
-import { authService } from '@/services/auth.service';
+import { useState, useEffect } from "react";
+import DashboardNav from "@/components/navigation/DashboardNav";
+import UserProfile from "@/components/user/UserProfile";
+import { authService } from "@/services/auth.service";
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -35,9 +35,7 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
           </div>
 
           <div className="hidden md:flex items-center space-x-4">
-            {user && (
-              <UserProfile user={user} />
-            )}
+            {user && <UserProfile user={user} />}
           </div>
 
           <button
@@ -73,8 +71,8 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
 
       <div className="flex flex-1">
         <aside
-          className={`w-64 border-r-[3px] border-black bg-white fixed inset-y-0 pt-16 z-30 transition-transform duration-300 ease-in-out ${
-            isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
+          className={`p-4  w-64 border-r-[3px] border-black bg-white fixed inset-y-0 pt-20 z-30 transition-transform duration-300 ease-in-out ${
+            isMobileMenuOpen ? "translate-x-0" : "-translate-x-full"
           } md:translate-x-0`}
         >
           <DashboardNav />
@@ -82,7 +80,7 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
 
         <main
           className={`flex-1 transition-all duration-300 ease-in-out ${
-            isMobileMenuOpen ? 'md:ml-64' : 'ml-0 md:ml-64'
+            isMobileMenuOpen ? "md:ml-64" : "ml-0 md:ml-64"
           }`}
         >
           {children}
@@ -92,4 +90,4 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
   );
 };
 
-export default DashboardLayout; 
+export default DashboardLayout;
