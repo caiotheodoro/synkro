@@ -28,6 +28,7 @@ impl IntoResponse for LogisticsError {
                 format!("Database error: {}", err),
             ),
             LogisticsError::InternalError(msg) => (StatusCode::INTERNAL_SERVER_ERROR, msg),
+            LogisticsError::BadRequest(msg) => (StatusCode::BAD_REQUEST, msg),
         };
 
         let body = Json(ApiError {

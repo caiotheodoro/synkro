@@ -1,6 +1,10 @@
 pub mod api;
 pub mod config;
 pub mod db;
+pub mod error;
 pub mod errors;
+pub mod grpc;
 pub mod models;
+pub mod mq;
+pub mod proto;
 pub mod services;

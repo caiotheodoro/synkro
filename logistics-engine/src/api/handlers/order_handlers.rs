@@ -86,7 +86,10 @@ pub async fn update_order_status(
         }
     };
 
-    let order = state.order_service.update_order_status(id, status).await?;
+    let order = state
+        .order_service
+        .update_order_status(id, status, None)
+        .await?;
 
     Ok((StatusCode::OK, success(order)).into_response())
 }

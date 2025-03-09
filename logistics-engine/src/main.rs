@@ -2,7 +2,7 @@ use sqlx::postgres::PgPoolOptions;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use tokio::signal;
-use tracing::{info, Level};
+use tracing::{error, info, Level};
 use tracing_subscriber::FmtSubscriber;
 
 mod api;
@@ -10,8 +10,21 @@ mod config;
 mod db;
 mod error;
 mod errors;
+mod grpc;
 mod models;
+mod mq;
 mod services;
+
+// Define the proto module here for the binary
+pub mod proto {
+    pub mod inventory {
+        tonic::include_proto!("inventory");
+    }
+
+    pub mod order {
+        tonic::include_proto!("order");
+    }
+}
 
 use config::get as get_config;
 use services::{
@@ -92,10 +105,24 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         shipping_service,
     };
 
-    // Setup API router
-    let app = api::create_router(Arc::new(app_state)).await;
+    // Initialize gRPC clients
+    grpc::init_grpc_clients().await?;
 
-    // Start the server
+    // Initialize RabbitMQ connection
+    mq::init_rabbitmq().await?;
+
+    // Setup API router
+    let app = api::create_router(Arc::new(app_state.clone())).await;
+
+    // Start the gRPC server
+    let grpc_app_state = Arc::new(app_state.clone());
+    tokio::spawn(async move {
+        if let Err(e) = start_grpc_server(grpc_app_state).await {
+            error!("gRPC server error: {}", e);
+        }
+    });
+
+    // Start the HTTP server
     let addr = SocketAddr::from(([0, 0, 0, 0], config.server.port));
     info!("Listening on http://{}", addr);
 
@@ -105,6 +132,24 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .await?;
 
     info!("Server shutdown complete");
+    Ok(())
+}
+
+async fn start_grpc_server(
+    app_state: Arc<api::AppState>,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let config = get_config();
+    let addr = format!("{}:{}", config.grpc.host, config.grpc.port).parse()?;
+
+    let order_grpc_service = grpc::order::OrderGrpcService::new(app_state.order_service.clone());
+
+    info!("Starting gRPC server on {}", addr);
+
+    tonic::transport::Server::builder()
+        .add_service(order_grpc_service.into_service())
+        .serve(addr)
+        .await?;
+
     Ok(())
 }
 

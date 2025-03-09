@@ -11,6 +11,7 @@ use crate::services::{
     WarehouseService,
 };
 
+#[derive(Clone)]
 pub struct AppState {
     pub customer_service: Arc<CustomerService>,
     pub inventory_service: Arc<InventoryService>,

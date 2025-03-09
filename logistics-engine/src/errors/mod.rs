@@ -6,6 +6,7 @@ pub enum LogisticsError {
     NotFound(&'static str, String),
     ValidationError(String),
     InternalError(String),
+    BadRequest(String),
 }
 
 impl fmt::Display for LogisticsError {
@@ -17,6 +18,7 @@ impl fmt::Display for LogisticsError {
             }
             LogisticsError::ValidationError(msg) => write!(f, "Validation error: {}", msg),
             LogisticsError::InternalError(msg) => write!(f, "Internal error: {}", msg),
+            LogisticsError::BadRequest(msg) => write!(f, "Bad request: {}", msg),
         }
     }
 }
