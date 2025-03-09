@@ -29,21 +29,12 @@ pub fn create_router(state: SharedState) -> Router {
         .route("/{id}", delete(warehouse_handlers::delete_warehouse));
 
     let inventory_routes = Router::new()
-        .route("/items", get(inventory_handlers::list_inventory_items))
-        .route("/items", post(inventory_handlers::create_inventory_item))
-        .route("/items/{id}", get(inventory_handlers::get_inventory_item))
-        .route(
-            "/items/{id}",
-            put(inventory_handlers::update_inventory_item),
-        )
-        .route(
-            "/items/{id}",
-            delete(inventory_handlers::delete_inventory_item),
-        )
-        .route(
-            "/items/{id}/adjust",
-            put(inventory_handlers::adjust_quantity),
-        )
+        .route("/", get(inventory_handlers::list_inventory_items))
+        .route("/", post(inventory_handlers::create_inventory_item))
+        .route("/{id}", get(inventory_handlers::get_inventory_item))
+        .route("/{id}", put(inventory_handlers::update_inventory_item))
+        .route("/{id}", delete(inventory_handlers::delete_inventory_item))
+        .route("/{id}/adjust", put(inventory_handlers::adjust_quantity))
         .route("/reservations", get(inventory_handlers::list_reservations))
         .route(
             "/reservations",

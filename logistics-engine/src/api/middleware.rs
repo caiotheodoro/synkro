@@ -12,7 +12,9 @@ struct ValidateTokenRequest {
 
 #[derive(Deserialize, Debug)]
 struct ValidateTokenResponse {
+    #[serde(rename = "isValid")]
     is_valid: bool,
+    #[serde(rename = "userId")]
     user_id: Option<String>,
 }
 
