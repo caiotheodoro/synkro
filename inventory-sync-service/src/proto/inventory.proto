@@ -1,0 +1,206 @@
+syntax = "proto3";
+
+package inventory;
+
+option go_package = "github.com/synkro/inventory-sync-service/proto";
+
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/empty.proto";
+
+service InventoryService {
+    // Item Management
+    rpc CreateItem(CreateItemRequest) returns (ItemResponse);
+    rpc GetItem(GetItemRequest) returns (ItemResponse);
+    rpc UpdateItem(UpdateItemRequest) returns (ItemResponse);
+    rpc DeleteItem(DeleteItemRequest) returns (DeleteItemResponse);
+    rpc ListItems(ListItemsRequest) returns (ListItemsResponse);
+    
+    // Inventory Operations
+    rpc GetInventoryLevels(GetInventoryLevelsRequest) returns (GetInventoryLevelsResponse);
+    rpc AdjustInventory(AdjustInventoryRequest) returns (AdjustInventoryResponse);
+    rpc AllocateInventory(AllocateInventoryRequest) returns (AllocateInventoryResponse);
+    rpc ReleaseInventory(ReleaseInventoryRequest) returns (ReleaseInventoryResponse);
+    
+    // Bulk Operations
+    rpc BulkCreateItems(BulkCreateItemsRequest) returns (BulkCreateItemsResponse);
+    rpc BulkUpdateItems(BulkUpdateItemsRequest) returns (BulkUpdateItemsResponse);
+    
+    // Real-time Streams
+    rpc StreamInventoryUpdates(StreamInventoryUpdatesRequest) returns (stream InventoryUpdateEvent);
+    
+    // Reporting
+    rpc GetInventoryReport(GetInventoryReportRequest) returns (InventoryReportResponse);
+}
+
+// Item related messages
+message Item {
+    string id = 1;
+    string sku = 2;
+    string name = 3;
+    string description = 4;
+    string category = 5;
+    map<string, string> attributes = 6;
+    google.protobuf.Timestamp created_at = 7;
+    google.protobuf.Timestamp updated_at = 8;
+}
+
+message CreateItemRequest {
+    string sku = 1;
+    string name = 2;
+    string description = 3;
+    string category = 4;
+    map<string, string> attributes = 5;
+}
+
+message GetItemRequest {
+    string id = 1;
+}
+
+message UpdateItemRequest {
+    string id = 1;
+    string name = 2;
+    string description = 3;
+    string category = 4;
+    map<string, string> attributes = 5;
+}
+
+message DeleteItemRequest {
+    string id = 1;
+}
+
+message DeleteItemResponse {
+    bool success = 1;
+}
+
+message ListItemsRequest {
+    int32 page = 1;
+    int32 page_size = 2;
+    string category = 3;
+}
+
+message ItemResponse {
+    Item item = 1;
+}
+
+message ListItemsResponse {
+    repeated Item items = 1;
+    int32 total = 2;
+    int32 page = 3;
+    int32 page_size = 4;
+}
+
+// Inventory operations
+message InventoryLevel {
+    string item_id = 1;
+    int64 quantity = 2;
+    int64 reserved = 3;
+    int64 available = 4;
+    string location_id = 5;
+    google.protobuf.Timestamp last_updated = 6;
+}
+
+// Inventory levels
+message GetInventoryLevelsRequest {
+    // Empty request as we want all inventory levels
+}
+
+message GetInventoryLevelsResponse {
+    repeated InventoryLevel levels = 1;
+}
+
+message AdjustInventoryRequest {
+    string item_id = 1;
+    int64 quantity = 2;
+    string reason = 3;
+    string location_id = 4;
+    string reference = 5;
+}
+
+message AdjustInventoryResponse {
+    InventoryLevel inventory_level = 1;
+}
+
+message AllocateInventoryRequest {
+    string item_id = 1;
+    int64 quantity = 2;
+    string order_id = 3;
+    string location_id = 4;
+}
+
+message AllocateInventoryResponse {
+    bool success = 1;
+    InventoryLevel inventory_level = 2;
+}
+
+message ReleaseInventoryRequest {
+    string item_id = 1;
+    int64 quantity = 2;
+    string order_id = 3;
+    string location_id = 4;
+}
+
+message ReleaseInventoryResponse {
+    bool success = 1;
+    InventoryLevel inventory_level = 2;
+}
+
+// Bulk operations
+message BulkCreateItemsRequest {
+    repeated CreateItemRequest items = 1;
+}
+
+message BulkCreateItemsResponse {
+    repeated Item items = 1;
+    int32 success_count = 2;
+    int32 failure_count = 3;
+    repeated string errors = 4;
+}
+
+message BulkUpdateItemsRequest {
+    repeated UpdateItemRequest items = 1;
+}
+
+message BulkUpdateItemsResponse {
+    repeated Item items = 1;
+    int32 success_count = 2;
+    int32 failure_count = 3;
+    repeated string errors = 4;
+}
+
+// Real-time updates
+message StreamInventoryUpdatesRequest {
+    repeated string item_ids = 1;
+    repeated string location_ids = 2;
+}
+
+message InventoryUpdateEvent {
+    string event_id = 1;
+    string event_type = 2;
+    InventoryLevel inventory_level = 3;
+    google.protobuf.Timestamp timestamp = 4;
+}
+
+// Reporting
+message GetInventoryReportRequest {
+    string location_id = 1;
+    string category = 2;
+    bool low_stock_only = 3;
+    int32 threshold = 4;
+}
+
+message InventoryReportItem {
+    Item item = 1;
+    InventoryLevel inventory_level = 2;
+    int32 sales_velocity = 3;
+    int32 days_on_hand = 4;
+    bool requires_reorder = 5;
+}
+
+message InventoryReportResponse {
+    repeated InventoryReportItem items = 1;
+    int32 total_items = 2;
+    int32 total_quantity = 3;
+    int32 total_value = 4;
+    int32 low_stock_count = 5;
+    google.protobuf.Timestamp report_time = 6;
+} 
