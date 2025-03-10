@@ -72,7 +72,7 @@ export const BackofficeLayout: React.FC<BackofficeLayoutProps> = ({
 
       <div className="flex flex-1">
         <aside
-          className={`w-64 border-r-[3px] border-black bg-white fixed inset-y-0 pt-16 z-30 transition-transform duration-300 ease-in-out ${
+          className={`p-2  w-64 border-r-[3px] border-black bg-white fixed inset-y-0 pt-20 z-30 transition-transform duration-300 ease-in-out ${
             isMobileMenuOpen ? "translate-x-0" : "-translate-x-full"
           } md:translate-x-0`}
         >

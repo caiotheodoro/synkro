@@ -107,12 +107,6 @@ stop_services() {
   # Stop Docker Compose services
   print_message "$YELLOW" "Stopping Docker Compose services..."
   
-  # Stop PostgreSQL for API Gateway Auth
-  if [ -d "postgres/api-gateway-auth" ]; then
-    cd postgres/api-gateway-auth || true
-    docker-compose down
-    cd - > /dev/null || true
-  fi
   
   # Stop ELK stack
   if [ -d "Elk" ]; then
@@ -143,13 +137,15 @@ main() {
   print_message "$BLUE" "Current directory: $(pwd)"
 
 
-  cd postgres/api-gateway-auth || {
-    print_message "$RED" "Failed to change to directory: postgres/api-gateway-auth"
+  # Start Docker containers in api-gateway-auth
+  print_message "$BLUE" "Starting Docker containers in api-gateway-auth..."
+  cd api-gateway-auth || {
+    print_message "$RED" "Failed to change to directory: api-gateway-auth"
     exit 1
   }
   docker-compose up -d
   cd "$ROOT_DIR" || exit 1
-  print_message "$GREEN" "PostgreSQL for API Gateway Auth started."
+  print_message "$GREEN" "Docker containers in api-gateway-auth started."
   
   # Start ELK stack if .env file exists
   if [ -f "Elk/.env" ]; then
@@ -168,6 +164,7 @@ main() {
   
   # Start API Gateway Auth service
   start_service "api-gateway-auth" "pnpm start:dev > \"$ROOT_DIR/logs/api-gateway-auth.log\" 2>&1" "$ROOT_DIR/api-gateway-auth"
+  
   
   # Wait for API Gateway Auth to start
   print_message "$BLUE" "Waiting for API Gateway Auth to start..."
@@ -215,7 +212,7 @@ main() {
   # Start Logistics Engine if it exists (Rust service)
   if [ -d "logistics-engine/src" ]; then
     if command_exists cargo; then
-      start_service "logistics-engine" "cd logistics-engine && cargo run > \"$ROOT_DIR/logs/logistics-engine.log\" 2>&1" "$ROOT_DIR"
+      start_service "logistics-engine" "cd logistics-engine && cargo run --bin logistics-engine > \"$ROOT_DIR/logs/logistics-engine.log\" 2>&1" "$ROOT_DIR"
     else
       print_message "$YELLOW" "Skipping Logistics Engine (Rust/Cargo not installed)."
     fi
@@ -225,6 +222,7 @@ main() {
   print_message "$GREEN" "All services started successfully!"
   print_message "$BLUE" "Services running:"
   print_message "$BLUE" "  - PostgreSQL (API Gateway Auth): localhost:5432"
+  print_message "$BLUE" "  - API Gateway Auth Docker containers: Check docker-compose.yml for ports"
   print_message "$BLUE" "  - API Gateway Auth: Check logs/api-gateway-auth.log for port"
   print_message "$BLUE" "  - Frontend Auth: Check logs/frontend-auth.log for port"
   print_message "$BLUE" "  - Frontend Dashboard: localhost:3003"

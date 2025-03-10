@@ -71,7 +71,7 @@ export const BackofficeNavigation: React.FC = () => {
   console.log(router.query.moduleId);
 
   return (
-    <nav className="h-full overflow-y-auto py-6 px-4">
+    <nav className="h-full overflow-y-auto p-2">
       <div className="space-y-8">
         <div className="space-y-2">
           <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
