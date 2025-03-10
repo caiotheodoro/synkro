@@ -24,17 +24,13 @@ func NewHandler(itemService services.ItemService, inventoryService services.Inve
 	}
 }
 
-// RegisterRoutes registers all the API routes
 func (h *Handler) RegisterRoutes(router *gin.Engine) {
-	// Add debugging
 	println("RegisterRoutes called")
 	
-	// Health check first
 	router.GET("/health", h.HealthCheck)
 	
 	api := router.Group("/api/v1")
 	{
-		// Items
 		items := api.Group("/items")
 		{
 			items.GET("", h.ListItems)
@@ -46,7 +42,6 @@ func (h *Handler) RegisterRoutes(router *gin.Engine) {
 			items.PUT("/bulk", h.BulkUpdateItems)
 		}
 
-		// Warehouses
 		warehouses := api.Group("/warehouses")
 		{
 			warehouses.GET("", h.ListWarehouses)
@@ -56,7 +51,6 @@ func (h *Handler) RegisterRoutes(router *gin.Engine) {
 			warehouses.DELETE("/:id", h.DeleteWarehouse)
 		}
 
-		// Inventory
 		inventory := api.Group("/inventory")
 		{
 			inventory.POST("/adjust", h.AdjustInventory)
@@ -65,7 +59,6 @@ func (h *Handler) RegisterRoutes(router *gin.Engine) {
 			inventory.GET("/levels", h.GetInventoryLevels)
 		}
 
-		// Reports
 		reports := api.Group("/reports")
 		{
 			reports.GET("/inventory", h.GetInventoryReport)
@@ -79,14 +72,12 @@ func (h *Handler) RegisterRoutes(router *gin.Engine) {
 	}
 }
 
-// HealthCheck handles health check requests
 func (h *Handler) HealthCheck(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"status": "healthy",
 	})
 }
 
-// CreateItem handles item creation
 func (h *Handler) CreateItem(c *gin.Context) {
 	var dto models.CreateItemDTO
 	if err := c.ShouldBindJSON(&dto); err != nil {
@@ -103,7 +94,6 @@ func (h *Handler) CreateItem(c *gin.Context) {
 	c.JSON(http.StatusCreated, item)
 }
 
-// GetItem handles item retrieval
 func (h *Handler) GetItem(c *gin.Context) {
 	id := c.Param("id")
 	
@@ -116,7 +106,6 @@ func (h *Handler) GetItem(c *gin.Context) {
 	c.JSON(http.StatusOK, item)
 }
 
-// UpdateItem handles item updates
 func (h *Handler) UpdateItem(c *gin.Context) {
 	id := c.Param("id")
 	
@@ -135,7 +124,6 @@ func (h *Handler) UpdateItem(c *gin.Context) {
 	c.JSON(http.StatusOK, item)
 }
 
-// DeleteItem handles item deletion
 func (h *Handler) DeleteItem(c *gin.Context) {
 	id := c.Param("id")
 	
@@ -148,7 +136,6 @@ func (h *Handler) DeleteItem(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"success": true})
 }
 
-// ListItems handles item listing
 func (h *Handler) ListItems(c *gin.Context) {
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "10"))
@@ -168,7 +155,6 @@ func (h *Handler) ListItems(c *gin.Context) {
 	})
 }
 
-// BulkCreateItems handles bulk item creation
 func (h *Handler) BulkCreateItems(c *gin.Context) {
 	var dtos []models.CreateItemDTO
 	if err := c.ShouldBindJSON(&dtos); err != nil {
@@ -190,7 +176,6 @@ func (h *Handler) BulkCreateItems(c *gin.Context) {
 	})
 }
 
-// BulkUpdateItems handles bulk item updates
 func (h *Handler) BulkUpdateItems(c *gin.Context) {
 	var updates map[string]models.UpdateItemDTO
 	if err := c.ShouldBindJSON(&updates); err != nil {
@@ -212,7 +197,6 @@ func (h *Handler) BulkUpdateItems(c *gin.Context) {
 	})
 }
 
-// CreateWarehouse handles warehouse creation
 func (h *Handler) CreateWarehouse(c *gin.Context) {
 	var warehouse models.Warehouse
 	if err := c.ShouldBindJSON(&warehouse); err != nil {
@@ -231,7 +215,6 @@ func (h *Handler) CreateWarehouse(c *gin.Context) {
 	c.JSON(http.StatusCreated, warehouse)
 }
 
-// GetWarehouse handles warehouse retrieval
 func (h *Handler) GetWarehouse(c *gin.Context) {
 	idStr := c.Param("id")
 	id, err := uuid.Parse(idStr)
@@ -249,7 +232,6 @@ func (h *Handler) GetWarehouse(c *gin.Context) {
 	c.JSON(http.StatusOK, warehouse)
 }
 
-// UpdateWarehouse handles warehouse updates
 func (h *Handler) UpdateWarehouse(c *gin.Context) {
 	idStr := c.Param("id")
 	id, err := uuid.Parse(idStr)
@@ -273,7 +255,6 @@ func (h *Handler) UpdateWarehouse(c *gin.Context) {
 	c.JSON(http.StatusOK, warehouse)
 }
 
-// DeleteWarehouse handles warehouse deletion
 func (h *Handler) DeleteWarehouse(c *gin.Context) {
 	idStr := c.Param("id")
 	id, err := uuid.Parse(idStr)
@@ -288,7 +269,6 @@ func (h *Handler) DeleteWarehouse(c *gin.Context) {
 		return
 	}
 
-	// Delete the warehouse
 	if err := h.inventoryService.DeleteWarehouse(c, id); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -299,7 +279,6 @@ func (h *Handler) DeleteWarehouse(c *gin.Context) {
 	})
 }
 
-// ListWarehouses handles warehouse listing
 func (h *Handler) ListWarehouses(c *gin.Context) {
 	warehouses, err := h.inventoryService.GetWarehouses(c)
 	if err != nil {
@@ -310,7 +289,6 @@ func (h *Handler) ListWarehouses(c *gin.Context) {
 	c.JSON(http.StatusOK, warehouses)
 }
 
-// GetInventoryLevelForItem handles getting inventory level for a specific item
 func (h *Handler) GetInventoryLevelForItem(c *gin.Context) {
 	itemIDStr := c.Query("item_id")
 	warehouseIDStr := c.Query("warehouse_id")
@@ -336,7 +314,6 @@ func (h *Handler) GetInventoryLevelForItem(c *gin.Context) {
 	c.JSON(http.StatusOK, level)
 }
 
-// GetInventoryLevels handles getting all inventory levels
 func (h *Handler) GetInventoryLevels(c *gin.Context) {
 	levels, err := h.inventoryService.GetInventoryLevels(c)
 	if err != nil {
@@ -347,7 +324,6 @@ func (h *Handler) GetInventoryLevels(c *gin.Context) {
 	c.JSON(http.StatusOK, levels)
 }
 
-// AdjustInventory handles inventory adjustments
 func (h *Handler) AdjustInventory(c *gin.Context) {
 	var req struct {
 		ItemID      string `json:"item_id" binding:"required"`
@@ -395,7 +371,6 @@ func (h *Handler) AdjustInventory(c *gin.Context) {
 	c.JSON(http.StatusOK, level)
 }
 
-// AllocateInventory handles inventory allocation
 func (h *Handler) AllocateInventory(c *gin.Context) {
 	var req struct {
 		ItemID      string `json:"item_id" binding:"required"`
@@ -437,7 +412,6 @@ func (h *Handler) AllocateInventory(c *gin.Context) {
 	c.JSON(http.StatusOK, level)
 }
 
-// ReleaseInventory handles inventory release
 func (h *Handler) ReleaseInventory(c *gin.Context) {
 	var req struct {
 		ItemID      string `json:"item_id" binding:"required"`
@@ -479,7 +453,6 @@ func (h *Handler) ReleaseInventory(c *gin.Context) {
 	c.JSON(http.StatusOK, level)
 }
 
-// GetInventoryReport handles inventory report generation
 func (h *Handler) GetInventoryReport(c *gin.Context) {
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "10"))
@@ -519,7 +492,6 @@ func (h *Handler) GetInventoryReport(c *gin.Context) {
 	})
 }
 
-// Helper function to get current time in ISO 8601 format
 func nowISO8601() string {
 	return time.Now().Format(time.RFC3339)
 } 
