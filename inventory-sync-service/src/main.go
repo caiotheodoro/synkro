@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/joho/godotenv"
 	"github.com/synkro/inventory-sync-service/src/api/grpc"
 	"github.com/synkro/inventory-sync-service/src/api/rest"
 	"github.com/synkro/inventory-sync-service/src/config"
@@ -19,9 +20,15 @@ import (
 	"github.com/synkro/inventory-sync-service/src/repository/postgres"
 	"github.com/synkro/inventory-sync-service/src/services"
 	grpcserver "google.golang.org/grpc"
+	"google.golang.org/grpc/reflection"
 )
 
 func main() {
+	// Load .env file if it exists
+	if err := godotenv.Load(); err != nil {
+		log.Println("No .env file found or error loading it. Using environment variables and defaults.")
+	}
+
 	cfg := config.Load()
 
 	if cfg.IsProduction() {
@@ -58,6 +65,9 @@ func main() {
 	inventoryServer := grpc.NewInventoryServer(itemService, inventoryService)
 	grpcServer := grpcserver.NewServer()
 	pb.RegisterInventoryServiceServer(grpcServer, inventoryServer)
+	
+	// Register reflection service on gRPC server
+	reflection.Register(grpcServer)
 
 	grpcListener, err := net.Listen("tcp", cfg.Server.GRPCPort)
 	if err != nil {

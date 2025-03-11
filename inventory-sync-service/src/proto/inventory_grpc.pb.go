@@ -32,6 +32,9 @@ const (
 	InventoryService_BulkUpdateItems_FullMethodName        = "/inventory.InventoryService/BulkUpdateItems"
 	InventoryService_StreamInventoryUpdates_FullMethodName = "/inventory.InventoryService/StreamInventoryUpdates"
 	InventoryService_GetInventoryReport_FullMethodName     = "/inventory.InventoryService/GetInventoryReport"
+	InventoryService_CheckAndReserveStock_FullMethodName   = "/inventory.InventoryService/CheckAndReserveStock"
+	InventoryService_ReleaseReservedStock_FullMethodName   = "/inventory.InventoryService/ReleaseReservedStock"
+	InventoryService_CommitReservation_FullMethodName      = "/inventory.InventoryService/CommitReservation"
 )
 
 // InventoryServiceClient is the client API for InventoryService service.
@@ -56,6 +59,10 @@ type InventoryServiceClient interface {
 	StreamInventoryUpdates(ctx context.Context, in *StreamInventoryUpdatesRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[InventoryUpdateEvent], error)
 	// Reporting
 	GetInventoryReport(ctx context.Context, in *GetInventoryReportRequest, opts ...grpc.CallOption) (*InventoryReportResponse, error)
+	// Logistics Engine Integration
+	CheckAndReserveStock(ctx context.Context, in *StockReservationRequest, opts ...grpc.CallOption) (*StockReservationResponse, error)
+	ReleaseReservedStock(ctx context.Context, in *ReleaseStockRequest, opts ...grpc.CallOption) (*ReleaseStockResponse, error)
+	CommitReservation(ctx context.Context, in *CommitReservationRequest, opts ...grpc.CallOption) (*CommitReservationResponse, error)
 }
 
 type inventoryServiceClient struct {
@@ -205,6 +212,36 @@ func (c *inventoryServiceClient) GetInventoryReport(ctx context.Context, in *Get
 	return out, nil
 }
 
+func (c *inventoryServiceClient) CheckAndReserveStock(ctx context.Context, in *StockReservationRequest, opts ...grpc.CallOption) (*StockReservationResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(StockReservationResponse)
+	err := c.cc.Invoke(ctx, InventoryService_CheckAndReserveStock_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *inventoryServiceClient) ReleaseReservedStock(ctx context.Context, in *ReleaseStockRequest, opts ...grpc.CallOption) (*ReleaseStockResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ReleaseStockResponse)
+	err := c.cc.Invoke(ctx, InventoryService_ReleaseReservedStock_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *inventoryServiceClient) CommitReservation(ctx context.Context, in *CommitReservationRequest, opts ...grpc.CallOption) (*CommitReservationResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CommitReservationResponse)
+	err := c.cc.Invoke(ctx, InventoryService_CommitReservation_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // InventoryServiceServer is the server API for InventoryService service.
 // All implementations must embed UnimplementedInventoryServiceServer
 // for forward compatibility.
@@ -227,6 +264,10 @@ type InventoryServiceServer interface {
 	StreamInventoryUpdates(*StreamInventoryUpdatesRequest, grpc.ServerStreamingServer[InventoryUpdateEvent]) error
 	// Reporting
 	GetInventoryReport(context.Context, *GetInventoryReportRequest) (*InventoryReportResponse, error)
+	// Logistics Engine Integration
+	CheckAndReserveStock(context.Context, *StockReservationRequest) (*StockReservationResponse, error)
+	ReleaseReservedStock(context.Context, *ReleaseStockRequest) (*ReleaseStockResponse, error)
+	CommitReservation(context.Context, *CommitReservationRequest) (*CommitReservationResponse, error)
 	mustEmbedUnimplementedInventoryServiceServer()
 }
 
@@ -275,6 +316,15 @@ func (UnimplementedInventoryServiceServer) StreamInventoryUpdates(*StreamInvento
 }
 func (UnimplementedInventoryServiceServer) GetInventoryReport(context.Context, *GetInventoryReportRequest) (*InventoryReportResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetInventoryReport not implemented")
+}
+func (UnimplementedInventoryServiceServer) CheckAndReserveStock(context.Context, *StockReservationRequest) (*StockReservationResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CheckAndReserveStock not implemented")
+}
+func (UnimplementedInventoryServiceServer) ReleaseReservedStock(context.Context, *ReleaseStockRequest) (*ReleaseStockResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ReleaseReservedStock not implemented")
+}
+func (UnimplementedInventoryServiceServer) CommitReservation(context.Context, *CommitReservationRequest) (*CommitReservationResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CommitReservation not implemented")
 }
 func (UnimplementedInventoryServiceServer) mustEmbedUnimplementedInventoryServiceServer() {}
 func (UnimplementedInventoryServiceServer) testEmbeddedByValue()                          {}
@@ -524,6 +574,60 @@ func _InventoryService_GetInventoryReport_Handler(srv interface{}, ctx context.C
 	return interceptor(ctx, in, info, handler)
 }
 
+func _InventoryService_CheckAndReserveStock_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(StockReservationRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(InventoryServiceServer).CheckAndReserveStock(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: InventoryService_CheckAndReserveStock_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(InventoryServiceServer).CheckAndReserveStock(ctx, req.(*StockReservationRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _InventoryService_ReleaseReservedStock_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ReleaseStockRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(InventoryServiceServer).ReleaseReservedStock(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: InventoryService_ReleaseReservedStock_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(InventoryServiceServer).ReleaseReservedStock(ctx, req.(*ReleaseStockRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _InventoryService_CommitReservation_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CommitReservationRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(InventoryServiceServer).CommitReservation(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: InventoryService_CommitReservation_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(InventoryServiceServer).CommitReservation(ctx, req.(*CommitReservationRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // InventoryService_ServiceDesc is the grpc.ServiceDesc for InventoryService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -578,6 +682,18 @@ var InventoryService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetInventoryReport",
 			Handler:    _InventoryService_GetInventoryReport_Handler,
+		},
+		{
+			MethodName: "CheckAndReserveStock",
+			Handler:    _InventoryService_CheckAndReserveStock_Handler,
+		},
+		{
+			MethodName: "ReleaseReservedStock",
+			Handler:    _InventoryService_ReleaseReservedStock_Handler,
+		},
+		{
+			MethodName: "CommitReservation",
+			Handler:    _InventoryService_CommitReservation_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{

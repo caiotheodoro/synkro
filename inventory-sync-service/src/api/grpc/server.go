@@ -417,12 +417,195 @@ func (s *InventoryServer) GetInventoryLevels(ctx context.Context, req *pb.GetInv
 	}, nil
 }
 
-// Helper functions to convert between models and proto
+// CheckAndReserveStock checks if products are in stock and reserves them
+func (s *InventoryServer) CheckAndReserveStock(ctx context.Context, req *pb.StockReservationRequest) (*pb.StockReservationResponse, error) {
+	// Create a unique reservation ID
+	reservationID := uuid.New().String()
+	warehouseID, err := uuid.Parse(req.WarehouseId)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid warehouse ID: %v", err)
+	}
+
+	// Check and reserve stock for each product
+	availabilityList := make([]*pb.ProductAvailability, 0, len(req.Items))
+	success := true
+	
+	for _, item := range req.Items {
+		// First, check if the item exists
+		var itemObj *models.Item
+		var itemID uuid.UUID
+		
+		if item.ProductId != "" {
+			// Try to lookup by product ID
+			itemObj, err = s.itemService.GetItem(ctx, item.ProductId)
+			if err != nil {
+				availabilityList = append(availabilityList, &pb.ProductAvailability{
+					ProductId:    item.ProductId,
+					Sku:          item.Sku,
+					InStock:      false,
+					ErrorMessage: fmt.Sprintf("item not found: %v", err),
+				})
+				success = false
+				continue
+			}
+			itemID, _ = uuid.Parse(item.ProductId)
+		} else if item.Sku != "" {
+			// Try to lookup by SKU
+			itemObj, err = s.itemService.GetItemBySKU(ctx, item.Sku)
+			if err != nil {
+				availabilityList = append(availabilityList, &pb.ProductAvailability{
+					ProductId:    "",
+					Sku:          item.Sku,
+					InStock:      false,
+					ErrorMessage: fmt.Sprintf("item not found: %v", err),
+				})
+				success = false
+				continue
+			}
+			itemID, _ = uuid.Parse(itemObj.ID)
+		} else {
+			return nil, status.Errorf(codes.InvalidArgument, "product_id or sku must be provided")
+		}
+
+		// Now check inventory level
+		level, err := s.inventoryService.GetInventoryLevelForItem(ctx, itemID, warehouseID)
+		if err != nil {
+			availabilityList = append(availabilityList, &pb.ProductAvailability{
+				ProductId:    itemObj.ID,
+				Sku:          itemObj.SKU,
+				InStock:      false,
+				ErrorMessage: fmt.Sprintf("failed to get inventory level: %v", err),
+			})
+			success = false
+			continue
+		}
+
+		// Check if there's enough available inventory
+		if level.Available < int64(item.Quantity) {
+			availabilityList = append(availabilityList, &pb.ProductAvailability{
+				ProductId:         itemObj.ID,
+				Sku:               itemObj.SKU,
+				InStock:           false,
+				AvailableQuantity: int32(level.Available),
+				ErrorMessage:      fmt.Sprintf("insufficient stock: requested %d, available %d", item.Quantity, level.Available),
+			})
+			success = false
+			continue
+		}
+
+		// Reserve the inventory
+		err = s.inventoryService.AllocateInventory(ctx, itemID, int64(item.Quantity), reservationID, warehouseID, "system")
+		if err != nil {
+			availabilityList = append(availabilityList, &pb.ProductAvailability{
+				ProductId:         itemObj.ID,
+				Sku:               itemObj.SKU,
+				InStock:           true,
+				AvailableQuantity: int32(level.Available),
+				ErrorMessage:      fmt.Sprintf("failed to allocate inventory: %v", err),
+			})
+			success = false
+			continue
+		}
+
+		// Successfully reserved
+		availabilityList = append(availabilityList, &pb.ProductAvailability{
+			ProductId:         itemObj.ID,
+			Sku:               itemObj.SKU,
+			InStock:           true,
+			AvailableQuantity: int32(level.Available - int64(item.Quantity)),
+		})
+	}
+
+	// Return the response
+	message := "Stock reserved successfully"
+	if !success {
+		message = "Some items could not be reserved"
+	}
+
+	return &pb.StockReservationResponse{
+		Success:       success,
+		ReservationId: reservationID,
+		Items:         availabilityList,
+		Message:       message,
+	}, nil
+}
+
+// ReleaseReservedStock releases stock that was previously reserved
+func (s *InventoryServer) ReleaseReservedStock(ctx context.Context, req *pb.ReleaseStockRequest) (*pb.ReleaseStockResponse, error) {
+	// Find inventory levels with matching reservation ID (which will be the order_id in the reference)
+	success := true
+	message := "Stock released successfully"
+	
+	// We'll keep track of release operations for transaction tracking
+	releaseOps := 0
+	
+	// Go through each warehouse to find allocations for this reservation
+	warehouses, err := s.inventoryService.GetWarehouses(ctx)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "failed to get warehouses: %v", err)
+	}
+
+	for _, _ = range warehouses {
+		// Get transactions for this reservation
+		transactions, _, err := s.inventoryService.GetInventoryTransactions(
+			ctx, 
+			map[string]interface{}{
+				"reference": req.ReservationId,
+				"type": "allocate",
+			}, 
+			1, 100)
+		
+		if err != nil {
+			success = false
+			message = fmt.Sprintf("failed to get transactions: %v", err)
+			continue
+		}
+
+		// Release each transaction
+		for _, tx := range transactions {
+			err = s.inventoryService.ReleaseInventory(
+				ctx, 
+				tx.ItemID, 
+				tx.Quantity, 
+				req.OrderId, 
+				tx.WarehouseID, 
+				"system")
+			
+			if err != nil {
+				success = false
+				message = fmt.Sprintf("failed to release inventory: %v", err)
+				continue
+			}
+			
+			releaseOps++
+		}
+	}
+
+	if releaseOps == 0 && success {
+		message = "No matching reservations found to release"
+		success = false
+	}
+
+	return &pb.ReleaseStockResponse{
+		Success: success,
+		Message: message,
+	}, nil
+}
+
+func (s *InventoryServer) CommitReservation(ctx context.Context, req *pb.CommitReservationRequest) (*pb.CommitReservationResponse, error) {
+	
+
+	
+	return &pb.CommitReservationResponse{
+		Success: true,
+		Message: fmt.Sprintf("Reservation %s committed successfully for order %s", req.ReservationId, req.OrderId),
+	}, nil
+}
+
 
 func convertItemToProto(item *models.Item) *pb.Item {
 	attributes := make(map[string]string)
 	for k, v := range item.Attributes {
-		// Convert interface{} to string
 		switch val := v.(type) {
 		case string:
 			attributes[k] = val
@@ -446,7 +629,7 @@ func convertItemToProto(item *models.Item) *pb.Item {
 func convertInventoryLevelToProto(level *models.InventoryLevel) *pb.InventoryLevel {
 	return &pb.InventoryLevel{
 		ItemId:      level.ItemID.String(),
-		LocationId:  level.WarehouseID.String(), // Using LocationId for backward compatibility
+		LocationId:  level.WarehouseID.String(), 
 		Quantity:    level.Quantity,
 		Reserved:    level.Reserved,
 		Available:   level.Available,

@@ -30,6 +30,11 @@ service InventoryService {
     
     // Reporting
     rpc GetInventoryReport(GetInventoryReportRequest) returns (InventoryReportResponse);
+
+    // Logistics Engine Integration
+    rpc CheckAndReserveStock(StockReservationRequest) returns (StockReservationResponse);
+    rpc ReleaseReservedStock(ReleaseStockRequest) returns (ReleaseStockResponse);
+    rpc CommitReservation(CommitReservationRequest) returns (CommitReservationResponse);
 }
 
 // Item related messages
@@ -102,6 +107,8 @@ message InventoryLevel {
 // Inventory levels
 message GetInventoryLevelsRequest {
     // Empty request as we want all inventory levels
+    repeated string item_ids = 1;
+    repeated string location_ids = 2;
 }
 
 message GetInventoryLevelsResponse {
@@ -203,4 +210,62 @@ message InventoryReportResponse {
     int32 total_value = 4;
     int32 low_stock_count = 5;
     google.protobuf.Timestamp report_time = 6;
+}
+
+// Logistics Engine Integration Messages
+
+// Product item for stock checks
+message ProductItem {
+    string product_id = 1;
+    string sku = 2;
+    int32 quantity = 3;
+}
+
+// Request to check and reserve stock
+message StockReservationRequest {
+    string order_id = 1;
+    repeated ProductItem items = 2;
+    string warehouse_id = 3;
+}
+
+// Response for stock reservation
+message StockReservationResponse {
+    bool success = 1;
+    string reservation_id = 2;
+    repeated ProductAvailability items = 3;
+    string message = 4;
+}
+
+// Product availability details
+message ProductAvailability {
+    string product_id = 1;
+    string sku = 2;
+    bool in_stock = 3;
+    int32 available_quantity = 4;
+    string error_message = 5;
+}
+
+// Request to release stock reservation
+message ReleaseStockRequest {
+    string reservation_id = 1;
+    string order_id = 2;
+    string reason = 3;
+}
+
+// Response for releasing stock
+message ReleaseStockResponse {
+    bool success = 1;
+    string message = 2;
+}
+
+// Request to commit reservation
+message CommitReservationRequest {
+    string reservation_id = 1;
+    string order_id = 2;
+}
+
+// Response for committing reservation
+message CommitReservationResponse {
+    bool success = 1;
+    string message = 2;
 } 
