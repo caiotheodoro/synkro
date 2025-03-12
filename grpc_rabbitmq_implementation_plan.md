@@ -718,7 +718,7 @@ impl OrderService {
         
         let reservation = inventory_client
             .check_and_reserve_stock(
-                Uuid::new_v4().to_string(), // temporary order ID
+                Uuid::new_v4().to_string(), 
                 product_items,
                 dto.warehouse_id.to_string(),
             )
@@ -732,10 +732,8 @@ impl OrderService {
             )));
         }
         
-        // Create the order in the database
         let order = self.repository.create(dto).await?;
         
-        // Publish order created event
         let event_data = OrderCreatedEvent {
             order_id: order.id,
             customer_id: order.customer_id,
@@ -750,7 +748,6 @@ impl OrderService {
             event_data,
         ).await?;
         
-        // Commit the inventory reservation
         inventory_client
             .commit_reservation(
                 reservation.reservation_id,

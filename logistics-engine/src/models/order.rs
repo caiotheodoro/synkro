@@ -20,7 +20,6 @@ impl Default for OrderStatus {
     }
 }
 
-// Implement PgHasArrayType to use this enum in arrays with PostgreSQL
 impl PgHasArrayType for OrderStatus {
     fn array_type_info() -> sqlx::postgres::PgTypeInfo {
         sqlx::postgres::PgTypeInfo::with_name("_order_status")

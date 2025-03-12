@@ -31,6 +31,8 @@ impl InventoryRepository {
         let name: String = row.try_get("name")?;
         let description: Option<String> = row.try_get("description")?;
         let warehouse_id: Uuid = row.try_get("warehouse_id")?;
+
+        let warehouse_name: Option<String> = row.try_get("warehouse_name").ok();
         let quantity: i32 = row.try_get("quantity")?;
         let created_at: OffsetDateTime = row.try_get("created_at")?;
         let updated_at: OffsetDateTime = row.try_get("updated_at")?;
@@ -39,6 +41,8 @@ impl InventoryRepository {
         let price_bd: sqlx::types::BigDecimal = row.try_get("price")?;
         let price_str = price_bd.to_string();
         let price = rust_decimal::Decimal::from_str(&price_str).unwrap_or_default();
+        let attributes: Option<serde_json::Value> = row.try_get("attributes")?;
+        let category: Option<String> = row.try_get("category")?;
 
         Ok(InventoryItem {
             id,
@@ -46,8 +50,11 @@ impl InventoryRepository {
             name,
             description,
             warehouse_id,
+            warehouse_name: warehouse_name.unwrap_or_default(),
             quantity,
             price,
+            attributes,
+            category,
             created_at: Self::convert_datetime(created_at),
             updated_at: Self::convert_datetime(updated_at),
         })
@@ -58,20 +65,23 @@ impl InventoryRepository {
         limit: i64,
         offset: i64,
     ) -> Result<Vec<InventoryItem>, Error> {
-        // Replace sqlx::query_as! with plain sqlx::query and custom mapper
         let rows = sqlx::query(
             r#"
             SELECT
-                id,
-                sku,
-                name,
-                description,
-                warehouse_id,
-                quantity,
-                price,
-                created_at,
-                updated_at
+                inventory_items.id,
+                inventory_items.sku,
+                inventory_items.name,
+                inventory_items.description,
+                warehouses.name as warehouse_name,
+                warehouses.id as warehouse_id,
+                inventory_items.quantity,
+                inventory_items.price,
+                inventory_items.attributes,
+                inventory_items.category,
+                inventory_items.created_at,
+                inventory_items.updated_at
             FROM inventory_items
+            LEFT JOIN warehouses ON inventory_items.warehouse_id = warehouses.id
             ORDER BY created_at DESC
             LIMIT $1 OFFSET $2
             "#,
@@ -82,7 +92,6 @@ impl InventoryRepository {
         .fetch_all(&self.pool)
         .await?;
 
-        // Process results to handle nested Result
         let mut items = Vec::new();
         for row_result in rows {
             items.push(row_result?);
@@ -96,17 +105,21 @@ impl InventoryRepository {
         let row_result = sqlx::query(
             r#"
             SELECT
-                id,
-                sku,
-                name,
-                description,
-                warehouse_id,
-                quantity,
-                price,
-                created_at,
-                updated_at
+                inventory_items.id,
+                inventory_items.sku,
+                inventory_items.name,
+                inventory_items.description,
+                warehouses.name as warehouse_name,
+                warehouses.id as warehouse_id,
+                inventory_items.quantity,
+                inventory_items.price,
+                inventory_items.attributes,
+                inventory_items.category,
+                inventory_items.created_at,
+                inventory_items.updated_at
             FROM inventory_items
-            WHERE id = $1
+            LEFT JOIN warehouses ON inventory_items.warehouse_id = warehouses.id
+            WHERE inventory_items.id = $1
             "#,
         )
         .bind(id)
@@ -114,74 +127,18 @@ impl InventoryRepository {
         .fetch_optional(&self.pool)
         .await?;
 
-        // Process optional result to handle nested Result
         match row_result {
             Some(row_result) => Ok(Some(row_result?)),
             None => Ok(None),
         }
     }
 
-    pub async fn find_items_by_sku(&self, sku: &str) -> Result<Vec<InventoryItem>, Error> {
-        // Replace sqlx::query_as! with plain sqlx::query and custom mapper
-        let row_results = sqlx::query(
-            r#"
-            SELECT * FROM inventory_items
-            WHERE sku = $1
-            ORDER BY created_at DESC
-            "#,
-        )
-        .bind(sku)
-        .map(Self::map_row_to_inventory_item)
-        .fetch_all(&self.pool)
-        .await?;
-
-        // Process results to handle nested Result
-        let mut items = Vec::new();
-        for row_result in row_results {
-            items.push(row_result?);
-        }
-
-        Ok(items)
-    }
-
-    pub async fn find_items_by_warehouse_id(
-        &self,
-        warehouse_id: Uuid,
-        limit: i64,
-        offset: i64,
-    ) -> Result<Vec<InventoryItem>, Error> {
-        // Replace sqlx::query_as! with plain sqlx::query and custom mapper
-        let row_results = sqlx::query(
-            r#"
-            SELECT * FROM inventory_items
-            WHERE warehouse_id = $1
-            ORDER BY created_at DESC
-            LIMIT $2 OFFSET $3
-            "#,
-        )
-        .bind(warehouse_id)
-        .bind(limit)
-        .bind(offset)
-        .map(Self::map_row_to_inventory_item)
-        .fetch_all(&self.pool)
-        .await?;
-
-        // Process results to handle nested Result
-        let mut items = Vec::new();
-        for row_result in row_results {
-            items.push(row_result?);
-        }
-
-        Ok(items)
-    }
-
     pub async fn create_item(&self, dto: CreateInventoryItemDto) -> Result<InventoryItem, Error> {
-        // Replace sqlx::query_as! with plain sqlx::query and custom mapper
         let row_result = sqlx::query(
             r#"
             INSERT INTO inventory_items
-            (sku, name, description, warehouse_id, quantity, price)
-            VALUES ($1, $2, $3, $4, $5, $6)
+            (sku, name, description, warehouse_id, quantity, price, attributes, category)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
             RETURNING
                 id,
                 sku,
@@ -200,6 +157,8 @@ impl InventoryRepository {
         .bind(&dto.warehouse_id)
         .bind(&dto.quantity)
         .bind(dto.price.to_f64().unwrap_or(0.0))
+        .bind(&dto.attributes)
+        .bind(&dto.category)
         .map(Self::map_row_to_inventory_item)
         .fetch_one(&self.pool)
         .await?;
@@ -220,7 +179,6 @@ impl InventoryRepository {
 
         let current_item = current_item.unwrap();
 
-        // Replace sqlx::query_as! with plain sqlx::query and custom mapper
         let row_result = sqlx::query(
             r#"
             UPDATE inventory_items
@@ -231,8 +189,10 @@ impl InventoryRepository {
                 warehouse_id = $4,
                 quantity = $5,
                 price = $6,
+                attributes = $7,
+                category = $8,
                 updated_at = NOW()
-            WHERE id = $7
+            WHERE id = $9
             RETURNING
                 id,
                 sku,
@@ -241,6 +201,8 @@ impl InventoryRepository {
                 warehouse_id,
                 quantity,
                 price,
+                attributes,
+                category,
                 created_at,
                 updated_at
             "#,
@@ -255,12 +217,19 @@ impl InventoryRepository {
                 .map(|p| p.to_f64().unwrap_or(0.0))
                 .unwrap_or(current_item.price.to_f64().unwrap_or(0.0)),
         )
+        .bind(
+            dto.attributes
+                .unwrap_or(current_item.attributes.unwrap_or_default()),
+        )
+        .bind(
+            dto.category
+                .unwrap_or(current_item.category.unwrap_or_default()),
+        )
         .bind(id)
         .map(Self::map_row_to_inventory_item)
         .fetch_optional(&self.pool)
         .await?;
 
-        // Process optional result to handle nested Result
         match row_result {
             Some(row_result) => Ok(Some(row_result?)),
             None => Ok(None),
@@ -393,60 +362,6 @@ impl InventoryRepository {
         }
     }
 
-    pub async fn find_reservations_by_order_id(
-        &self,
-        order_id: Uuid,
-    ) -> Result<Vec<InventoryReservation>, Error> {
-        let query = "
-            SELECT id, order_id, status, created_at, updated_at 
-            FROM inventory_reservations
-            WHERE order_id = $1
-            ORDER BY created_at DESC
-        ";
-
-        let rows = sqlx::query(query)
-            .bind(order_id)
-            .fetch_all(&self.pool)
-            .await?;
-
-        let mut reservations = Vec::with_capacity(rows.len());
-        for row in rows {
-            reservations.push(Self::map_row_to_inventory_reservation(&row)?);
-        }
-
-        Ok(reservations)
-    }
-
-    pub async fn find_reservations_by_status(
-        &self,
-        status: ReservationStatus,
-        limit: i64,
-        offset: i64,
-    ) -> Result<Vec<InventoryReservation>, Error> {
-        let status_str = status.to_string();
-        let query = "
-            SELECT id, order_id, status, created_at, updated_at 
-            FROM inventory_reservations
-            WHERE status = $1
-            ORDER BY created_at DESC
-            LIMIT $2 OFFSET $3
-        ";
-
-        let rows = sqlx::query(query)
-            .bind(status_str)
-            .bind(limit)
-            .bind(offset)
-            .fetch_all(&self.pool)
-            .await?;
-
-        let mut reservations = Vec::with_capacity(rows.len());
-        for row in rows {
-            reservations.push(Self::map_row_to_inventory_reservation(&row)?);
-        }
-
-        Ok(reservations)
-    }
-
     pub async fn create_reservation(
         &self,
         dto: CreateReservationDto,
@@ -528,7 +443,6 @@ impl InventoryRepository {
         id: Uuid,
         dto: UpdateReservationDto,
     ) -> Result<Option<InventoryReservation>, Error> {
-        // First fetch the existing reservation
         let existing = self.find_reservation_by_id(id).await?;
         if existing.is_none() {
             return Ok(None);
@@ -559,7 +473,6 @@ impl InventoryRepository {
             Some(row) => {
                 let mut updated = Self::map_row_to_inventory_reservation(&row)?;
 
-                // Update with DTO and preserve values
                 updated.product_id = existing.product_id;
                 updated.sku = existing.sku;
                 updated.quantity = dto.quantity.unwrap_or(existing.quantity);
@@ -624,8 +537,9 @@ impl InventoryRepository {
 
         let rows = sqlx::query(
             r#"
-            SELECT *
+            SELECT inventory_items.*, warehouses.name as warehouse_name
             FROM inventory_items
+            LEFT JOIN warehouses ON inventory_items.warehouse_id = warehouses.id
             WHERE id::text ILIKE $1
             OR name ILIKE $1
             OR sku ILIKE $1

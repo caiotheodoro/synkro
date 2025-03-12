@@ -172,7 +172,6 @@ impl OrderRepository {
         };
         let status = OrderStatus::Pending;
 
-        // Calculate total amount from items
         let total_amount = dto.items.iter().fold(Decimal::ZERO, |acc, item| {
             acc + (Decimal::from_f64_retain(item.unit_price).unwrap_or_default()
                 * Decimal::from(item.quantity))
@@ -413,7 +412,6 @@ impl OrderRepository {
         };
         let status = OrderStatus::Pending;
 
-        // Calculate total amount from items
         let total_amount = dto.items.iter().fold(Decimal::ZERO, |acc, item| {
             acc + (Decimal::from_f64_retain(item.unit_price).unwrap_or_default()
                 * Decimal::from(item.quantity))
