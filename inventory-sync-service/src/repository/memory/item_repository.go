@@ -116,14 +116,12 @@ func (r *ItemRepository) List(ctx context.Context, page, pageSize int, category 
 		}
 	}
 
-	// Sort by name for consistent results
 	sort.Slice(filteredItems, func(i, j int) bool {
 		return filteredItems[i].Name < filteredItems[j].Name
 	})
 
 	total := len(filteredItems)
 
-	// Calculate pagination
 	start := (page - 1) * pageSize
 	end := start + pageSize
 	if start >= total {

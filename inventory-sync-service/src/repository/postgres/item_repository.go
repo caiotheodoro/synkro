@@ -29,7 +29,7 @@ func (r *ItemRepository) Create(ctx context.Context, item *models.Item) error {
 	}
 
 	_, err = r.db.ExecContext(ctx, `
-		INSERT INTO items (id, sku, name, description, category, attributes, created_at, updated_at)
+		INSERT INTO inventory_items (id, sku, name, description, category, attributes, created_at, updated_at)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 	`, item.ID, item.SKU, item.Name, item.Description, item.Category, attributes, item.CreatedAt, item.UpdatedAt)
 
@@ -47,7 +47,7 @@ func (r *ItemRepository) GetByID(ctx context.Context, id string) (*models.Item, 
 
 	err := r.db.QueryRowContext(ctx, `
 		SELECT id, sku, name, description, category, attributes, created_at, updated_at
-		FROM items
+		FROM inventory_items
 		WHERE id = $1
 	`, id).Scan(
 		&item.ID,
@@ -84,7 +84,7 @@ func (r *ItemRepository) GetBySKU(ctx context.Context, sku string) (*models.Item
 
 	err := r.db.QueryRowContext(ctx, `
 		SELECT id, sku, name, description, category, attributes, created_at, updated_at
-		FROM items
+		FROM inventory_items
 		WHERE sku = $1
 	`, sku).Scan(
 		&item.ID,
@@ -124,7 +124,7 @@ func (r *ItemRepository) Update(ctx context.Context, item *models.Item) error {
 	item.UpdatedAt = time.Now()
 
 	result, err := r.db.ExecContext(ctx, `
-		UPDATE items
+		UPDATE inventory_items
 		SET sku = $1, name = $2, description = $3, category = $4, attributes = $5, updated_at = $6
 		WHERE id = $7
 	`, item.SKU, item.Name, item.Description, item.Category, attributes, item.UpdatedAt, item.ID)
@@ -148,7 +148,7 @@ func (r *ItemRepository) Update(ctx context.Context, item *models.Item) error {
 // Delete deletes an item from the database
 func (r *ItemRepository) Delete(ctx context.Context, id string) error {
 	result, err := r.db.ExecContext(ctx, `
-		DELETE FROM items
+		DELETE FROM inventory_items
 		WHERE id = $1
 	`, id)
 
@@ -182,11 +182,11 @@ func (r *ItemRepository) List(ctx context.Context, page, pageSize int, category 
 	// Build query based on whether a category is specified
 	query := `
 		SELECT id, sku, name, description, category, attributes, created_at, updated_at
-		FROM items
+		FROM inventory_items
 	`
 	countQuery := `
 		SELECT COUNT(*)
-		FROM items
+		FROM inventory_items
 	`
 	
 	var args []interface{}
@@ -266,7 +266,7 @@ func (r *ItemRepository) BulkCreate(ctx context.Context, items []*models.Item) (
 		}
 
 		_, err = tx.ExecContext(ctx, `
-			INSERT INTO items (id, sku, name, description, category, attributes, created_at, updated_at)
+			INSERT INTO inventory_items (id, sku, name, description, category, attributes, created_at, updated_at)
 			VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 			ON CONFLICT (sku) DO NOTHING
 		`, item.ID, item.SKU, item.Name, item.Description, item.Category, attributes, item.CreatedAt, item.UpdatedAt)
@@ -307,7 +307,7 @@ func (r *ItemRepository) BulkUpdate(ctx context.Context, items []*models.Item) (
 		item.UpdatedAt = time.Now()
 
 		result, err := tx.ExecContext(ctx, `
-			UPDATE items
+			UPDATE inventory_items
 			SET sku = $1, name = $2, description = $3, category = $4, attributes = $5, updated_at = $6
 			WHERE id = $7
 		`, item.SKU, item.Name, item.Description, item.Category, attributes, item.UpdatedAt, item.ID)

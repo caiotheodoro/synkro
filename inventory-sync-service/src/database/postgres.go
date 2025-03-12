@@ -109,7 +109,7 @@ func (d *PostgresDB) RunMigrations(ctx context.Context) error {
 
 	// Create items table if it doesn't exist
 	_, err = d.Exec(ctx, `
-		CREATE TABLE IF NOT EXISTS items (
+		CREATE TABLE IF NOT EXISTS inventory_items (
 			id UUID PRIMARY KEY,
 			sku VARCHAR(100) UNIQUE NOT NULL,
 			name VARCHAR(255) NOT NULL,

@@ -122,7 +122,6 @@ func (s *InventoryServer) ListItems(ctx context.Context, req *pb.ListItemsReques
 		return nil, status.Errorf(codes.Internal, "failed to list items: %v", err)
 	}
 
-	// Convert items to proto
 	protoItems := make([]*pb.Item, len(items))
 	for i, item := range items {
 		protoItems[i] = convertItemToProto(item)
@@ -232,7 +231,6 @@ func (s *InventoryServer) ReleaseInventory(ctx context.Context, req *pb.ReleaseI
 	}, nil
 }
 
-// BulkCreateItems creates multiple items at once
 func (s *InventoryServer) BulkCreateItems(ctx context.Context, req *pb.BulkCreateItemsRequest) (*pb.BulkCreateItemsResponse, error) {
 	dtos := make([]models.CreateItemDTO, len(req.Items))
 	for i, item := range req.Items {
@@ -269,7 +267,6 @@ func (s *InventoryServer) BulkCreateItems(ctx context.Context, req *pb.BulkCreat
 	}, nil
 }
 
-// BulkUpdateItems updates multiple items at once
 func (s *InventoryServer) BulkUpdateItems(ctx context.Context, req *pb.BulkUpdateItemsRequest) (*pb.BulkUpdateItemsResponse, error) {
 	updates := make(map[string]models.UpdateItemDTO)
 	for _, item := range req.Items {
@@ -291,7 +288,6 @@ func (s *InventoryServer) BulkUpdateItems(ctx context.Context, req *pb.BulkUpdat
 		return nil, status.Errorf(codes.Internal, "failed to bulk update items: %v", err)
 	}
 
-	// Convert items to proto
 	protoItems := make([]*pb.Item, len(items))
 	for i, item := range items {
 		protoItems[i] = convertItemToProto(item)
@@ -305,19 +301,14 @@ func (s *InventoryServer) BulkUpdateItems(ctx context.Context, req *pb.BulkUpdat
 	}, nil
 }
 
-// StreamInventoryUpdates streams inventory updates
 func (s *InventoryServer) StreamInventoryUpdates(req *pb.StreamInventoryUpdatesRequest, stream pb.InventoryService_StreamInventoryUpdatesServer) error {
-	// For simplicity, we'll just simulate some updates in a real implementation
-	// this would connect to a message queue or event stream
 	ctx := stream.Context()
 
-	// Get current inventory levels for the requested items/locations
 	levels, err := s.inventoryService.GetInventoryLevels(ctx)
 	if err != nil {
 		return status.Errorf(codes.Internal, "failed to get inventory levels: %v", err)
 	}
 
-	// Send initial state
 	for i, level := range levels {
 		event := &pb.InventoryUpdateEvent{
 			EventId:        fmt.Sprintf("init-%d", i),
