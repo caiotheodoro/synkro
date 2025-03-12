@@ -89,8 +89,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let warehouse_service = Arc::new(WarehouseService::new(warehouse_repo.clone()));
     let inventory_service = Arc::new(InventoryService::new(inventory_repo.clone()));
     let order_service = Arc::new(OrderService::new(
-        order_repo.clone(),
-        order_item_repo.clone(),
+        Arc::clone(&order_repo),
+        Arc::clone(&order_item_repo),
+        Arc::clone(&payment_repo),
+        Arc::clone(&shipping_repo),
+        pool.clone(),
     ));
     let payment_service = Arc::new(PaymentService::new(payment_repo.clone()));
     let shipping_service = Arc::new(ShippingService::new(shipping_repo.clone()));

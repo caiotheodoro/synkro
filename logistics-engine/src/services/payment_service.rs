@@ -12,8 +12,7 @@ use crate::{
 };
 
 fn convert_to_dto(payment: PaymentInfo) -> PaymentDto {
-    let status_str = payment.status_str.clone();
-    let is_paid = status_str == PaymentStatus::Succeeded.as_str();
+    let is_paid = payment.status() == PaymentStatus::Succeeded;
 
     PaymentDto {
         id: payment.id,
@@ -22,7 +21,7 @@ fn convert_to_dto(payment: PaymentInfo) -> PaymentDto {
         transaction_id: payment.transaction_id,
         amount: payment.amount.to_string(),
         currency: payment.currency,
-        status: status_str,
+        status: payment.status,
         is_paid,
         payment_date: payment.payment_date,
         created_at: payment.created_at,

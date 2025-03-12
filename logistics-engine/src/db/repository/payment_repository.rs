@@ -2,8 +2,9 @@ use chrono::{DateTime, TimeZone, Utc};
 use num_traits::ToPrimitive;
 use rust_decimal::{prelude::FromPrimitive, Decimal};
 use sqlx::{
+    postgres::PgPool,
     types::{time::OffsetDateTime, BigDecimal},
-    Error, PgPool,
+    Error, Postgres, Transaction,
 };
 use std::str::FromStr;
 use uuid::Uuid;
@@ -44,7 +45,7 @@ impl PaymentRepository {
                 order_id,
                 amount as "amount!: BigDecimal",
                 currency,
-                status as "status_str!: String",
+                status,
                 payment_method,
                 transaction_id,
                 payment_date,
@@ -67,7 +68,7 @@ impl PaymentRepository {
                     order_id: row.order_id,
                     amount: Decimal::from_str(&row.amount.to_string()).unwrap_or_default(),
                     currency: row.currency,
-                    status_str: row.status_str,
+                    status: row.status.unwrap_or(PaymentStatus::Pending.to_string()),
                     payment_method: row.payment_method,
                     transaction_id: row.transaction_id,
                     payment_date: Self::convert_optional_datetime(row.payment_date),
@@ -86,7 +87,7 @@ impl PaymentRepository {
                 order_id,
                 amount as "amount!: BigDecimal",
                 currency,
-                status as "status_str!: String",
+                status,
                 payment_method,
                 transaction_id,
                 payment_date,
@@ -105,7 +106,7 @@ impl PaymentRepository {
                 order_id: row.order_id,
                 amount: Decimal::from_str(&row.amount.to_string()).unwrap_or_default(),
                 currency: row.currency,
-                status_str: row.status_str,
+                status: row.status.unwrap_or(PaymentStatus::Pending.to_string()),
                 payment_method: row.payment_method,
                 transaction_id: row.transaction_id,
                 payment_date: Self::convert_optional_datetime(row.payment_date),
@@ -123,7 +124,7 @@ impl PaymentRepository {
                 order_id,
                 amount as "amount!: BigDecimal",
                 currency,
-                status as "status_str!: String",
+                status,
                 payment_method,
                 transaction_id,
                 payment_date,
@@ -144,7 +145,7 @@ impl PaymentRepository {
                     order_id: row.order_id,
                     amount: Decimal::from_str(&row.amount.to_string()).unwrap_or_default(),
                     currency: row.currency,
-                    status_str: row.status_str,
+                    status: row.status.unwrap_or(PaymentStatus::Pending.to_string()),
                     payment_method: row.payment_method,
                     transaction_id: row.transaction_id,
                     payment_date: Self::convert_optional_datetime(row.payment_date),
@@ -165,7 +166,7 @@ impl PaymentRepository {
             r#"
             SELECT
                 p.id, p.order_id, p.payment_method, p.transaction_id,
-                p.amount as "amount!: BigDecimal", p.currency, p.status as "status_str!: String", p.payment_date,
+                p.amount as "amount!: BigDecimal", p.currency, p.status, p.payment_date,
                 p.created_at, p.updated_at
             FROM payment_info p
             JOIN orders o ON p.order_id = o.id
@@ -188,7 +189,7 @@ impl PaymentRepository {
                     transaction_id: row.transaction_id,
                     amount: Decimal::from_str(&row.amount.to_string()).unwrap_or_default(),
                     currency: row.currency,
-                    status_str: row.status_str,
+                    status: row.status.unwrap_or(PaymentStatus::Pending.to_string()),
                     payment_date: Self::convert_optional_datetime(row.payment_date),
                     created_at: Self::convert_datetime(row.created_at),
                     updated_at: Self::convert_datetime(row.updated_at),
@@ -209,7 +210,7 @@ impl PaymentRepository {
             r#"
             SELECT
                 id, order_id, payment_method, transaction_id,
-                amount as "amount!: BigDecimal", currency, status as "status_str!: String", payment_date,
+                amount as "amount!: BigDecimal", currency, status, payment_date,
                 created_at, updated_at
             FROM payment_info
             WHERE status = $1
@@ -232,7 +233,7 @@ impl PaymentRepository {
                     transaction_id: row.transaction_id,
                     amount: Decimal::from_str(&row.amount.to_string()).unwrap_or_default(),
                     currency: row.currency,
-                    status_str: row.status_str,
+                    status: row.status.unwrap_or(PaymentStatus::Pending.to_string()),
                     payment_date: Self::convert_optional_datetime(row.payment_date),
                     created_at: Self::convert_datetime(row.created_at),
                     updated_at: Self::convert_datetime(row.updated_at),
@@ -261,7 +262,7 @@ impl PaymentRepository {
                 id, order_id, payment_method, transaction_id, 
                 amount as "amount!: BigDecimal", 
                 currency, 
-                status as "status_str!: String", 
+                status, 
                 payment_date, created_at, updated_at
             "#,
             dto.order_id,
@@ -281,7 +282,7 @@ impl PaymentRepository {
             transaction_id: row.transaction_id,
             amount: Decimal::from_str(&row.amount.to_string()).unwrap_or_default(),
             currency: row.currency,
-            status_str: row.status_str,
+            status: row.status.unwrap_or(PaymentStatus::Pending.to_string()),
             payment_date: Self::convert_optional_datetime(row.payment_date),
             created_at: Self::convert_datetime(row.created_at),
             updated_at: Self::convert_datetime(row.updated_at),
@@ -302,7 +303,7 @@ impl PaymentRepository {
             WHERE id = $2
             RETURNING
                 id, order_id, payment_method, transaction_id,
-                amount as "amount!: BigDecimal", currency, status as "status_str!: String", payment_date,
+                amount as "amount!: BigDecimal", currency, status, payment_date,
                 created_at, updated_at
             "#,
             status_str,
@@ -318,7 +319,7 @@ impl PaymentRepository {
                 transaction_id: row.transaction_id,
                 amount: Decimal::from_str(&row.amount.to_string()).unwrap_or_default(),
                 currency: row.currency,
-                status_str: row.status_str,
+                status: row.status.unwrap_or(PaymentStatus::Pending.to_string()),
                 payment_date: Self::convert_optional_datetime(row.payment_date),
                 created_at: Self::convert_datetime(row.created_at),
                 updated_at: Self::convert_datetime(row.updated_at),
@@ -338,7 +339,7 @@ impl PaymentRepository {
 
         let current = current.unwrap();
         let status_str = dto.status.as_ref().map(|s| s.as_str()).unwrap_or_else(|| {
-            PaymentStatus::from_str(&current.status_str)
+            PaymentStatus::from_str(&current.status)
                 .unwrap_or_default()
                 .as_str()
         });
@@ -354,7 +355,7 @@ impl PaymentRepository {
             WHERE id = $4
             RETURNING
                 id, order_id, payment_method, transaction_id,
-                amount as "amount!: BigDecimal", currency, status as "status_str!: String", payment_date,
+                amount as "amount!: BigDecimal", currency, status, payment_date,
                 created_at, updated_at
             "#,
             dto.payment_method,
@@ -372,7 +373,7 @@ impl PaymentRepository {
                 transaction_id: row.transaction_id,
                 amount: Decimal::from_str(&row.amount.to_string()).unwrap_or_default(),
                 currency: row.currency,
-                status_str: row.status_str,
+                status: row.status.unwrap_or(PaymentStatus::Pending.to_string()),
                 payment_date: Self::convert_optional_datetime(row.payment_date),
                 created_at: Self::convert_datetime(row.created_at),
                 updated_at: Self::convert_datetime(row.updated_at),
@@ -439,5 +440,67 @@ impl PaymentRepository {
             .unwrap_or_default()
             .to_f64()
             .unwrap_or(0.0))
+    }
+
+    pub async fn create_with_transaction(
+        &self,
+        tx: &mut Transaction<'_, Postgres>,
+        dto: CreatePaymentInfoDto,
+    ) -> Result<PaymentInfo, Error> {
+        let currency = if dto.currency.is_empty() {
+            "USD".to_string()
+        } else {
+            dto.currency
+        };
+
+        let amount = rust_decimal::Decimal::from_f64(dto.amount).unwrap_or_default();
+        let amount_bd = BigDecimal::from_str(&amount.to_string()).unwrap_or_default();
+
+        sqlx::query!(
+            r#"
+            INSERT INTO payment_info (
+                order_id, 
+                payment_method, 
+                amount,
+                currency,
+                status,
+                transaction_id,
+                payment_date
+            )
+            VALUES ($1, $2, $3, $4, $5, $6, $7)
+            RETURNING 
+                id, 
+                order_id, 
+                payment_method, 
+                payment_date,
+                amount as "amount!: BigDecimal",
+                currency,
+                status,
+                transaction_id,
+                created_at, 
+                updated_at
+            "#,
+            dto.order_id,
+            dto.payment_method,
+            amount_bd,
+            currency,
+            PaymentStatus::Pending.to_string(),
+            dto.transaction_id,
+            None::<OffsetDateTime>,
+        )
+        .fetch_one(&mut **tx)
+        .await
+        .map(|row| PaymentInfo {
+            id: row.id,
+            order_id: row.order_id,
+            payment_method: row.payment_method,
+            amount: rust_decimal::Decimal::from_str(&row.amount.to_string()).unwrap_or_default(),
+            currency: row.currency,
+            status: row.status.unwrap_or(PaymentStatus::Pending.to_string()),
+            transaction_id: row.transaction_id,
+            payment_date: Self::convert_optional_datetime(row.payment_date),
+            created_at: Self::convert_datetime(row.created_at),
+            updated_at: Self::convert_datetime(row.updated_at),
+        })
     }
 }

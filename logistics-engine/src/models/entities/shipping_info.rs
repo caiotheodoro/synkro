@@ -21,7 +21,9 @@ pub struct ShippingInfo {
     pub shipping_cost: rust_decimal::Decimal,
     pub tracking_number: Option<String>,
     pub carrier: Option<String>,
-    pub status_str: String, // This will be a string representation in the DB
+    pub status: String,
+    pub expected_delivery: Option<DateTime<Utc>>,
+    pub actual_delivery: Option<DateTime<Utc>>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
@@ -56,18 +58,20 @@ impl ShippingInfo {
             shipping_cost,
             tracking_number: None,
             carrier: None,
-            status_str: ShippingStatus::Pending.as_str().to_string(),
+            status: ShippingStatus::Pending.as_str().to_string(),
+            expected_delivery: None,
+            actual_delivery: None,
             created_at: now,
             updated_at: now,
         }
     }
 
     pub fn status(&self) -> ShippingStatus {
-        ShippingStatus::from_str(&self.status_str).unwrap_or_default()
+        ShippingStatus::from_str(&self.status).unwrap_or_default()
     }
 
     pub fn set_status(&mut self, status: ShippingStatus) {
-        self.status_str = status.as_str().to_string();
+        self.status = status.as_str().to_string();
         self.updated_at = Utc::now();
     }
 

@@ -14,7 +14,7 @@ pub struct PaymentInfo {
     pub transaction_id: Option<String>,
     pub amount: Decimal,
     pub currency: String,
-    pub status_str: String,
+    pub status: String,
     pub payment_date: Option<DateTime<Utc>>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
@@ -30,7 +30,7 @@ impl PaymentInfo {
             transaction_id: None,
             amount,
             currency,
-            status_str: PaymentStatus::Pending.as_str().to_string(),
+            status: PaymentStatus::Pending.to_string(),
             payment_date: None,
             created_at: now,
             updated_at: now,
@@ -38,11 +38,11 @@ impl PaymentInfo {
     }
 
     pub fn status(&self) -> PaymentStatus {
-        PaymentStatus::from_str(&self.status_str).unwrap_or_default()
+        PaymentStatus::from_str(&self.status).unwrap_or_default()
     }
 
     pub fn set_status(&mut self, status: PaymentStatus) {
-        self.status_str = status.as_str().to_string();
+        self.status = status.to_string();
         self.updated_at = Utc::now();
     }
 

@@ -1,13 +1,13 @@
-use sqlx::types::BigDecimal;
-use std::sync::Arc;
-use uuid::Uuid;
-
-use crate::db::repository::{OrderItemRepository, OrderRepository};
+use crate::db::repository::{
+    OrderItemRepository, OrderRepository, PaymentRepository, ShippingRepository,
+};
 use crate::errors::{LogisticsError, Result};
 use crate::grpc::inventory;
 use crate::models::order_item::OrderItem;
 use crate::models::{
     dto::order::{CreateOrderDto, UpdateOrderDto},
+    dto::payment::CreatePaymentInfoDto,
+    dto::shipping::CreateShippingInfoDto,
     entities::order::{Order, OrderStatus},
 };
 use crate::mq::events::{
@@ -15,21 +15,37 @@ use crate::mq::events::{
 };
 use crate::mq::publisher;
 use crate::proto::inventory::ProductItem;
+use num_traits::FromPrimitive;
+use rust_decimal::Decimal;
+use sqlx::types::BigDecimal;
+use sqlx::{Pool, Postgres, Transaction};
+use std::str::FromStr;
+use std::sync::Arc;
 use tracing::{info, warn};
+use uuid::Uuid;
 
 pub struct OrderService {
     order_repository: Arc<OrderRepository>,
     order_item_repository: Arc<OrderItemRepository>,
+    payment_repository: Arc<PaymentRepository>,
+    shipping_repository: Arc<ShippingRepository>,
+    pool: Pool<Postgres>,
 }
 
 impl OrderService {
     pub fn new(
         order_repository: Arc<OrderRepository>,
         order_item_repository: Arc<OrderItemRepository>,
+        payment_repository: Arc<PaymentRepository>,
+        shipping_repository: Arc<ShippingRepository>,
+        pool: Pool<Postgres>,
     ) -> Self {
         Self {
             order_repository,
             order_item_repository,
+            payment_repository,
+            shipping_repository,
+            pool,
         }
     }
 
@@ -110,18 +126,41 @@ impl OrderService {
                             reservation.message
                         )));
                     }
-
-                    // Proceed with order creation...
                 }
                 Err(e) => {
-                    // Log the error but don't fail - inventory service might be down
                     warn!("Failed to check inventory: {}", e);
                 }
             }
         }
 
-        // Create order in database
-        let order = self.order_repository.create(dto.clone()).await?;
+        let mut tx = self
+            .pool
+            .begin()
+            .await
+            .map_err(LogisticsError::DatabaseError)?;
+
+        let order = self
+            .create_order_in_transaction(&mut tx, dto.clone())
+            .await?;
+
+        for item_dto in &dto.items {
+            self.create_order_item_in_transaction(&mut tx, order.id, item_dto)
+                .await?;
+        }
+
+        let mut payment_dto = dto.payment_info.clone();
+        payment_dto.order_id = order.id; // Set the correct order ID
+        self.create_payment_in_transaction(&mut tx, payment_dto)
+            .await?;
+
+        // 4. Create shipping info
+        let mut shipping_dto = dto.shipping_info.clone();
+        shipping_dto.order_id = order.id; // Set the correct order ID
+        self.create_shipping_in_transaction(&mut tx, shipping_dto)
+            .await?;
+
+        // Commit the transaction
+        tx.commit().await.map_err(LogisticsError::DatabaseError)?;
 
         // Publish order created event
         let event_data = OrderCreatedEvent {
@@ -142,6 +181,56 @@ impl OrderService {
         Ok(order)
     }
 
+    async fn create_order_in_transaction(
+        &self,
+        tx: &mut Transaction<'_, Postgres>,
+        dto: CreateOrderDto,
+    ) -> Result<Order> {
+        self.order_repository
+            .create_with_transaction(tx, dto)
+            .await
+            .map_err(LogisticsError::from)
+    }
+
+    async fn create_order_item_in_transaction(
+        &self,
+        tx: &mut Transaction<'_, Postgres>,
+        order_id: Uuid,
+        item_dto: &crate::models::dto::order_item::CreateOrderItemDto,
+    ) -> Result<()> {
+        self.order_item_repository
+            .create_with_transaction(tx, order_id, item_dto)
+            .await
+            .map_err(LogisticsError::from)?;
+        Ok(())
+    }
+
+    async fn create_payment_in_transaction(
+        &self,
+        tx: &mut Transaction<'_, Postgres>,
+        payment_dto: CreatePaymentInfoDto,
+    ) -> Result<()> {
+        self.payment_repository
+            .create_with_transaction(tx, payment_dto)
+            .await
+            .map_err(LogisticsError::from)?;
+
+        Ok(())
+    }
+
+    async fn create_shipping_in_transaction(
+        &self,
+        tx: &mut Transaction<'_, Postgres>,
+        shipping_dto: CreateShippingInfoDto,
+    ) -> Result<()> {
+        self.shipping_repository
+            .create_with_transaction(tx, shipping_dto)
+            .await
+            .map_err(LogisticsError::from)?;
+
+        Ok(())
+    }
+
     pub async fn update_order(&self, id: Uuid, dto: UpdateOrderDto) -> Result<Order> {
         let updated = self.order_repository.update(id, dto).await?;
 
@@ -152,7 +241,6 @@ impl OrderService {
     }
 
     pub async fn get_order_items(&self, order_id: Uuid) -> Result<Vec<OrderItem>> {
-        // Check if order exists
         let order = self.order_repository.find_by_id(order_id).await?;
         if order.is_none() {
             return Err(LogisticsError::NotFound("Order", order_id.to_string()));
@@ -194,7 +282,6 @@ impl OrderService {
     }
 
     pub async fn calculate_order_total(&self, order_id: Uuid) -> Result<BigDecimal> {
-        // Check if order exists
         let order = self.order_repository.find_by_id(order_id).await?;
         if order.is_none() {
             return Err(LogisticsError::NotFound("Order", order_id.to_string()));
@@ -218,7 +305,6 @@ impl OrderService {
             .count_by_status(Some(status))
             .await
             .map(|results| {
-                // Find the matching status in the results
                 results
                     .iter()
                     .find(|(s, _)| *s == status)
@@ -254,7 +340,6 @@ impl OrderService {
             )
             .await?;
 
-        // Publish order status changed event
         let event_data = OrderStatusChangedEvent {
             order_id: id,
             previous_status: Some(format!("{:?}", old_status)),
@@ -270,11 +355,9 @@ impl OrderService {
         )
         .await
         {
-            // Log error but don't fail the request
             warn!("Failed to publish order status changed event: {}", e);
         }
 
-        // If the order is cancelled, we should also publish a cancellation event
         if status == OrderStatus::Cancelled {
             let cancel_event = OrderCancelledEvent {
                 order_id: id,
@@ -288,14 +371,10 @@ impl OrderService {
                 publisher::publish_event(EventType::OrderCancelled, "order.cancelled", cancel_event)
                     .await
             {
-                // Log error but don't fail the request
                 warn!("Failed to publish order cancelled event: {}", e);
             }
 
-            // If we have a connection to the inventory service, release any reservations
             if let Ok(inventory_client) = crate::grpc::get_inventory_client().await {
-                // We'd need the reservation ID from somewhere - typically stored with the order
-                // For now, we'll just use a placeholder
                 let reservation_id = format!("reservation-{}", id);
 
                 match inventory_client

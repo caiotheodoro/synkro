@@ -1,16 +1,19 @@
+use crate::models::{
+    dto::order::{CreateOrderDto, UpdateOrderDto},
+    entities::{
+        self,
+        order::{Order, OrderStatus},
+    },
+};
 use chrono::{DateTime, TimeZone, Utc};
 use rust_decimal::Decimal;
+use sqlx::Row;
 use sqlx::{
     types::{time::OffsetDateTime, BigDecimal},
-    Error, PgPool,
+    Error, PgPool, Postgres, Transaction,
 };
 use std::str::FromStr;
 use uuid::Uuid;
-
-use crate::models::{
-    dto::order::{CreateOrderDto, UpdateOrderDto},
-    entities::order::{Order, OrderStatus},
-};
 
 pub struct OrderRepository {
     pool: PgPool,
@@ -395,6 +398,70 @@ impl OrderRepository {
                     updated_at: Self::convert_datetime(row.updated_at),
                 })
                 .collect()
+        })
+    }
+
+    pub async fn create_with_transaction(
+        &self,
+        tx: &mut Transaction<'_, Postgres>,
+        dto: CreateOrderDto,
+    ) -> Result<Order, Error> {
+        let currency = if dto.currency.is_empty() {
+            "USD".to_string()
+        } else {
+            dto.currency
+        };
+        let status = OrderStatus::Pending;
+
+        // Calculate total amount from items
+        let total_amount = dto.items.iter().fold(Decimal::ZERO, |acc, item| {
+            acc + (Decimal::from_f64_retain(item.unit_price).unwrap_or_default()
+                * Decimal::from(item.quantity))
+        });
+
+        let customer_id = Uuid::parse_str(&dto.customer_id)
+            .map_err(|e| Error::Protocol(format!("Invalid UUID format for customer_id: {}", e)))?;
+
+        let query = sqlx::query(
+            r#"
+            INSERT INTO orders (
+                customer_id, 
+                total_amount, 
+                status,
+                currency,
+                notes
+            )
+            VALUES ($1, $2, $3, $4, $5)
+            RETURNING 
+                id, 
+                customer_id, 
+                total_amount, 
+                status,
+                currency,
+                tracking_number,
+                notes,
+                created_at, 
+                updated_at
+            "#,
+        )
+        .bind(customer_id)
+        .bind(BigDecimal::from_str(&total_amount.to_string()).unwrap_or_default())
+        .bind(status as OrderStatus)
+        .bind(&currency)
+        .bind(&dto.notes);
+
+        query.fetch_one(&mut **tx).await.map(|row| Order {
+            id: row.get("id"),
+            customer_id: row.get("customer_id"),
+            customer_name: None,
+            total_amount: Decimal::from_str(&row.get::<BigDecimal, _>("total_amount").to_string())
+                .unwrap_or_default(),
+            status: row.get("status"),
+            currency: row.get("currency"),
+            tracking_number: row.get("tracking_number"),
+            notes: row.get("notes"),
+            created_at: Self::convert_datetime(row.get("created_at")),
+            updated_at: Self::convert_datetime(row.get("updated_at")),
         })
     }
 }

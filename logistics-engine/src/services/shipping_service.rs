@@ -27,14 +27,11 @@ fn convert_to_dto(shipping: ShippingInfo) -> ShippingDto {
         recipient_phone: shipping.recipient_phone,
         shipping_method: shipping.shipping_method,
         shipping_cost: shipping.shipping_cost.to_string(),
-        status: ShippingStatus::from_str(&shipping.status_str).map_or_else(
-            || ShippingStatus::Pending.as_str().to_string(),
-            |s| s.as_str().to_string(),
-        ),
+        status: shipping.status,
         carrier: shipping.carrier,
         tracking_number: shipping.tracking_number,
-        expected_delivery: None,
-        actual_delivery: None,
+        expected_delivery: shipping.expected_delivery,
+        actual_delivery: shipping.actual_delivery,
         created_at: shipping.created_at,
         updated_at: shipping.updated_at,
     }

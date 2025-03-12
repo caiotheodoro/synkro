@@ -1,8 +1,11 @@
 use chrono::{DateTime, Utc};
-use sqlx::{types::BigDecimal, Error, PgPool, Row};
+use rust_decimal::Decimal;
+use sqlx::{types::BigDecimal, Error, PgPool, Postgres, Row, Transaction};
+use std::str::FromStr;
 use time::OffsetDateTime;
 use uuid::Uuid;
 
+use crate::models::dto::order_item::CreateOrderItemDto;
 use crate::models::order_item::{OrderItem, UpdateOrderItemDto};
 
 pub struct OrderItemRepository {
@@ -239,5 +242,41 @@ impl OrderItemRepository {
         .await?;
 
         Ok(result.total.unwrap_or_else(|| BigDecimal::from(0)))
+    }
+
+    pub async fn create_with_transaction(
+        &self,
+        tx: &mut Transaction<'_, Postgres>,
+        order_id: Uuid,
+        item_dto: &CreateOrderItemDto,
+    ) -> Result<(), Error> {
+        let unit_price = Decimal::from_f64_retain(item_dto.unit_price).unwrap_or_default();
+        let total_price = unit_price * Decimal::from(item_dto.quantity);
+
+        sqlx::query!(
+            r#"
+            INSERT INTO order_items (
+                order_id, 
+                product_id, 
+                sku,
+                name,
+                quantity,
+                unit_price,
+                total_price
+            )
+            VALUES ($1, $2, $3, $4, $5, $6, $7)
+            "#,
+            order_id,
+            item_dto.product_id,
+            item_dto.sku,
+            item_dto.name,
+            item_dto.quantity,
+            BigDecimal::from_str(&unit_price.to_string()).unwrap_or_default(),
+            BigDecimal::from_str(&total_price.to_string()).unwrap_or_default(),
+        )
+        .execute(&mut **tx)
+        .await
+        .map(|_| ())
+        .map_err(Error::from)
     }
 }

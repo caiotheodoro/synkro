@@ -23,6 +23,8 @@ pub struct CreatePaymentInfoDto {
 
     #[serde(default = "default_currency")]
     pub currency: String,
+
+    pub payment_date: Option<DateTime<Utc>>,
 }
 
 fn default_currency() -> String {

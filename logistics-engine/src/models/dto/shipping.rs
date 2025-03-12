@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 use validator::Validate;
 
-use crate::models::shipping::{ShippingInfo, ShippingStatus};
+use crate::models::shipping::ShippingInfo;
 
 #[derive(Debug, Serialize, Deserialize, Validate, Clone)]
 pub struct CreateShippingInfoDto {
