@@ -1,8 +1,11 @@
-import React, { useEffect, useState } from 'react';
-import { useRouter } from 'next/router';
-import { BackofficeLayout } from '@/backoffice/layouts/BackofficeLayout';
-import { BackofficeRegistryProvider, useBackofficeRegistry } from '@/backoffice/core/BackofficeRegistry';
-import { FormPage } from '@/backoffice/components/FormPage';
+import React, { useEffect, useState } from "react";
+import { useRouter } from "next/router";
+import { BackofficeLayout } from "@/backoffice/layouts/BackofficeLayout";
+import {
+  BackofficeRegistryProvider,
+  useBackofficeRegistry,
+} from "@/backoffice/core/BackofficeRegistry";
+import { FormPage } from "@/backoffice/components/FormPage";
 
 // Edit component to be used inside the registry provider
 const ModuleEditContainer = () => {
@@ -13,11 +16,7 @@ const ModuleEditContainer = () => {
   const [moduleInstance, setModuleInstance] = useState<any>(null);
 
   useEffect(() => {
-    if (moduleId && typeof moduleId === 'string') {
-      // Use our smarter lookup method
-      console.log("Module ID from URL:", moduleId);
-      console.log("Available modules:", Object.keys(modules));
-      
+    if (moduleId && typeof moduleId === "string") {
       const module = getModuleByPathSegment(moduleId);
       setModuleInstance(module);
       setIsLoading(false);
@@ -27,15 +26,16 @@ const ModuleEditContainer = () => {
   if (isLoading) {
     return <div>Loading module...</div>;
   }
-  
+
   if (!moduleInstance) {
     return (
       <div className="p-4 bg-red-100 border border-red-300 text-red-700 rounded-md">
-        Module not found: {moduleId} (Available: {Object.keys(modules).join(', ')})
+        Module not found: {moduleId} (Available:{" "}
+        {Object.keys(modules).join(", ")})
       </div>
     );
   }
-  
+
   if (!id) {
     return (
       <div className="p-4 bg-red-100 border border-red-300 text-red-700 rounded-md">
@@ -43,13 +43,13 @@ const ModuleEditContainer = () => {
       </div>
     );
   }
-  
+
   return <FormPage module={moduleInstance} id={id as string} isEdit={true} />;
 };
 
 const ModuleEditPage = () => {
-  const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5050';
-  
+  const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5050";
+
   return (
     <BackofficeRegistryProvider apiBaseUrl={apiBaseUrl}>
       <BackofficeLayout>
@@ -59,4 +59,4 @@ const ModuleEditPage = () => {
   );
 };
 
-export default ModuleEditPage; 
+export default ModuleEditPage;

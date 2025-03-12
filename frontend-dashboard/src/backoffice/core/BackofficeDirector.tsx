@@ -8,6 +8,8 @@ import {
   Warehouse as WarehouseIcon,
   AlertTriangle,
   TrendingUp,
+  Tag,
+  List,
 } from "lucide-react";
 import { StatsCard } from "../components/StatsCard";
 import { ApiService } from "@/services/api.service";
@@ -17,6 +19,11 @@ import {
   Option as MultiSelectOption,
 } from "@/components/ui/MultiSelectAutocomplete";
 import { OrderSummary } from "@/components/ui/OrderSummary";
+import AttributesEditor from "@/components/molecules/AttributesEditor";
+import {
+  AttributesDisplay,
+  AttributesBadges,
+} from "@/components/atoms/AttributesDisplay";
 
 interface ApiResponse<T> {
   data: T[];
@@ -45,6 +52,11 @@ interface OrderItem {
   name: string;
   quantity: number;
   unit_price: number;
+}
+
+interface ProductCategory {
+  id: string;
+  name: string;
 }
 
 export class BackofficeDirector {
@@ -364,8 +376,9 @@ export class BackofficeDirector {
         columns: [
           { field: "sku", header: "Sku" },
           { field: "name", header: "Name" },
+          { field: "category", header: "Category" },
           { field: "description", header: "Description" },
-          { field: "warehouse.name", header: "Warehouse" },
+          { field: "warehouse_name", header: "Warehouse" },
           { field: "quantity", header: "Quantity" },
           {
             field: "price",
@@ -376,14 +389,52 @@ export class BackofficeDirector {
               return `$${priceAsNumber?.toFixed(2)}`;
             },
           },
+          {
+            field: "attributes",
+            header: "Attributes",
+            render: (value) => {
+              if (!value) return "None";
+              try {
+                const attrs =
+                  typeof value === "string" ? JSON.parse(value) : value;
+                return <AttributesBadges attributes={attrs} />;
+              } catch (e) {
+                return "Invalid format";
+              }
+            },
+          },
         ],
-        searchFields: ["sku", "name", "description", "warehouse.name"],
+        searchFields: [
+          "sku",
+          "name",
+          "description",
+          "warehouse_name",
+          "category",
+        ],
         filters: [
           {
-            field: "warehouse.id",
+            field: "warehouse_id",
             label: "Warehouse",
             type: "select",
             options: [],
+          },
+          {
+            field: "category",
+            label: "Category",
+            type: "select",
+            options: [
+              { value: "electronics", label: "Electronics" },
+              { value: "clothing", label: "Clothing" },
+              { value: "furniture", label: "Furniture" },
+              { value: "books", label: "Books" },
+              { value: "toys", label: "Toys" },
+              { value: "food", label: "Food & Beverages" },
+              { value: "health", label: "Health & Beauty" },
+              { value: "sports", label: "Sports & Outdoors" },
+              { value: "automotive", label: "Automotive" },
+              { value: "office", label: "Office Supplies" },
+              { value: "other", label: "Other" },
+            ],
           },
         ],
       })
@@ -402,11 +453,29 @@ export class BackofficeDirector {
             required: true,
           },
           {
+            name: "category",
+            label: "Category",
+            type: "select",
+            required: true,
+            options: [
+              { value: "electronics", label: "Electronics" },
+              { value: "clothing", label: "Clothing" },
+              { value: "furniture", label: "Furniture" },
+              { value: "books", label: "Books" },
+              { value: "toys", label: "Toys" },
+              { value: "food", label: "Food & Beverages" },
+              { value: "health", label: "Health & Beauty" },
+              { value: "sports", label: "Sports & Outdoors" },
+              { value: "automotive", label: "Automotive" },
+              { value: "office", label: "Office Supplies" },
+              { value: "other", label: "Other" },
+            ],
+          },
+          {
             name: "description",
             label: "Description",
             type: "text",
           },
-
           {
             name: "warehouse_id",
             label: "Warehouse",
@@ -456,6 +525,41 @@ export class BackofficeDirector {
             type: "number",
             required: true,
           },
+          {
+            name: "attributes",
+            label: "Attributes",
+            type: "custom",
+            component: ({
+              value,
+              onChange,
+            }: {
+              value: Record<string, string> | string | null | undefined;
+              onChange: (value: Record<string, string>) => void;
+            }) => {
+              // Convert string to object if needed
+              let attributesObj: Record<string, string> | null | undefined =
+                null;
+
+              if (typeof value === "string") {
+                try {
+                  attributesObj = JSON.parse(value);
+                } catch (e) {
+                  attributesObj = {};
+                }
+              } else if (value !== null && value !== undefined) {
+                attributesObj = value;
+              }
+
+              return (
+                <AttributesEditor
+                  value={attributesObj}
+                  onChange={(newValue) => {
+                    onChange(newValue);
+                  }}
+                />
+              );
+            },
+          },
         ],
       })
       .setDetailConfig({
@@ -465,10 +569,31 @@ export class BackofficeDirector {
             fields: [
               { field: "sku", label: "Sku" },
               { field: "name", label: "Name" },
+              { field: "category", label: "Category" },
               { field: "description", label: "Description" },
-              { field: "warehouse.name", label: "Warehouse" },
+              { field: "warehouse_name", label: "Warehouse" },
               { field: "quantity", label: "Quantity" },
               { field: "price", label: "Price" },
+            ],
+          },
+          {
+            title: "Product Attributes",
+            fields: [
+              {
+                field: "attributes",
+                label: "Attributes",
+                render: (value) => {
+                  if (!value) return "No attributes defined";
+
+                  try {
+                    const attrs =
+                      typeof value === "string" ? JSON.parse(value) : value;
+                    return <AttributesDisplay attributes={attrs} />;
+                  } catch (e) {
+                    return "Invalid attribute format";
+                  }
+                },
+              },
             ],
           },
         ],
@@ -562,9 +687,7 @@ export class BackofficeDirector {
                 >("/api/inventory", {
                   params: { search: search },
                 });
-                console.log(response.data);
                 return response.data.map((product: Product) => {
-                  // Convert price to number if it's a string
                   const priceAsNumber =
                     typeof product.price === "string"
                       ? parseFloat(product.price)
@@ -1251,12 +1374,9 @@ export class BackofficeDirector {
     module.updateItem = async (id: string, data: any) => {
       console.log("Original update data:", JSON.stringify(data, null, 2));
 
-      // Create a copy of the data to modify
       const modifiedData = { ...data };
 
-      // Validate and set the shipping_info
       if (modifiedData.shipping_info) {
-        // Ensure shipping_cost is a number
         if (typeof modifiedData.shipping_info.shipping_cost === "string") {
           modifiedData.shipping_info.shipping_cost = parseFloat(
             modifiedData.shipping_info.shipping_cost
