@@ -25,3 +25,10 @@ UPDATE payment_info SET status_str = status_enum::text;
 
 ALTER TABLE IF EXISTS inventory_reservations
 ADD COLUMN IF NOT EXISTS product_id UUID;
+
+
+
+ALTER TABLE IF EXISTS inventory_items
+ADD COLUMN IF NOT EXISTS description TEXT,
+ADD COLUMN IF NOT EXISTS category VARCHAR(100),
+ADD COLUMN IF NOT EXISTS attributes JSONB;
