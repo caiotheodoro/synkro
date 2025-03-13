@@ -6,7 +6,6 @@ import (
 	"net"
 	"net/http"
 	"os/signal"
-	"strings"
 	"syscall"
 	"time"
 
@@ -15,10 +14,8 @@ import (
 	"github.com/synkro/inventory-sync-service/src/api/grpc"
 	"github.com/synkro/inventory-sync-service/src/api/rest"
 	"github.com/synkro/inventory-sync-service/src/config"
-	"github.com/synkro/inventory-sync-service/src/database"
+	"github.com/synkro/inventory-sync-service/src/di"
 	pb "github.com/synkro/inventory-sync-service/src/proto"
-	"github.com/synkro/inventory-sync-service/src/repository/postgres"
-	"github.com/synkro/inventory-sync-service/src/services"
 	grpcserver "google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 )
@@ -41,32 +38,24 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
-	db, err := database.New(cfg)
+	// Initialize DI container
+	container, err := di.NewContainer(cfg)
 	if err != nil {
-		log.Fatalf("Failed to connect to database: %v", err)
+		log.Fatalf("Failed to initialize the application: %v", err)
 	}
-	defer db.Close()
+	defer container.Close()
 
-	if err := db.RunMigrations(ctx); err != nil {
+	// Run database migrations
+	if err := container.DB.RunMigrations(ctx); err != nil {
 		log.Fatalf("Failed to run migrations: %v", err)
 	}
 
-	var itemRepo services.ItemRepository
-	var inventoryRepo services.InventoryRepository
-	var warehouseRepo services.WarehouseRepository
-
-	itemRepo = postgres.NewItemRepository(db.DB)
-	inventoryRepo = postgres.NewInventoryRepository(db.DB)
-	warehouseRepo = postgres.NewWarehouseRepository(db.DB)
-
-	itemService := services.NewItemService(itemRepo)
-	inventoryService := services.NewInventoryService(inventoryRepo, itemRepo, warehouseRepo)
-
-	inventoryServer := grpc.NewInventoryServer(itemService, inventoryService)
+	// Initialize gRPC server
+	inventoryServer := grpc.NewInventoryServer(container.ItemService, container.InventoryService)
 	grpcServer := grpcserver.NewServer()
 	pb.RegisterInventoryServiceServer(grpcServer, inventoryServer)
 	
-	// Register reflection service on gRPC server
+	// Register reflection service on gRPC server for easier debugging
 	reflection.Register(grpcServer)
 
 	grpcListener, err := net.Listen("tcp", cfg.Server.GRPCPort)
@@ -81,8 +70,9 @@ func main() {
 		}
 	}()
 
+	// Initialize HTTP server
 	router := gin.Default()
-	restHandler := rest.NewHandler(itemService, inventoryService)
+	restHandler := rest.NewHandler(container.ItemService, container.InventoryService)
 	restHandler.RegisterRoutes(router)
 	
 	for _, route := range router.Routes() {
@@ -112,6 +102,8 @@ func main() {
 	if err := srv.Shutdown(shutdownCtx); err != nil {
 		log.Printf("HTTP server forced to shutdown: %v", err)
 	}
+	
+	log.Println("Servers shut down gracefully")
 }
 
 func isAlreadyExistsError(err error) bool {

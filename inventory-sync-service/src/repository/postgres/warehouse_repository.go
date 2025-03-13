@@ -17,14 +17,12 @@ type warehouseRepository struct {
 	db *sqlx.DB
 }
 
-// NewWarehouseRepository creates a new warehouse repository
-func NewWarehouseRepository(db *sqlx.DB) services.WarehouseRepository {
+	func NewWarehouseRepository(db *sqlx.DB) services.WarehouseRepository {
 	return &warehouseRepository{
 		db: db,
 	}
 }
 
-// Get retrieves a warehouse by ID
 func (r *warehouseRepository) Get(ctx context.Context, id uuid.UUID) (*models.Warehouse, error) {
 	query := `SELECT id, code, name, address_line1, address_line2, city, state, postal_code, country, 
               contact_name, contact_phone, contact_email, active, created_at, customer_id 
@@ -42,7 +40,6 @@ func (r *warehouseRepository) Get(ctx context.Context, id uuid.UUID) (*models.Wa
 	return &warehouse, nil
 }
 
-// GetByCode retrieves a warehouse by code
 func (r *warehouseRepository) GetByCode(ctx context.Context, code string) (*models.Warehouse, error) {
 	query := `SELECT id, code, name, address_line1, address_line2, city, state, postal_code, country, 
               contact_name, contact_phone, contact_email, active, created_at, customer_id 
@@ -60,7 +57,6 @@ func (r *warehouseRepository) GetByCode(ctx context.Context, code string) (*mode
 	return &warehouse, nil
 }
 
-// List retrieves all warehouses
 func (r *warehouseRepository) List(ctx context.Context) ([]models.Warehouse, error) {
 	query := `SELECT id, code, name, address_line1, address_line2, city, state, postal_code, country, 
               contact_name, contact_phone, contact_email, active, created_at, customer_id 
@@ -75,14 +71,11 @@ func (r *warehouseRepository) List(ctx context.Context) ([]models.Warehouse, err
 	return warehouses, nil
 }
 
-// Create creates a new warehouse
 func (r *warehouseRepository) Create(ctx context.Context, warehouse *models.Warehouse) error {
-	// Set created time if not already set
 	if warehouse.CreatedAt.IsZero() {
 		warehouse.CreatedAt = time.Now()
 	}
 	
-	// Generate ID if not provided
 	if warehouse.ID == uuid.Nil {
 		warehouse.ID = uuid.New()
 	}
@@ -104,7 +97,6 @@ func (r *warehouseRepository) Create(ctx context.Context, warehouse *models.Ware
 	return nil
 }
 
-// Update updates an existing warehouse
 func (r *warehouseRepository) Update(ctx context.Context, warehouse *models.Warehouse) error {
 	query := `UPDATE warehouses 
               SET code = $1, name = $2, address_line1 = $3, address_line2 = $4, city = $5, state = $6, 
@@ -133,8 +125,7 @@ func (r *warehouseRepository) Update(ctx context.Context, warehouse *models.Ware
 	
 	return nil
 }
-
-// Delete deletes a warehouse
+		
 func (r *warehouseRepository) Delete(ctx context.Context, id uuid.UUID) error {
 	query := `DELETE FROM warehouses WHERE id = $1`
 	

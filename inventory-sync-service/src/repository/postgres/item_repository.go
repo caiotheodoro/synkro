@@ -11,17 +11,14 @@ import (
 	"github.com/synkro/inventory-sync-service/src/models"
 )
 
-// ItemRepository is a PostgreSQL implementation of the ItemRepository interface
 type ItemRepository struct {
 	db *sqlx.DB
 }
 
-// NewItemRepository creates a new PostgreSQL ItemRepository
 func NewItemRepository(db *sqlx.DB) *ItemRepository {
 	return &ItemRepository{db: db}
 }
 
-// Create creates a new item in the database
 func (r *ItemRepository) Create(ctx context.Context, item *models.Item) error {
 	attributes, err := json.Marshal(item.Attributes)
 	if err != nil {
@@ -40,7 +37,6 @@ func (r *ItemRepository) Create(ctx context.Context, item *models.Item) error {
 	return nil
 }
 
-// GetByID retrieves an item by ID
 func (r *ItemRepository) GetByID(ctx context.Context, id string) (*models.Item, error) {
 	var item models.Item
 	var attributesJSON []byte
@@ -77,7 +73,6 @@ func (r *ItemRepository) GetByID(ctx context.Context, id string) (*models.Item, 
 	return &item, nil
 }
 
-// GetBySKU retrieves an item by SKU
 func (r *ItemRepository) GetBySKU(ctx context.Context, sku string) (*models.Item, error) {
 	var item models.Item
 	var attributesJSON []byte
@@ -114,7 +109,6 @@ func (r *ItemRepository) GetBySKU(ctx context.Context, sku string) (*models.Item
 	return &item, nil
 }
 
-// Update updates an item in the database
 func (r *ItemRepository) Update(ctx context.Context, item *models.Item) error {
 	attributes, err := json.Marshal(item.Attributes)
 	if err != nil {
@@ -145,7 +139,6 @@ func (r *ItemRepository) Update(ctx context.Context, item *models.Item) error {
 	return nil
 }
 
-// Delete deletes an item from the database
 func (r *ItemRepository) Delete(ctx context.Context, id string) error {
 	result, err := r.db.ExecContext(ctx, `
 		DELETE FROM inventory_items
@@ -168,7 +161,6 @@ func (r *ItemRepository) Delete(ctx context.Context, id string) error {
 	return nil
 }
 
-// List retrieves a list of items with pagination
 func (r *ItemRepository) List(ctx context.Context, page, pageSize int, category string) ([]*models.Item, int, error) {
 	if page < 1 {
 		page = 1
@@ -247,13 +239,12 @@ func (r *ItemRepository) List(ctx context.Context, page, pageSize int, category 
 	return items, total, nil
 }
 
-// BulkCreate creates multiple items in the database
 func (r *ItemRepository) BulkCreate(ctx context.Context, items []*models.Item) (int, []string, error) {
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
 		return 0, nil, fmt.Errorf("failed to begin transaction: %w", err)
 	}
-	defer tx.Rollback() // Rollback if not explicitly committed
+	defer tx.Rollback()
 
 	successCount := 0
 	errors := make([]string, 0)
@@ -286,13 +277,12 @@ func (r *ItemRepository) BulkCreate(ctx context.Context, items []*models.Item) (
 	return successCount, errors, nil
 }
 
-// BulkUpdate updates multiple items in the database
 func (r *ItemRepository) BulkUpdate(ctx context.Context, items []*models.Item) (int, []string, error) {
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
 		return 0, nil, fmt.Errorf("failed to begin transaction: %w", err)
 	}
-	defer tx.Rollback() // Rollback if not explicitly committed
+			defer tx.Rollback()
 
 	successCount := 0
 	errors := make([]string, 0)

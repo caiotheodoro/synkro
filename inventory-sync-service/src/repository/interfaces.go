@@ -8,15 +8,35 @@ import (
 	"github.com/synkro/inventory-sync-service/src/models"
 )
 
+// ItemRepository defines the interface for item repository operations
 type ItemRepository interface {
-	Create(ctx context.Context, item *models.Item) error
-	GetByID(ctx context.Context, id string) (*models.Item, error)
-	GetBySKU(ctx context.Context, sku string) (*models.Item, error)
-	Update(ctx context.Context, item *models.Item) error
-	Delete(ctx context.Context, id string) error
-	List(ctx context.Context, page, pageSize int, category string) ([]*models.Item, int, error)
-	BulkCreate(ctx context.Context, items []*models.Item) (int, []string, error)
-	BulkUpdate(ctx context.Context, items []*models.Item) (int, []string, error)
+	CreateItem(ctx context.Context, item models.CreateItemDTO) (*models.Item, error)
+	GetItem(ctx context.Context, id string) (*models.Item, error)
+	GetItemBySKU(ctx context.Context, sku string) (*models.Item, error)
+	UpdateItem(ctx context.Context, id string, item models.UpdateItemDTO) (*models.Item, error)
+	DeleteItem(ctx context.Context, id string) error
+	ListItems(ctx context.Context, filter models.ItemFilter) ([]*models.Item, error)
+}
+
+// InventoryRepository defines the interface for inventory repository operations
+type InventoryRepository interface {
+	GetInventoryLevel(ctx context.Context, itemID, warehouseID uuid.UUID) (*models.InventoryLevel, error)
+	AdjustInventory(ctx context.Context, itemID uuid.UUID, quantity int64, reason, reference string, warehouseID uuid.UUID) (*models.InventoryLevel, error)
+	AllocateInventory(ctx context.Context, itemID uuid.UUID, quantity int64, reservationID string, warehouseID uuid.UUID, userID string) error
+	ReleaseInventory(ctx context.Context, reservationID string, reason string) error
+	CommitReservation(ctx context.Context, reservationID string) error
+	ListInventoryLevels(ctx context.Context, filter models.InventoryFilter) ([]*models.InventoryLevel, error)
+	CreateTransaction(ctx context.Context, transaction models.InventoryTransaction) error
+	GetReservation(ctx context.Context, reservationID string) (*models.InventoryReservation, error)
+}
+
+// WarehouseRepository defines the interface for warehouse repository operations
+type WarehouseRepository interface {
+	GetWarehouse(ctx context.Context, id uuid.UUID) (*models.Warehouse, error)
+	ListWarehouses(ctx context.Context) ([]*models.Warehouse, error)
+	CreateWarehouse(ctx context.Context, warehouse models.CreateWarehouseDTO) (*models.Warehouse, error)
+	UpdateWarehouse(ctx context.Context, id uuid.UUID, warehouse models.UpdateWarehouseDTO) (*models.Warehouse, error)
+	DeleteWarehouse(ctx context.Context, id uuid.UUID) error
 }
 
 type InventoryRepository interface {

@@ -42,4 +42,39 @@ type WarehouseRepository interface {
 	Create(ctx context.Context, warehouse *models.Warehouse) error
 	Update(ctx context.Context, warehouse *models.Warehouse) error
 	Delete(ctx context.Context, id uuid.UUID) error
+}
+
+// ItemService defines methods for managing inventory items
+type ItemService interface {
+	// Item management
+	CreateItem(ctx context.Context, dto models.CreateItemDTO) (*models.Item, error)
+	GetItem(ctx context.Context, id string) (*models.Item, error)
+	GetItemBySKU(ctx context.Context, sku string) (*models.Item, error)
+	UpdateItem(ctx context.Context, id string, dto models.UpdateItemDTO) (*models.Item, error)
+	DeleteItem(ctx context.Context, id string) error
+	ListItems(ctx context.Context, filter models.ItemFilter) ([]*models.Item, error)
+	
+	// Bulk operations
+	BulkCreateItems(ctx context.Context, items []models.CreateItemDTO) ([]models.BulkItemResult, error)
+	BulkUpdateItems(ctx context.Context, items []models.BulkUpdateItem) ([]models.BulkItemResult, error)
+}
+
+// InventoryService defines methods for inventory operations
+type InventoryService interface {
+	// Inventory management
+	GetInventoryLevelForItem(ctx context.Context, itemID, warehouseID uuid.UUID) (*models.InventoryLevel, error)
+	AdjustInventory(ctx context.Context, itemID uuid.UUID, quantity int64, reason, reference string, warehouseID uuid.UUID) (*models.InventoryLevel, error) 
+	
+	// Reservation operations
+	AllocateInventory(ctx context.Context, itemID uuid.UUID, quantity int64, reservationID string, warehouseID uuid.UUID, userID string) error
+	ReleaseInventory(ctx context.Context, reservationID, reason string) error
+	CommitReservation(ctx context.Context, reservationID string) error
+	
+	// Listing and reporting
+	ListInventoryLevels(ctx context.Context, filter models.InventoryFilter) ([]*models.InventoryLevel, error)
+	GetInventoryReport(ctx context.Context, filter models.ReportFilter) (*models.InventoryReport, error)
+	
+	// gRPC specific implementations
+	CheckAndReserveStock(ctx context.Context, orderID string, items []models.ProductItem, warehouseID uuid.UUID) (*models.StockReservationResult, error)
+	GetReservation(ctx context.Context, reservationID string) (*models.InventoryReservation, error)
 } 
