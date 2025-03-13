@@ -14,18 +14,22 @@ GRPC_PORT=:50053
 HTTP_PORT=:8081
 JWT_SECRET=test-secret-key
 
-# Database
+# Database - using existing PostgreSQL container
 DB_HOST=localhost
-DB_PORT=5432
-DB_USER=postgres
-DB_PASSWORD=postgres
+DB_PORT=5433
+DB_USER=logistics
+DB_PASSWORD=logistics_password
 DB_NAME=$DB_NAME
 DB_SSL_MODE=disable
+
+# Skip tests that require external services
+SKIP_E2E_TESTS=true
+SKIP_LOGISTICS_ENGINE_TEST=true
 EOT
 
 # Create the test database if it doesn't exist
-export PGPASSWORD=postgres
-psql -h localhost -U postgres -tc "SELECT 1 FROM pg_database WHERE datname = '$DB_NAME'" | grep -q 1 || psql -h localhost -U postgres -c "CREATE DATABASE $DB_NAME"
+export PGPASSWORD=logistics_password
+psql -h localhost -U logistics -p 5433 -d logistics_engine -tc "SELECT 1 FROM pg_database WHERE datname = '$DB_NAME'" | grep -q 1 || psql -h localhost -U logistics -p 5433 -d logistics_engine -c "CREATE DATABASE $DB_NAME"
 
 # Run the tests with verbose output
 echo "Running integration tests..."
@@ -34,6 +38,6 @@ go test -v ./tests/...
 # Clean up
 echo "Cleaning up..."
 # Uncomment to drop the test database after tests
-# psql -h localhost -U postgres -c "DROP DATABASE $DB_NAME"
+# psql -h localhost -U logistics -p 5433 -d logistics_engine -c "DROP DATABASE $DB_NAME"
 
 echo "Integration tests completed." 

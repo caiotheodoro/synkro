@@ -6,6 +6,7 @@ import (
 	"net"
 	"net/http"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -72,7 +73,7 @@ func main() {
 
 	// Initialize HTTP server
 	router := gin.Default()
-	restHandler := rest.NewHandler(container.ItemService, container.InventoryService)
+	restHandler := rest.NewHandler(container.ItemService, container.InventoryService, container.WarehouseService)
 	restHandler.RegisterRoutes(router)
 	
 	for _, route := range router.Routes() {
@@ -114,4 +115,4 @@ func isAlreadyExistsError(err error) bool {
 
 func containsString(s, substr string) bool {
 	return strings.Contains(strings.ToLower(s), strings.ToLower(substr))
-} 
+}

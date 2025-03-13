@@ -16,6 +16,7 @@ type Item struct {
 	Description string    `json:"description" db:"description"`
 	Category    string    `json:"category" db:"category"`
 	Attributes  JSONMap   `json:"attributes" db:"attributes"`
+	WarehouseID uuid.UUID `json:"warehouse_id" db:"warehouse_id"`
 	CreatedAt   time.Time `json:"created_at" db:"created_at"`
 	UpdatedAt   time.Time `json:"updated_at" db:"updated_at"`
 }
@@ -47,17 +48,4 @@ func (a *JSONMap) Scan(src interface{}) error {
 	return nil
 }
 
-type CreateItemDTO struct {
-	SKU         string  `json:"sku" binding:"required"`
-	Name        string  `json:"name" binding:"required"`
-	Description string  `json:"description"`
-	Category    string  `json:"category"`
-	Attributes  JSONMap `json:"attributes"`
-}
-
-type UpdateItemDTO struct {
-	Name        string  `json:"name"`
-	Description string  `json:"description"`
-	Category    string  `json:"category"`
-	Attributes  JSONMap `json:"attributes"`
-} 
+// Note: CreateItemDTO and UpdateItemDTO have been moved to dto.go 

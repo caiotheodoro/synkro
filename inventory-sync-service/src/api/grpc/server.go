@@ -29,27 +29,42 @@ func NewInventoryServer(itemService services.ItemService, inventoryService servi
 
 // CreateItem creates a new inventory item
 func (s *InventoryServer) CreateItem(ctx context.Context, req *pb.CreateItemRequest) (*pb.ItemResponse, error) {
-	// Convert request to DTO
-	attributes := make(models.JSONMap)
+	// Convert request to Item model
+	attributes := make(map[string]interface{})
 	for k, v := range req.Attributes {
 		attributes[k] = v
 	}
 
-	dto := models.CreateItemDTO{
+	now := time.Now()
+	itemID := uuid.New().String()
+	
+	// We need to assign a warehouse ID - for now, we'll use a default warehouse
+	// In a real implementation, this would be passed in the request or handled differently
+	warehouseID, err := uuid.Parse(req.LocationId)
+	if err != nil || req.LocationId == "" {
+		// If location ID is not provided or invalid, generate a random one
+		warehouseID = uuid.New()
+	}
+	
+	item := &models.Item{
+		ID:          itemID,
 		SKU:         req.Sku,
 		Name:        req.Name,
 		Description: req.Description,
 		Category:    req.Category,
 		Attributes:  attributes,
+		WarehouseID: warehouseID,
+		CreatedAt:   now,
+		UpdatedAt:   now,
 	}
 
 	// Create item
-	item, err := s.itemService.CreateItem(ctx, dto)
+	err = s.itemService.CreateItem(ctx, item)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "failed to create item: %v", err)
 	}
 
-	// Convert item to response
+	// Convert to response
 	return &pb.ItemResponse{
 		Item: convertItemToProto(item),
 	}, nil
@@ -69,28 +84,42 @@ func (s *InventoryServer) GetItem(ctx context.Context, req *pb.GetItemRequest) (
 
 // UpdateItem updates an existing item
 func (s *InventoryServer) UpdateItem(ctx context.Context, req *pb.UpdateItemRequest) (*pb.ItemResponse, error) {
-	// Convert request to DTO
-	attributes := make(models.JSONMap)
-	for k, v := range req.Attributes {
-		attributes[k] = v
+	// Fetch the existing item first
+	existingItem, err := s.itemService.GetItem(ctx, req.Id)
+	if err != nil {
+		return nil, status.Errorf(codes.NotFound, "item not found: %v", err)
 	}
 
-	dto := models.UpdateItemDTO{
-		Name:        req.Name,
-		Description: req.Description,
-		Category:    req.Category,
-		Attributes:  attributes,
+	// Update fields if provided
+	if req.Name != "" {
+		existingItem.Name = req.Name
 	}
+	if req.Description != "" {
+		existingItem.Description = req.Description
+	}
+	if req.Category != "" {
+		existingItem.Category = req.Category
+	}
+	
+	// Update attributes if provided
+	if len(req.Attributes) > 0 {
+		for k, v := range req.Attributes {
+			if existingItem.Attributes == nil {
+				existingItem.Attributes = make(map[string]interface{})
+			}
+			existingItem.Attributes[k] = v
+		}
+	}
+	existingItem.UpdatedAt = time.Now()
 
-	// Update item
-	item, err := s.itemService.UpdateItem(ctx, req.Id, dto)
+	// Save changes
+	err = s.itemService.UpdateItem(ctx, existingItem)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "failed to update item: %v", err)
 	}
 
-	// Convert item to response
 	return &pb.ItemResponse{
-		Item: convertItemToProto(item),
+		Item: convertItemToProto(existingItem),
 	}, nil
 }
 
@@ -108,162 +137,244 @@ func (s *InventoryServer) DeleteItem(ctx context.Context, req *pb.DeleteItemRequ
 
 // ListItems retrieves a list of items
 func (s *InventoryServer) ListItems(ctx context.Context, req *pb.ListItemsRequest) (*pb.ListItemsResponse, error) {
-	page := int(req.Page)
-	if page < 1 {
-		page = 1
+	// Prepare filter
+	filter := models.ItemFilter{
+		Page:     int(req.Page),
+		PageSize: int(req.PageSize),
+		Category: req.Category,
 	}
-	pageSize := int(req.PageSize)
-	if pageSize < 1 {
-		pageSize = 10
+	
+	// If pagination values are not provided, set defaults
+	if filter.Page < 1 {
+		filter.Page = 1
+	}
+	if filter.PageSize < 1 {
+		filter.PageSize = 10
+	}
+	
+	// Set up extended filter properties
+	extended := models.ItemFilterExtended{
+		// Default sort by created_at desc
+		SortBy:   "created_at",
+		SortDesc: true,
+		Limit:    filter.PageSize,
+		Offset:   filter.PageSize * (filter.Page - 1),
 	}
 
-	items, total, err := s.itemService.ListItems(ctx, page, pageSize, req.Category)
+	// Get items
+	items, err := s.itemService.ListItems(ctx, filter, extended)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "failed to list items: %v", err)
 	}
 
+	// Convert to response
 	protoItems := make([]*pb.Item, len(items))
 	for i, item := range items {
 		protoItems[i] = convertItemToProto(item)
 	}
 
+	// Estimate total count (we don't have a count method, so we estimate)
+	estimatedTotal := len(items)
+	if len(items) == filter.PageSize {
+		// There might be more items, so we add 1 to indicate there are more
+		estimatedTotal = filter.Page * filter.PageSize + 1
+	}
+
 	return &pb.ListItemsResponse{
 		Items:    protoItems,
-		Total:    int32(total),
-		Page:     int32(page),
-		PageSize: int32(pageSize),
+		Total:    int32(estimatedTotal),
+		Page:     int32(filter.Page),
+		PageSize: int32(filter.PageSize),
 	}, nil
 }
 
-// AdjustInventory adjusts the inventory levels
+// AdjustInventory adds or removes inventory
 func (s *InventoryServer) AdjustInventory(ctx context.Context, req *pb.AdjustInventoryRequest) (*pb.AdjustInventoryResponse, error) {
+	// Validate request
 	itemID, err := uuid.Parse(req.ItemId)
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "invalid item ID: %v", err)
 	}
 
-	warehouseID, err := uuid.Parse(req.LocationId) // Using LocationId from proto for backward compatibility
+	locationID, err := uuid.Parse(req.LocationId)
 	if err != nil {
-		return nil, status.Errorf(codes.InvalidArgument, "invalid warehouse ID: %v", err)
+		return nil, status.Errorf(codes.InvalidArgument, "invalid location ID: %v", err)
 	}
 
-	userID := "system" // Default to system if not provided
-	if req.Reference != "" {
-		userID = req.Reference // Using Reference field for userID for backward compatibility
-	}
-
-	if req.Quantity > 0 {
-		err = s.inventoryService.AddInventory(ctx, itemID, req.Quantity, req.Reference, warehouseID, userID)
-	} else {
-		err = s.inventoryService.RemoveInventory(ctx, itemID, -req.Quantity, req.Reference, warehouseID, userID)
-	}
+	// Determine operation based on quantity sign
+	level, err := s.inventoryService.AdjustInventory(
+		ctx, 
+		itemID, 
+		req.Quantity, 
+		req.Reason, 
+		req.Reference, 
+		locationID,
+	)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "failed to adjust inventory: %v", err)
 	}
 
-	level, err := s.inventoryService.GetInventoryLevelForItem(ctx, itemID, warehouseID)
-	if err != nil {
-		return nil, status.Errorf(codes.Internal, "failed to get updated inventory level: %v", err)
-	}
-
+	// Convert level to response
 	return &pb.AdjustInventoryResponse{
 		InventoryLevel: convertInventoryLevelToProto(level),
 	}, nil
 }
 
-// AllocateInventory allocates inventory for an order
+// AllocateInventory reserves inventory for an order
 func (s *InventoryServer) AllocateInventory(ctx context.Context, req *pb.AllocateInventoryRequest) (*pb.AllocateInventoryResponse, error) {
+	// Validate request
 	itemID, err := uuid.Parse(req.ItemId)
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "invalid item ID: %v", err)
 	}
 
-	warehouseID, err := uuid.Parse(req.LocationId) // Using LocationId from proto for backward compatibility
+	locationID, err := uuid.Parse(req.LocationId)
 	if err != nil {
-		return nil, status.Errorf(codes.InvalidArgument, "invalid warehouse ID: %v", err)
+		return nil, status.Errorf(codes.InvalidArgument, "invalid location ID: %v", err)
 	}
 
-	userID := "system" // Default to system if not provided
-
-	err = s.inventoryService.AllocateInventory(ctx, itemID, req.Quantity, req.OrderId, warehouseID, userID)
+	// Allocate inventory
+	err = s.inventoryService.AllocateInventory(
+		ctx, 
+		itemID, 
+		req.Quantity, 
+		req.OrderId, // Using OrderId as the reservation ID
+		locationID, 
+		"system", // Default user ID for system operations
+	)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "failed to allocate inventory: %v", err)
 	}
 
-	level, err := s.inventoryService.GetInventoryLevelForItem(ctx, itemID, warehouseID)
+	// Get the updated inventory level
+	level, err := s.inventoryService.GetInventoryLevelForItem(ctx, itemID, locationID)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "failed to get updated inventory level: %v", err)
 	}
 
+	// Return success response
 	return &pb.AllocateInventoryResponse{
-		Success:        true,
+		Success: true,
 		InventoryLevel: convertInventoryLevelToProto(level),
 	}, nil
 }
 
-// ReleaseInventory releases allocated inventory
+// ReleaseInventory releases reserved inventory
 func (s *InventoryServer) ReleaseInventory(ctx context.Context, req *pb.ReleaseInventoryRequest) (*pb.ReleaseInventoryResponse, error) {
+	// Validate request
 	itemID, err := uuid.Parse(req.ItemId)
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "invalid item ID: %v", err)
 	}
 
-	warehouseID, err := uuid.Parse(req.LocationId) // Using LocationId from proto for backward compatibility
+	locationID, err := uuid.Parse(req.LocationId)
 	if err != nil {
-		return nil, status.Errorf(codes.InvalidArgument, "invalid warehouse ID: %v", err)
+		return nil, status.Errorf(codes.InvalidArgument, "invalid location ID: %v", err)
 	}
-
-	userID := "system" // Default to system if not provided
-
-	err = s.inventoryService.ReleaseInventory(ctx, itemID, req.Quantity, req.OrderId, warehouseID, userID)
+	
+	// In our implementation, we release by reservation ID, but the proto expects to release
+	// by item, quantity, and location. We'll need to find the appropriate reservation.
+	// For now, we'll use the order_id as a lookup key for the reservation.
+	
+	// Get transactions for this order
+	transactions, _, err := s.inventoryService.GetInventoryTransactions(
+		ctx, 
+		map[string]interface{}{
+			"reference": req.OrderId,
+			"type": "allocate",
+		}, 
+		1, 100)
+	
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "failed to get transactions: %v", err)
+	}
+	
+	// Find the matching transaction
+	var matchingTx *models.InventoryTransaction
+	for _, tx := range transactions {
+		if tx.ItemID == itemID && tx.WarehouseID == locationID {
+			matchingTx = &tx
+			break
+		}
+	}
+	
+	if matchingTx == nil {
+		return nil, status.Errorf(codes.NotFound, "no matching reservation found")
+	}
+	
+	// Release the reservation
+	err = s.inventoryService.ReleaseInventory(ctx, matchingTx.Reference, "Released by API request")
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "failed to release inventory: %v", err)
 	}
-
-	level, err := s.inventoryService.GetInventoryLevelForItem(ctx, itemID, warehouseID)
+	
+	// Get the updated inventory level
+	level, err := s.inventoryService.GetInventoryLevelForItem(ctx, itemID, locationID)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "failed to get updated inventory level: %v", err)
 	}
 
+	// Return success response
 	return &pb.ReleaseInventoryResponse{
-		Success:        true,
+		Success: true,
 		InventoryLevel: convertInventoryLevelToProto(level),
 	}, nil
 }
 
+// BulkCreateItems creates multiple items in a batch
 func (s *InventoryServer) BulkCreateItems(ctx context.Context, req *pb.BulkCreateItemsRequest) (*pb.BulkCreateItemsResponse, error) {
-	dtos := make([]models.CreateItemDTO, len(req.Items))
-	for i, item := range req.Items {
-		attributes := make(models.JSONMap)
-		for k, v := range item.Attributes {
+	items := make([]*models.Item, len(req.Items))
+	
+	// Convert requests to models
+	now := time.Now()
+	for i, itemReq := range req.Items {
+		attributes := make(map[string]interface{})
+		for k, v := range itemReq.Attributes {
 			attributes[k] = v
 		}
-
-		dtos[i] = models.CreateItemDTO{
-			SKU:         item.Sku,
-			Name:        item.Name,
-			Description: item.Description,
-			Category:    item.Category,
+		
+		// Get or generate warehouse ID 
+		warehouseID, err := uuid.Parse(itemReq.LocationId)
+		if err != nil || itemReq.LocationId == "" {
+			// If location ID is not provided or invalid, generate a random one
+			warehouseID = uuid.New()
+		}
+		
+		items[i] = &models.Item{
+			ID:          uuid.New().String(),
+			SKU:         itemReq.Sku,
+			Name:        itemReq.Name,
+			Description: itemReq.Description,
+			Category:    itemReq.Category,
 			Attributes:  attributes,
+			WarehouseID: warehouseID,
+			CreatedAt:   now,
+			UpdatedAt:   now,
 		}
 	}
-
-	items, successCount, errors, err := s.itemService.BulkCreateItems(ctx, dtos)
+	
+	// Process bulk operation
+	err := s.itemService.BulkCreateItems(ctx, items)
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "failed to bulk create items: %v", err)
+		return &pb.BulkCreateItemsResponse{
+			Items:        nil,
+			SuccessCount: 0,
+			FailureCount: int32(len(items)),
+			Errors:       []string{err.Error()},
+		}, nil
 	}
-
-	// Convert items to proto
+	
+	// Create response with created items
 	protoItems := make([]*pb.Item, len(items))
 	for i, item := range items {
 		protoItems[i] = convertItemToProto(item)
 	}
-
+	
 	return &pb.BulkCreateItemsResponse{
 		Items:        protoItems,
-		SuccessCount: int32(successCount),
-		FailureCount: int32(len(dtos) - successCount),
-		Errors:       errors,
+		SuccessCount: int32(len(items)),
+		FailureCount: 0,
+		Errors:       []string{},
 	}, nil
 }
 
@@ -331,78 +442,77 @@ func (s *InventoryServer) StreamInventoryUpdates(req *pb.StreamInventoryUpdatesR
 
 // GetInventoryReport generates an inventory report
 func (s *InventoryServer) GetInventoryReport(ctx context.Context, req *pb.GetInventoryReportRequest) (*pb.InventoryReportResponse, error) {
-	// In a real implementation, this would generate a proper report
-	// For now we'll simulate a basic report
-	
-	levels, err := s.inventoryService.GetInventoryLevels(ctx)
-	if err != nil {
-		return nil, status.Errorf(codes.Internal, "failed to get inventory levels: %v", err)
+	// Create a report filter from the request
+	filter := models.ReportFilter{
+		WarehouseID:  req.LocationId,
+		Category:     req.Category,
+		LowStockOnly: req.LowStockOnly,
 	}
 	
-	reportItems := make([]*pb.InventoryReportItem, 0)
-	totalItems := 0
-	totalQuantity := int32(0)
-	lowStockCount := int32(0)
+	// Generate the report
+	report, err := s.inventoryService.GetInventoryReport(ctx, filter)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "failed to generate inventory report: %v", err)
+	}
 	
-	for _, level := range levels {
-		item, err := s.itemService.GetItem(ctx, level.ItemID.String())
+	// Convert to proto report items
+	protoItems := make([]*pb.InventoryReportItem, len(report.Items))
+	for i, item := range report.Items {
+		// Get the item details
+		itemObj, err := s.itemService.GetItem(ctx, item.ItemID.String())
 		if err != nil {
 			continue
 		}
 		
-		// Filter by category if specified
-		if req.Category != "" && item.Category != req.Category {
-			continue
+		protoItems[i] = &pb.InventoryReportItem{
+			Item: convertItemToProto(itemObj),
+			InventoryLevel: &pb.InventoryLevel{
+				ItemId:      item.ItemID.String(),
+				Quantity:    item.Quantity,
+				Reserved:    item.Reserved,
+				Available:   item.Available,
+				LocationId:  report.WarehouseID.String(),
+				LastUpdated: timestamppb.New(item.LastUpdated),
+			},
+			RequiresReorder: item.IsLowStock,
 		}
-		
-		// Check low stock if threshold provided
-		requiresReorder := false
-		if req.Threshold > 0 && level.Quantity <= int64(req.Threshold) {
-			requiresReorder = true
-			lowStockCount++
-		}
-		
-		// Skip if only low stock requested and item is not low stock
-		if req.LowStockOnly && !requiresReorder {
-			continue
-		}
-		
-		totalItems++
-		totalQuantity += int32(level.Quantity)
-		
-		reportItem := &pb.InventoryReportItem{
-			Item:           convertItemToProto(item),
-			InventoryLevel: convertInventoryLevelToProto(&level),
-			SalesVelocity:  0, // Would be calculated in a real implementation
-			DaysOnHand:     0, // Would be calculated in a real implementation
-			RequiresReorder: requiresReorder,
-		}
-		
-		reportItems = append(reportItems, reportItem)
 	}
 	
 	return &pb.InventoryReportResponse{
-		Items:         reportItems,
-		TotalItems:    int32(totalItems),
-		TotalQuantity: totalQuantity,
-		TotalValue:    0, // Would be calculated in a real implementation
-		LowStockCount: lowStockCount,
-		ReportTime:    timestamppb.New(time.Now()),
+		Items:         protoItems,
+		TotalItems:    int32(report.Summary.TotalItems),
+		TotalQuantity: int32(report.Summary.TotalQuantity),
+		LowStockCount: int32(report.Summary.LowStockItems),
+		ReportTime:    timestamppb.New(report.GeneratedAt),
 	}, nil
 }
 
 // GetInventoryLevels returns all inventory levels
 func (s *InventoryServer) GetInventoryLevels(ctx context.Context, req *pb.GetInventoryLevelsRequest) (*pb.GetInventoryLevelsResponse, error) {
-	levels, err := s.inventoryService.GetInventoryLevels(ctx)
+	// Get all inventory levels
+	filter := models.InventoryFilter{}
+	extended := models.InventoryFilterExtended{}
+	
+	// Apply item and location filters if provided
+	if len(req.ItemIds) > 0 && len(req.ItemIds[0]) > 0 {
+		filter.ItemID = req.ItemIds[0] // For simplicity, just use the first item ID
+	}
+	
+	if len(req.LocationIds) > 0 && len(req.LocationIds[0]) > 0 {
+		filter.WarehouseID = req.LocationIds[0] // For simplicity, just use the first location ID
+	}
+	
+	// Get inventory levels using the filter
+	levels, err := s.inventoryService.ListInventoryLevels(ctx, filter, extended)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "failed to list inventory levels: %v", err)
 	}
-
+	
 	protoLevels := make([]*pb.InventoryLevel, len(levels))
 	for i, level := range levels {
-		protoLevels[i] = convertInventoryLevelToProto(&level)
+		protoLevels[i] = convertInventoryLevelToProto(level)
 	}
-
+	
 	return &pb.GetInventoryLevelsResponse{
 		Levels: protoLevels,
 	}, nil
@@ -411,7 +521,11 @@ func (s *InventoryServer) GetInventoryLevels(ctx context.Context, req *pb.GetInv
 // CheckAndReserveStock checks if products are in stock and reserves them
 func (s *InventoryServer) CheckAndReserveStock(ctx context.Context, req *pb.StockReservationRequest) (*pb.StockReservationResponse, error) {
 	// Create a unique reservation ID
-	reservationID := uuid.New().String()
+	reservationID := req.OrderId
+	if reservationID == "" {
+		reservationID = uuid.New().String()
+	}
+	
 	warehouseID, err := uuid.Parse(req.WarehouseId)
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "invalid warehouse ID: %v", err)
@@ -462,10 +576,11 @@ func (s *InventoryServer) CheckAndReserveStock(ctx context.Context, req *pb.Stoc
 		level, err := s.inventoryService.GetInventoryLevelForItem(ctx, itemID, warehouseID)
 		if err != nil {
 			availabilityList = append(availabilityList, &pb.ProductAvailability{
-				ProductId:    itemObj.ID,
-				Sku:          itemObj.SKU,
-				InStock:      false,
-				ErrorMessage: fmt.Sprintf("failed to get inventory level: %v", err),
+				ProductId:         itemObj.ID,
+				Sku:               itemObj.SKU,
+				InStock:           false,
+				AvailableQuantity: int32(level.Available),
+				ErrorMessage:      fmt.Sprintf("failed to get inventory level: %v", err),
 			})
 			success = false
 			continue
@@ -484,8 +599,16 @@ func (s *InventoryServer) CheckAndReserveStock(ctx context.Context, req *pb.Stoc
 			continue
 		}
 
+		// Create allocation object
+		allocation := models.InventoryAllocation{
+			ItemID:      itemID,
+			WarehouseID: warehouseID,
+			OrderID:     reservationID,
+			Quantity:    int64(item.Quantity),
+		}
+		
 		// Reserve the inventory
-		err = s.inventoryService.AllocateInventory(ctx, itemID, int64(item.Quantity), reservationID, warehouseID, "system")
+		err = s.inventoryService.AllocateInventory(ctx, allocation.ItemID, allocation.Quantity, allocation.OrderID, allocation.WarehouseID, "system")
 		if err != nil {
 			availabilityList = append(availabilityList, &pb.ProductAvailability{
 				ProductId:         itemObj.ID,
@@ -523,76 +646,65 @@ func (s *InventoryServer) CheckAndReserveStock(ctx context.Context, req *pb.Stoc
 
 // ReleaseReservedStock releases stock that was previously reserved
 func (s *InventoryServer) ReleaseReservedStock(ctx context.Context, req *pb.ReleaseStockRequest) (*pb.ReleaseStockResponse, error) {
-	// Find inventory levels with matching reservation ID (which will be the order_id in the reference)
-	success := true
-	message := "Stock released successfully"
+	// Validate inputs
+	if req.ReservationId == "" {
+		return nil, status.Errorf(codes.InvalidArgument, "reservation_id is required")
+	}
 	
-	// We'll keep track of release operations for transaction tracking
-	releaseOps := 0
+	// Determine which ID to use
+	reservationID := req.ReservationId
+	if reservationID == "" && req.OrderId != "" {
+		reservationID = req.OrderId
+	}
 	
-	// Go through each warehouse to find allocations for this reservation
-	warehouses, err := s.inventoryService.GetWarehouses(ctx)
+	// Get reason or use default
+	reason := req.Reason
+	if reason == "" {
+		reason = "Release requested via API"
+	}
+	
+	// Release the inventory
+	err := s.inventoryService.ReleaseInventory(ctx, reservationID, reason)
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "failed to get warehouses: %v", err)
-	}
-
-	for _, _ = range warehouses {
-		// Get transactions for this reservation
-		transactions, _, err := s.inventoryService.GetInventoryTransactions(
-			ctx, 
-			map[string]interface{}{
-				"reference": req.ReservationId,
-				"type": "allocate",
-			}, 
-			1, 100)
-		
-		if err != nil {
-			success = false
-			message = fmt.Sprintf("failed to get transactions: %v", err)
-			continue
-		}
-
-		// Release each transaction
-		for _, tx := range transactions {
-			err = s.inventoryService.ReleaseInventory(
-				ctx, 
-				tx.ItemID, 
-				tx.Quantity, 
-				req.OrderId, 
-				tx.WarehouseID, 
-				"system")
-			
-			if err != nil {
-				success = false
-				message = fmt.Sprintf("failed to release inventory: %v", err)
-				continue
-			}
-			
-			releaseOps++
-		}
-	}
-
-	if releaseOps == 0 && success {
-		message = "No matching reservations found to release"
-		success = false
+		return &pb.ReleaseStockResponse{
+			Success: false,
+			Message: fmt.Sprintf("failed to release stock: %v", err),
+		}, status.Errorf(codes.Internal, "failed to release stock: %v", err)
 	}
 
 	return &pb.ReleaseStockResponse{
-		Success: success,
-		Message: message,
+		Success: true,
+		Message: "Stock released successfully",
 	}, nil
 }
 
+// CommitReservation commits a previous reservation (finalizes the order)
 func (s *InventoryServer) CommitReservation(ctx context.Context, req *pb.CommitReservationRequest) (*pb.CommitReservationResponse, error) {
+	// Validate inputs
+	if req.ReservationId == "" {
+		return nil, status.Errorf(codes.InvalidArgument, "reservation_id is required")
+	}
 	
+	// Determine which ID to use
+	reservationID := req.ReservationId
+	if reservationID == "" && req.OrderId != "" {
+		reservationID = req.OrderId
+	}
+	
+	// Commit the reservation
+	err := s.inventoryService.CommitReservation(ctx, reservationID)
+	if err != nil {
+		return &pb.CommitReservationResponse{
+			Success: false,
+			Message: fmt.Sprintf("failed to commit reservation: %v", err),
+		}, status.Errorf(codes.Internal, "failed to commit reservation: %v", err)
+	}
 
-	
 	return &pb.CommitReservationResponse{
 		Success: true,
-		Message: fmt.Sprintf("Reservation %s committed successfully for order %s", req.ReservationId, req.OrderId),
+		Message: "Reservation committed successfully",
 	}, nil
 }
-
 
 func convertItemToProto(item *models.Item) *pb.Item {
 	attributes := make(map[string]string)

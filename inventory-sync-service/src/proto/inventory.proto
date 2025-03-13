@@ -55,6 +55,7 @@ message CreateItemRequest {
     string description = 3;
     string category = 4;
     map<string, string> attributes = 5;
+    string location_id = 6;
 }
 
 message GetItemRequest {

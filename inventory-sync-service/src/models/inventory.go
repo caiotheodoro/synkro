@@ -48,40 +48,27 @@ func NewInventoryTransaction(itemID uuid.UUID, quantity int64, txType Transactio
 	}
 }
 
-type Warehouse struct {
-	ID          uuid.UUID `json:"id" db:"id"`
-	Code        string    `json:"code" db:"code"`
-	Name        string    `json:"name" db:"name"`
-	AddressLine1 string   `json:"address_line1" db:"address_line1"`
-	AddressLine2 string   `json:"address_line2" db:"address_line2"`
-	City        string    `json:"city" db:"city"`
-	State       string    `json:"state" db:"state"`
-	PostalCode  string    `json:"postal_code" db:"postal_code"`
-	Country     string    `json:"country" db:"country"`
-	ContactName string    `json:"contact_name" db:"contact_name"`
-	ContactPhone string   `json:"contact_phone" db:"contact_phone"`
-	ContactEmail string   `json:"contact_email" db:"contact_email"`
-	Active      bool      `json:"active" db:"active"`
-	CreatedAt   time.Time `json:"created_at" db:"created_at"`
-	CustomerID  uuid.UUID `json:"customer_id" db:"customer_id"`
+type InventoryReservation struct {
+	ID          string            `db:"id" json:"id"`
+	OrderID     string            `db:"order_id" json:"order_id"`
+	ProductID   uuid.UUID         `db:"product_id" json:"product_id"`
+	Quantity    int64             `db:"quantity" json:"quantity"`
+	Status      ReservationStatus `db:"status" json:"status"`
+	CreatedAt   time.Time         `db:"created_at" json:"created_at"`
+	CompletedAt *time.Time        `db:"completed_at" json:"completed_at,omitempty"`
+	SKU         string            `db:"sku" json:"sku"`
+	ExpiresAt   time.Time         `db:"expires_at" json:"expires_at"`
 }
 
-func NewWarehouse(code, name, addressLine1 string, city, state, postalCode, country string, customerID uuid.UUID) *Warehouse {
-	now := time.Now()
-	return &Warehouse{
-		ID:          uuid.New(),
-		Code:        code,
-		Name:        name,
-		AddressLine1: addressLine1,
-		City:        city,
-		State:       state,
-		PostalCode:  postalCode,
-		Country:     country,
-		Active:      true,
-		CreatedAt:   now,
-		CustomerID:  customerID,
-	}
-}
+// ReservationStatus represents the status of an inventory reservation
+type ReservationStatus string
+
+const (
+	ReservationStatusPending   ReservationStatus = "pending"
+	ReservationStatusCommitted ReservationStatus = "committed"
+	ReservationStatusCancelled ReservationStatus = "cancelled"
+	ReservationStatusExpired   ReservationStatus = "expired"
+)
 
 type AdjustInventoryDTO struct {
 	ItemID      uuid.UUID `json:"item_id" binding:"required"`

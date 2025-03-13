@@ -9,13 +9,14 @@ import (
 )
 
 type Container struct {
-	Config           *config.Config
-	DB               *database.DB
-	ItemRepository   repository.ItemRepository
+	Config             *config.Config
+	DB                 *database.PostgresDB
+	ItemRepository     repository.ItemRepository
 	InventoryRepository repository.InventoryRepository
 	WarehouseRepository repository.WarehouseRepository
-	ItemService      services.ItemService
-	InventoryService services.InventoryService
+	ItemService        services.ItemService
+	InventoryService   services.InventoryService
+	WarehouseService   services.WarehouseService
 }
 
 func NewContainer(cfg *config.Config) (*Container, error) {
@@ -30,6 +31,7 @@ func NewContainer(cfg *config.Config) (*Container, error) {
 
 	itemService := services.NewItemService(itemRepo)
 	inventoryService := services.NewInventoryService(inventoryRepo, itemRepo, warehouseRepo)
+	warehouseService := services.NewWarehouseService(warehouseRepo)
 
 	container := &Container{
 		Config:             cfg,
@@ -39,6 +41,7 @@ func NewContainer(cfg *config.Config) (*Container, error) {
 		WarehouseRepository: warehouseRepo,
 		ItemService:        itemService,
 		InventoryService:   inventoryService,
+		WarehouseService:   warehouseService,
 	}
 
 	return container, nil

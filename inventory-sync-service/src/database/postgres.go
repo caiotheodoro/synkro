@@ -107,7 +107,18 @@ func (d *PostgresDB) RunMigrations(ctx context.Context) error {
 		return fmt.Errorf("failed to add customer_id column to warehouses table: %w", err)
 	}
 
-	// Create items table if it doesn't exist
+	// Drop and recreate the inventory tables to ensure proper schema
+	_, err = d.Exec(ctx, `
+		DROP TABLE IF EXISTS inventory_reservations CASCADE;
+		DROP TABLE IF EXISTS inventory_transactions CASCADE;
+		DROP TABLE IF EXISTS inventory_levels CASCADE;
+		DROP TABLE IF EXISTS inventory_items CASCADE;
+	`)
+	if err != nil {
+		return fmt.Errorf("failed to drop inventory tables: %w", err)
+	}
+
+	// Create items table
 	_, err = d.Exec(ctx, `
 		CREATE TABLE IF NOT EXISTS inventory_items (
 			id UUID PRIMARY KEY,
@@ -116,15 +127,17 @@ func (d *PostgresDB) RunMigrations(ctx context.Context) error {
 			description TEXT,
 			category VARCHAR(100),
 			attributes JSONB,
+			warehouse_id UUID,
 			created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-			updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+			updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+			FOREIGN KEY (warehouse_id) REFERENCES warehouses(id) ON DELETE SET NULL
 		)
 	`)
 	if err != nil {
 		return fmt.Errorf("failed to create items table: %w", err)
 	}
 
-	// Create inventory_levels table if it doesn't exist
+	// Create inventory_levels table
 	_, err = d.Exec(ctx, `
 		CREATE TABLE IF NOT EXISTS inventory_levels (
 			item_id UUID NOT NULL,
@@ -134,7 +147,7 @@ func (d *PostgresDB) RunMigrations(ctx context.Context) error {
 			available BIGINT NOT NULL DEFAULT 0,
 			last_updated TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 			PRIMARY KEY (item_id, warehouse_id),
-			FOREIGN KEY (item_id) REFERENCES items(id) ON DELETE CASCADE,
+			FOREIGN KEY (item_id) REFERENCES inventory_items(id) ON DELETE CASCADE,
 			FOREIGN KEY (warehouse_id) REFERENCES warehouses(id) ON DELETE CASCADE
 		)
 	`)
@@ -142,7 +155,7 @@ func (d *PostgresDB) RunMigrations(ctx context.Context) error {
 		return fmt.Errorf("failed to create inventory_levels table: %w", err)
 	}
 
-	// Create inventory_transactions table if it doesn't exist
+	// Create inventory_transactions table
 	_, err = d.Exec(ctx, `
 		CREATE TABLE IF NOT EXISTS inventory_transactions (
 			id UUID PRIMARY KEY,
@@ -153,12 +166,31 @@ func (d *PostgresDB) RunMigrations(ctx context.Context) error {
 			warehouse_id UUID NOT NULL,
 			timestamp TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 			user_id VARCHAR(36),
-			FOREIGN KEY (item_id) REFERENCES items(id) ON DELETE CASCADE,
+			FOREIGN KEY (item_id) REFERENCES inventory_items(id) ON DELETE CASCADE,
 			FOREIGN KEY (warehouse_id) REFERENCES warehouses(id) ON DELETE CASCADE
 		)
 	`)
 	if err != nil {
 		return fmt.Errorf("failed to create inventory_transactions table: %w", err)
+	}
+
+	// Create inventory_reservations table
+	_, err = d.Exec(ctx, `
+		CREATE TABLE IF NOT EXISTS inventory_reservations (
+			id UUID PRIMARY KEY,
+			order_id VARCHAR(255) NOT NULL,
+			product_id UUID NOT NULL,
+			quantity BIGINT NOT NULL,
+			status VARCHAR(20) NOT NULL,
+			created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+			completed_at TIMESTAMPTZ,
+			sku VARCHAR(100) NOT NULL,
+			expires_at TIMESTAMPTZ NOT NULL,
+			FOREIGN KEY (product_id) REFERENCES inventory_items(id) ON DELETE CASCADE
+		)
+	`)
+	if err != nil {
+		return fmt.Errorf("failed to create inventory_reservations table: %w", err)
 	}
 
 	log.Println("Database migrations completed successfully.")
