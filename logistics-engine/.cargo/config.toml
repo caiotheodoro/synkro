@@ -2,3 +2,4 @@
 
 [env]
 RUSTFLAGS = "--cfg=procmacro2_semver_exempt" 
+SQLX_OFFLINE = "false" 
