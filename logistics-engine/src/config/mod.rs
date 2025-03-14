@@ -12,6 +12,7 @@ pub struct AppConfig {
     pub rabbitmq: RabbitMQConfig,
     pub grpc: GrpcConfig,
     pub tracing: TracingConfig,
+    pub order_producer: OrderProducerConfig,
 }
 
 #[derive(Debug, Clone)]
@@ -63,6 +64,16 @@ pub struct TracingConfig {
     pub cors_allowed_origins: Vec<String>,
     pub pagination_default_limit: u32,
     pub pagination_max_limit: u32,
+}
+
+#[derive(Debug, Clone)]
+pub struct OrderProducerConfig {
+    pub enabled: bool,
+    pub interval_seconds: u64,
+    pub min_orders_per_interval: u32,
+    pub max_orders_per_interval: u32,
+    pub max_items_per_order: u32,
+    pub randomize_interval: bool,
 }
 
 pub fn init() {
@@ -168,6 +179,33 @@ pub fn init() {
         pagination_max_limit: pagination_max,
     };
 
+    let order_producer_config = OrderProducerConfig {
+        enabled: env::var("ORDER_PRODUCER_ENABLED")
+            .unwrap_or_else(|_| "false".to_string())
+            .parse::<bool>()
+            .unwrap_or(false),
+        interval_seconds: env::var("ORDER_PRODUCER_INTERVAL_SECONDS")
+            .unwrap_or_else(|_| "60".to_string())
+            .parse::<u64>()
+            .unwrap_or(60),
+        min_orders_per_interval: env::var("ORDER_PRODUCER_MIN_ORDERS")
+            .unwrap_or_else(|_| "1".to_string())
+            .parse::<u32>()
+            .unwrap_or(1),
+        max_orders_per_interval: env::var("ORDER_PRODUCER_MAX_ORDERS")
+            .unwrap_or_else(|_| "5".to_string())
+            .parse::<u32>()
+            .unwrap_or(5),
+        max_items_per_order: env::var("ORDER_PRODUCER_MAX_ITEMS")
+            .unwrap_or_else(|_| "10".to_string())
+            .parse::<u32>()
+            .unwrap_or(10),
+        randomize_interval: env::var("ORDER_PRODUCER_RANDOMIZE")
+            .unwrap_or_else(|_| "true".to_string())
+            .parse::<bool>()
+            .unwrap_or(true),
+    };
+
     let app_config = AppConfig {
         server: server_config,
         database: database_config,
@@ -175,6 +213,7 @@ pub fn init() {
         rabbitmq: rabbitmq_config,
         grpc: grpc_config,
         tracing: tracing_config,
+        order_producer: order_producer_config,
     };
 
     CONFIG.set(app_config).expect("Failed to set app config");

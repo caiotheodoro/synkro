@@ -27,9 +27,10 @@ pub mod proto {
 }
 
 use config::get as get_config;
+use services::order_producer_service::OrderProducerConfig;
 use services::{
-    CustomerService, InventoryService, OrderService, PaymentService, ShippingService,
-    WarehouseService,
+    CustomerService, InventoryService, OrderProducerService, OrderService, PaymentService,
+    ShippingService, WarehouseService,
 };
 
 #[tokio::main]
@@ -98,6 +99,24 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let payment_service = Arc::new(PaymentService::new(payment_repo.clone()));
     let shipping_service = Arc::new(ShippingService::new(shipping_repo.clone()));
 
+    // Initialize order producer service
+    let mut order_producer_service = if config.order_producer.enabled {
+        info!("Order producer service is enabled");
+        let mut producer =
+            OrderProducerService::new(OrderProducerConfig::from(config.order_producer.clone()))
+                .with_order_service(order_service.clone());
+        let start_result = producer.start().await;
+        if let Err(e) = start_result {
+            error!("Failed to start order producer service: {}", e);
+        } else {
+            info!("Order producer service started successfully");
+        }
+        Some(producer)
+    } else {
+        info!("Order producer service is disabled");
+        None
+    };
+
     // Create shared application state
     let app_state = api::AppState {
         customer_service,
@@ -131,7 +150,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let listener = tokio::net::TcpListener::bind(addr).await?;
     axum::serve(listener, app)
-        .with_graceful_shutdown(shutdown_signal())
+        .with_graceful_shutdown(shutdown_signal(order_producer_service))
         .await?;
 
     info!("Server shutdown complete");
@@ -156,7 +175,7 @@ async fn start_grpc_server(
     Ok(())
 }
 
-async fn shutdown_signal() {
+async fn shutdown_signal(mut order_producer_service: Option<OrderProducerService>) {
     let ctrl_c = async {
         signal::ctrl_c()
             .await
@@ -181,5 +200,12 @@ async fn shutdown_signal() {
         _ = terminate => {
             info!("Received terminate signal, starting graceful shutdown");
         },
+    }
+
+    if let Some(mut producer) = order_producer_service {
+        info!("Shutting down order producer service");
+        if let Err(e) = producer.stop().await {
+            error!("Error shutting down order producer service: {}", e);
+        }
     }
 }

@@ -147,6 +147,36 @@ main() {
   cd "$ROOT_DIR" || exit 1
   print_message "$GREEN" "Docker containers in api-gateway-auth started."
   
+  # Wait for PostgreSQL to be ready
+  print_message "$BLUE" "Waiting for PostgreSQL to be ready..."
+  MAX_RETRIES=30
+  RETRY_COUNT=0
+  
+  # Get the Postgres container ID
+  POSTGRES_CONTAINER=$(docker ps -qf "name=postgres" -f "name=api-gateway-auth-db" | head -n 1)
+  
+  if [ -z "$POSTGRES_CONTAINER" ]; then
+    print_message "$YELLOW" "Could not find PostgreSQL container. Looking for any PostgreSQL container..."
+    POSTGRES_CONTAINER=$(docker ps -qf "ancestor=postgres" | head -n 1)
+  fi
+  
+  if [ -z "$POSTGRES_CONTAINER" ]; then
+    print_message "$RED" "Could not find any PostgreSQL container. Check if the container is running."
+    docker ps
+    print_message "$YELLOW" "Continuing without PostgreSQL check..."
+  else
+    while ! docker exec $POSTGRES_CONTAINER pg_isready -U postgres 2>/dev/null; do
+      RETRY_COUNT=$((RETRY_COUNT+1))
+      if [ $RETRY_COUNT -ge $MAX_RETRIES ]; then
+        print_message "$RED" "Failed to connect to PostgreSQL after $MAX_RETRIES attempts. Continuing anyway..."
+        break
+      fi
+      print_message "$YELLOW" "PostgreSQL not ready yet. Waiting 2 seconds... (Attempt $RETRY_COUNT/$MAX_RETRIES)"
+      sleep 2
+    done
+    print_message "$GREEN" "PostgreSQL is ready!"
+  fi
+  
   # Start ELK stack if .env file exists
   if [ -f "Elk/.env" ]; then
     print_message "$BLUE" "Starting ELK stack..."
@@ -163,12 +193,111 @@ main() {
   fi
   
   # Start API Gateway Auth service
-  start_service "api-gateway-auth" "pnpm start:dev > \"$ROOT_DIR/logs/api-gateway-auth.log\" 2>&1" "$ROOT_DIR/api-gateway-auth"
+  print_message "$BLUE" "Starting API Gateway Auth service on port 3000..."
   
+  # First check if port 3000 is already in use
+  if lsof -i:3000 >/dev/null 2>&1; then
+    print_message "$RED" "Port 3000 is already in use. API Gateway Auth service may not start properly."
+    print_message "$RED" "Please free up port 3000 and try again."
+    lsof -i:3000
+    print_message "$YELLOW" "Attempting to continue anyway..."
+  fi
+  
+  cd api-gateway-auth || {
+    print_message "$RED" "Failed to change to directory: api-gateway-auth"
+    exit 1
+  }
+  
+  # Check for .env file, copy from example if needed
+  if [ ! -f ".env" ] && [ -f ".env.example" ]; then
+    print_message "$YELLOW" "No .env file found for API Gateway Auth. Copying from .env.example..."
+    cp .env.example .env
+    print_message "$GREEN" "Created .env file for API Gateway Auth."
+  fi
+  
+  # Run migrations if needed
+  print_message "$BLUE" "Running database migrations for API Gateway Auth..."
+  pnpm migration:run || {
+    print_message "$YELLOW" "Warning: Migrations may have failed, but continuing..."
+  }
+  
+  cd "$ROOT_DIR" || exit 1
+  
+  # Start the service with explicit port setting
+  start_service "api-gateway-auth" "PORT=3000 NODE_ENV=development pnpm start:dev > \"$ROOT_DIR/logs/api-gateway-auth.log\" 2>&1" "$ROOT_DIR/api-gateway-auth"
   
   # Wait for API Gateway Auth to start
   print_message "$BLUE" "Waiting for API Gateway Auth to start..."
-  sleep 5
+  
+  # Wait for the service to start with a timeout
+  MAX_WAIT=60
+  COUNTER=0
+  SERVICE_STARTED=false
+  
+  while [ $COUNTER -lt $MAX_WAIT ]; do
+    # Check if the application log indicates successful startup
+    if grep -q "Nest application successfully started" "$ROOT_DIR/logs/api-gateway-auth.log" 2>/dev/null; then
+      SERVICE_STARTED=true
+      
+      # Double check that the service is actually listening on port 3000
+      sleep 2  # Give it a moment to bind to the port
+      if lsof -i:3000 >/dev/null 2>&1; then
+        print_message "$GREEN" "Confirmed API Gateway Auth is listening on port 3000"
+        break
+      else
+        print_message "$YELLOW" "API Gateway Auth logged successful start but is not listening on port 3000. Continuing to wait..."
+        SERVICE_STARTED=false
+      fi
+    fi
+    
+    # Also check if the service is listening on port 3000 directly
+    if lsof -i:3000 >/dev/null 2>&1; then
+      print_message "$GREEN" "API Gateway Auth is listening on port 3000"
+      SERVICE_STARTED=true
+      break
+    fi
+    
+    # Also check for common error patterns
+    if grep -q "Error" "$ROOT_DIR/logs/api-gateway-auth.log" 2>/dev/null || 
+       grep -q "error" "$ROOT_DIR/logs/api-gateway-auth.log" 2>/dev/null ||
+       grep -q "Exception" "$ROOT_DIR/logs/api-gateway-auth.log" 2>/dev/null; then
+      print_message "$RED" "Found error in API Gateway Auth logs:"
+      grep -i -A 5 -B 1 "error\|exception" "$ROOT_DIR/logs/api-gateway-auth.log" | head -n 20
+      break
+    fi
+    
+    sleep 1
+    COUNTER=$((COUNTER+1))
+    if [ $((COUNTER % 5)) -eq 0 ]; then
+      print_message "$YELLOW" "Still waiting for API Gateway Auth service to start on port 3000... ($COUNTER seconds)"
+    fi
+  done
+  
+  if [ "$SERVICE_STARTED" = true ]; then
+    print_message "$GREEN" "API Gateway Auth started successfully on port 3000!"
+  else
+    print_message "$RED" "API Gateway Auth failed to start properly on port 3000 after $MAX_WAIT seconds."
+    print_message "$RED" "This is a critical service and others may not function without it."
+    print_message "$YELLOW" "Last 20 lines of log file:"
+    tail -n 20 "$ROOT_DIR/logs/api-gateway-auth.log" || true
+    
+    # Ask user if they want to continue
+    read -p "Do you want to continue starting other services anyway? (y/n): " -n 1 -r
+    echo
+    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+      print_message "$RED" "Exiting as requested."
+      exit 1
+    fi
+    print_message "$YELLOW" "Continuing with other services despite API Gateway Auth failure..."
+  fi
+  
+  # Start frontend services based on API Gateway Auth status
+  if [ "$SERVICE_STARTED" = true ]; then
+    print_message "$BLUE" "API Gateway Auth is running on port 3000, proceeding with frontend services..."
+  else
+    print_message "$YELLOW" "API Gateway Auth did not start properly. Frontend services may not function correctly!"
+    print_message "$YELLOW" "Starting frontend services anyway as requested..."
+  fi
   
   # Start Frontend Auth
   start_service "frontend-auth" "pnpm dev > \"$ROOT_DIR/logs/frontend-auth.log\" 2>&1" "$ROOT_DIR/frontend-auth"
