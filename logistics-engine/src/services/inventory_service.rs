@@ -195,4 +195,18 @@ impl InventoryService {
             .await
             .map_err(LogisticsError::from)
     }
+
+    pub async fn get_random_item(&self) -> Result<Option<InventoryItem>> {
+        self.repository
+            .get_random_item()
+            .await
+            .map_err(LogisticsError::DatabaseError)
+    }
+
+    pub async fn item_exists(&self, id: &Uuid) -> Result<bool> {
+        self.repository
+            .item_exists(id)
+            .await
+            .map_err(LogisticsError::DatabaseError)
+    }
 }

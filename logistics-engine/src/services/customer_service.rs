@@ -19,11 +19,11 @@ impl CustomerService {
 
     pub async fn get_all_customers(
         &self,
-        page: u32,
-        limit: u32,
+        page: usize,
+        page_size: usize,
         search: Option<String>,
     ) -> Result<Vec<Customer>> {
-        let limit = limit as i64;
+        let limit = page_size as i64;
         let offset = (page - 1) as i64 * limit;
 
         match search {
@@ -96,5 +96,19 @@ impl CustomerService {
             .delete(id)
             .await
             .map_err(LogisticsError::from)
+    }
+
+    pub async fn get_random_customer(&self) -> Result<Option<Customer>> {
+        self.repository
+            .get_random_customer()
+            .await
+            .map_err(LogisticsError::DatabaseError)
+    }
+
+    pub async fn customer_exists(&self, id: &Uuid) -> Result<bool> {
+        self.repository
+            .customer_exists(id)
+            .await
+            .map_err(LogisticsError::DatabaseError)
     }
 }

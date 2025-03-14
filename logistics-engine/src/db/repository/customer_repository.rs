@@ -228,4 +228,42 @@ impl CustomerRepository {
         }
         Ok(customers)
     }
+
+    pub async fn get_random_customer(&self) -> Result<Option<Customer>, sqlx::Error> {
+        sqlx::query!(
+            r#"
+            SELECT id, name, email, phone, created_at, updated_at
+            FROM customers
+            ORDER BY RANDOM()
+            LIMIT 1
+            "#
+        )
+        .fetch_optional(&self.pool)
+        .await
+        .map(|opt| {
+            opt.map(|row| Customer {
+                id: row.id,
+                name: row.name,
+                email: row.email,
+                phone: row.phone,
+                created_at: Self::convert_datetime(row.created_at),
+                updated_at: Self::convert_datetime(row.updated_at),
+            })
+        })
+    }
+
+    pub async fn customer_exists(&self, id: &Uuid) -> Result<bool, sqlx::Error> {
+        let result = sqlx::query!(
+            r#"
+            SELECT COUNT(*) as count 
+            FROM customers 
+            WHERE id = $1
+            "#,
+            id
+        )
+        .fetch_one(&self.pool)
+        .await?;
+
+        Ok(result.count.unwrap_or(0) > 0)
+    }
 }

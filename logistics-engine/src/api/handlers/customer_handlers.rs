@@ -20,7 +20,11 @@ pub async fn list_customers(
     println!("pagination: {:?}", pagination);
     let customers = state
         .customer_service
-        .get_all_customers(pagination.page, pagination.limit, pagination.search.clone())
+        .get_all_customers(
+            pagination.page as usize,
+            pagination.limit as usize,
+            pagination.search.clone(),
+        )
         .await?;
 
     Ok(success(customers))

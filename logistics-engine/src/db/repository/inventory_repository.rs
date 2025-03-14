@@ -565,4 +565,43 @@ impl InventoryRepository {
 
         Ok(items)
     }
+
+    pub async fn get_random_item(&self) -> Result<Option<InventoryItem>, sqlx::Error> {
+        // Simplify the query to just get one random item by ID, then look it up
+        let row = sqlx::query!(
+            r#"
+            SELECT id FROM inventory_items
+            ORDER BY RANDOM()
+            LIMIT 1
+            "#
+        )
+        .fetch_optional(&self.pool)
+        .await?;
+
+        if let Some(row) = row {
+            // Use the find_item_by_id method which already works
+            match self.find_item_by_id(row.id).await {
+                Ok(Some(item)) => Ok(Some(item)),
+                Ok(None) => Ok(None),
+                Err(e) => Err(sqlx::Error::ColumnNotFound(e.to_string())),
+            }
+        } else {
+            Ok(None)
+        }
+    }
+
+    pub async fn item_exists(&self, id: &Uuid) -> Result<bool, sqlx::Error> {
+        let result = sqlx::query!(
+            r#"
+            SELECT COUNT(*) as count 
+            FROM inventory_items 
+            WHERE id = $1
+            "#,
+            id
+        )
+        .fetch_one(&self.pool)
+        .await?;
+
+        Ok(result.count.unwrap_or(0) > 0)
+    }
 }

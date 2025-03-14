@@ -99,12 +99,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let payment_service = Arc::new(PaymentService::new(payment_repo.clone()));
     let shipping_service = Arc::new(ShippingService::new(shipping_repo.clone()));
 
-    // Initialize order producer service
-    let mut order_producer_service = if config.order_producer.enabled {
+    let order_producer_service = if config.order_producer.enabled {
         info!("Order producer service is enabled");
-        let mut producer =
-            OrderProducerService::new(OrderProducerConfig::from(config.order_producer.clone()))
-                .with_order_service(order_service.clone());
+        let mut producer = OrderProducerService::new(
+            OrderProducerConfig::from(config.order_producer.clone()),
+            customer_service.clone(),
+        )
+        .with_order_service(order_service.clone());
         let start_result = producer.start().await;
         if let Err(e) = start_result {
             error!("Failed to start order producer service: {}", e);

@@ -4,8 +4,9 @@ use crate::models::dto::order::CreateOrderDto;
 use crate::models::dto::order_item::CreateOrderItemDto;
 use crate::models::dto::payment::CreatePaymentInfoDto;
 use crate::models::dto::shipping::CreateShippingInfoDto;
-use crate::services::OrderService;
+use crate::services::{CustomerService, InventoryService, OrderService};
 use chrono::Utc;
+use num_traits::ToPrimitive;
 use rand::distr::Alphanumeric;
 use rand::rngs::StdRng;
 use rand::{prelude::*, Rng};
@@ -14,7 +15,7 @@ use std::time::{Duration, Instant};
 use tokio::sync::{mpsc, Mutex};
 use tokio::task::JoinHandle;
 use tokio::time;
-use tracing::{error, info};
+use tracing::{error, info, warn};
 use uuid::Uuid;
 
 #[derive(Debug, Clone)]
@@ -59,21 +60,35 @@ pub struct OrderProducerService {
     task_handle: Option<JoinHandle<()>>,
     shutdown_tx: Option<mpsc::Sender<()>>,
     order_service: Option<Arc<OrderService>>,
+    customer_service: Option<Arc<CustomerService>>,
+    inventory_service: Option<Arc<InventoryService>>,
 }
 
 impl OrderProducerService {
-    pub fn new(config: OrderProducerConfig) -> Self {
+    pub fn new(config: OrderProducerConfig, customer_service: Arc<CustomerService>) -> Self {
         Self {
             config,
             running: Arc::new(Mutex::new(false)),
             task_handle: None,
             shutdown_tx: None,
             order_service: None,
+            customer_service: Some(customer_service),
+            inventory_service: None,
         }
     }
 
     pub fn with_order_service(mut self, order_service: Arc<OrderService>) -> Self {
         self.order_service = Some(order_service);
+        self
+    }
+
+    pub fn with_customer_service(mut self, customer_service: Arc<CustomerService>) -> Self {
+        self.customer_service = Some(customer_service);
+        self
+    }
+
+    pub fn with_inventory_service(mut self, inventory_service: Arc<InventoryService>) -> Self {
+        self.inventory_service = Some(inventory_service);
         self
     }
 
@@ -89,6 +104,8 @@ impl OrderProducerService {
         let config = self.config.clone();
         let running_clone = self.running.clone();
         let order_service = self.order_service.clone();
+        let customer_service = self.customer_service.clone();
+        let inventory_service = self.inventory_service.clone();
 
         let handle = tokio::spawn(async move {
             *running_clone.lock().await = true;
@@ -99,7 +116,7 @@ impl OrderProducerService {
             loop {
                 tokio::select! {
                     _ = interval.tick() => {
-                        if let Err(e) = Self::generate_and_publish_orders(&config, order_service.clone()).await {
+                        if let Err(e) = Self::generate_and_publish_orders(&config, order_service.clone(), customer_service.clone(), inventory_service.clone()).await {
                             error!("Failed to generate and publish orders: {}", e);
                         }
                     }
@@ -147,6 +164,8 @@ impl OrderProducerService {
     async fn generate_and_publish_orders(
         config: &OrderProducerConfig,
         order_service: Option<Arc<OrderService>>,
+        customer_service: Option<Arc<CustomerService>>,
+        inventory_service: Option<Arc<InventoryService>>,
     ) -> Result<(), AppError> {
         let seed = Instant::now().elapsed().as_nanos() as u64;
         let mut rng = StdRng::seed_from_u64(seed);
@@ -157,10 +176,37 @@ impl OrderProducerService {
             rng.gen_range(config.min_orders_per_interval..=config.max_orders_per_interval)
         };
 
-        info!("Generating {} orders", num_orders);
+        info!("Attempting to generate {} orders", num_orders);
+
+        // First check if we have any customers
+        let has_customers = if let Some(customer_service) = &customer_service {
+            match customer_service.get_all_customers(1, 1, None).await {
+                Ok(customers) if !customers.is_empty() => true,
+                _ => {
+                    warn!("No customers available in the system. Skipping order generation.");
+                    false
+                }
+            }
+        } else {
+            warn!("No customer service provided. Skipping order generation.");
+            false
+        };
+        println!("has_customers: {}", has_customers);
+
+        if !has_customers {
+            info!("Order generation skipped due to missing customers.");
+            return Ok(());
+        }
+
+        info!("Found customers. Generating {} orders", num_orders);
 
         for _ in 0..num_orders {
-            let order_dto = Self::generate_random_order(config).await?;
+            let order_dto = Self::generate_random_order(
+                config,
+                customer_service.clone(),
+                inventory_service.clone(),
+            )
+            .await?;
 
             if let Some(order_service) = &order_service {
                 match order_service.create_order(order_dto).await {
@@ -188,31 +234,114 @@ impl OrderProducerService {
 
     async fn generate_random_order(
         config: &OrderProducerConfig,
+        customer_service: Option<Arc<CustomerService>>,
+        inventory_service: Option<Arc<InventoryService>>,
     ) -> Result<CreateOrderDto, AppError> {
         let seed = Instant::now().elapsed().as_nanos() as u64;
         let mut rng = StdRng::seed_from_u64(seed);
 
-        let customer_id = Uuid::new_v4().to_string();
+        let customer_id = if let Some(customer_service) = &customer_service {
+            match customer_service.get_random_customer().await {
+                Ok(Some(customer)) => {
+                    info!("Using random customer: {}", customer.id);
+                    customer.id.to_string()
+                }
+                _ => {
+                    info!("No customer found with random selection, looking for any customer in the system");
+                    match customer_service.get_all_customers(1, 1, None).await {
+                        Ok(customers) if !customers.is_empty() => {
+                            info!("Using first available customer: {}", customers[0].id);
+                            customers[0].id.to_string()
+                        }
+                        _ => {
+                            warn!("No customers available in the system. Order creation will fail due to foreign key constraint");
 
-        let num_items = rng.gen_range(1..=config.max_items_per_order.min(10));
+                            let random_id = Uuid::new_v4();
+                            info!("Attempting with random UUID: {}", random_id);
 
-        let mut items = Vec::new();
-        let mut total_amount = 0.0;
+                            match customer_service.customer_exists(&random_id).await {
+                                Ok(true) => random_id.to_string(),
+                                _ => {
+                                    error!("Cannot create order: no valid customer ID found");
+                                    Uuid::new_v4().to_string()
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        } else {
+            warn!("No customer service provided. Order creation will fail due to foreign key constraint");
+            Uuid::new_v4().to_string()
+        };
+
+        let num_items = rng.gen_range(1..=5);
+        let mut order_items = Vec::new();
 
         for _ in 0..num_items {
-            let quantity = rng.gen_range(1..=5);
-            let unit_price = rng.gen_range(5.0..100.0);
-            let amount = unit_price * quantity as f64;
+            if let Some(inventory_service) = &inventory_service {
+                match inventory_service.get_random_item().await {
+                    Ok(Some(item)) => {
+                        info!("Using random inventory item: {}", item.id);
+                        let quantity = rng.gen_range(1..=3);
+                        let unit_price = item.price.to_f64().unwrap_or(10.0);
 
-            total_amount += amount;
+                        order_items.push(CreateOrderItemDto {
+                            product_id: item.id.to_string(),
+                            sku: item.sku.clone(),
+                            name: item.name.clone(),
+                            quantity,
+                            unit_price,
+                        });
+                    }
+                    _ => {
+                        info!(
+                            "Failed to retrieve a random inventory item, generating a placeholder"
+                        );
+                        let item_id = Uuid::new_v4();
 
-            items.push(CreateOrderItemDto {
-                product_id: Uuid::new_v4().to_string(),
-                sku: format!("SKU-{}", rng.gen_range(10000..99999)),
-                quantity,
-                unit_price,
-                name: format!("Product {}", rng.gen_range(1..1000)),
-            });
+                        // Verify if the randomly generated ID exists (extremely unlikely)
+                        match inventory_service.item_exists(&item_id).await {
+                            Ok(true) => {
+                                // If it exists (extremely unlikely), use it
+                                info!("Using existing inventory item by coincidence: {}", item_id);
+                            }
+                            _ => {
+                                // Otherwise, this is a placeholder that might cause order creation to fail
+                                warn!("Using placeholder inventory item ID that may cause order creation to fail");
+                            }
+                        }
+
+                        let quantity = rng.gen_range(1..=3);
+                        let unit_price = rng.gen_range(5.0..100.0);
+
+                        order_items.push(CreateOrderItemDto {
+                            product_id: item_id.to_string(),
+                            sku: format!("SKU-{}", Uuid::new_v4().to_string()[..8].to_uppercase()),
+                            name: format!(
+                                "Product {}",
+                                Uuid::new_v4().to_string()[..8].to_uppercase()
+                            ),
+                            quantity,
+                            unit_price,
+                        });
+                    }
+                }
+            } else {
+                // No inventory service available
+                warn!("No inventory service provided, generating placeholder item");
+                let item_id = Uuid::new_v4();
+                let quantity = rng.gen_range(1..=3);
+                let unit_price = rng.gen_range(5.0..100.0);
+
+                order_items.push(CreateOrderItemDto {
+                    product_id: item_id.to_string(),
+                    sku: format!("SKU-{}", Uuid::new_v4().to_string()[..8].to_uppercase()),
+                    name: format!("Product {}", Uuid::new_v4().to_string()[..8].to_uppercase()),
+                    quantity,
+                    unit_price,
+                });
+            }
         }
 
         let shipping_info = CreateShippingInfoDto {
@@ -245,7 +374,10 @@ impl OrderProducerService {
         let payment_info = CreatePaymentInfoDto {
             order_id: Uuid::new_v4(),
             payment_method: Self::random_payment_method(),
-            amount: total_amount,
+            amount: order_items
+                .iter()
+                .map(|item| item.unit_price * item.quantity as f64)
+                .sum(),
             currency: "USD".to_string(),
             transaction_id: Some(format!("TXN-{}", Self::random_string(10))),
             payment_date: Some(Utc::now()),
@@ -253,7 +385,7 @@ impl OrderProducerService {
 
         Ok(CreateOrderDto {
             customer_id,
-            items,
+            items: order_items,
             shipping_info,
             payment_info,
             notes: None,
