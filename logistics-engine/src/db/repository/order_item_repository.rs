@@ -253,6 +253,9 @@ impl OrderItemRepository {
         let unit_price = Decimal::from_f64_retain(item_dto.unit_price).unwrap_or_default();
         let total_price = unit_price * Decimal::from(item_dto.quantity);
 
+        // Generate a default product_id if none provided
+        let product_id = item_dto.product_id.clone();
+
         sqlx::query!(
             r#"
             INSERT INTO order_items (
@@ -267,7 +270,7 @@ impl OrderItemRepository {
             VALUES ($1, $2, $3, $4, $5, $6, $7)
             "#,
             order_id,
-            item_dto.product_id,
+            product_id,
             item_dto.sku,
             item_dto.name,
             item_dto.quantity,

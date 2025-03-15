@@ -137,8 +137,8 @@ impl InventoryRepository {
         let row_result = sqlx::query(
             r#"
             INSERT INTO inventory_items
-            (sku, name, description, warehouse_id, quantity, price, attributes, category)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+            (id, sku, name, description, warehouse_id, quantity, price, attributes, category)
+            VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7, $8)
             RETURNING
                 id,
                 sku,
@@ -147,6 +147,8 @@ impl InventoryRepository {
                 warehouse_id,
                 quantity,
                 price,
+                attributes,
+                category,
                 created_at,
                 updated_at
             "#,
@@ -305,9 +307,9 @@ impl InventoryRepository {
         Ok(InventoryReservation {
             id,
             order_id,
-            product_id: String::from(""), // Default value
-            sku: String::from(""),        // Default value
-            quantity: 0,                  // Default value
+            product_id: Uuid::nil(), // Default value
+            sku: String::from(""),   // Default value
+            quantity: 0,             // Default value
             status,
             expires_at: None,
             created_at: created_at_chrono,
@@ -537,16 +539,28 @@ impl InventoryRepository {
 
         let rows = sqlx::query(
             r#"
-            SELECT inventory_items.*, warehouses.name as warehouse_name
+            SELECT
+                inventory_items.id,
+                inventory_items.sku,
+                inventory_items.name,
+                inventory_items.description,
+                warehouses.name as warehouse_name,
+                warehouses.id as warehouse_id,
+                inventory_items.quantity,
+                inventory_items.price,
+                inventory_items.attributes,
+                inventory_items.category,
+                inventory_items.created_at,
+                inventory_items.updated_at
             FROM inventory_items
             LEFT JOIN warehouses ON inventory_items.warehouse_id = warehouses.id
-            WHERE id::text ILIKE $1
-            OR name ILIKE $1
-            OR sku ILIKE $1
-            OR description ILIKE $1
-            OR price::text ILIKE $1
-            OR ($2::int IS NOT NULL AND quantity = $2)
-            ORDER BY created_at DESC
+            WHERE inventory_items.id::text ILIKE $1
+            OR inventory_items.name ILIKE $1
+            OR inventory_items.sku ILIKE $1
+            OR inventory_items.description ILIKE $1
+            OR inventory_items.price::text ILIKE $1
+            OR ($2::int IS NOT NULL AND inventory_items.quantity = $2)
+            ORDER BY inventory_items.created_at DESC
             LIMIT $3 OFFSET $4
             "#,
         )

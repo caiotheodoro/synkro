@@ -77,10 +77,11 @@ pub async fn update_order_status(
         "shipped" => OrderStatus::Shipped,
         "delivered" => OrderStatus::Delivered,
         "cancelled" => OrderStatus::Cancelled,
-        "returned" => OrderStatus::Returned,
+        "returned" => OrderStatus::Returned,    
+        "out_of_stock" => OrderStatus::OutOfStock,
         _ => {
             return Err(LogisticsError::ValidationError(format!(
-                "Invalid status: {}. Must be one of: pending, processing, shipped, delivered, cancelled, returned",
+                "Invalid status: {}. Must be one of: pending, processing, shipped, delivered, cancelled, returned, out_of_stock",
                 status_str
             )))
         }

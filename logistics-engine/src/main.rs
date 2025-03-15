@@ -105,7 +105,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             OrderProducerConfig::from(config.order_producer.clone()),
             customer_service.clone(),
         )
-        .with_order_service(order_service.clone());
+        .with_order_service(order_service.clone())
+        .with_inventory_service(inventory_service.clone());
+
         let start_result = producer.start().await;
         if let Err(e) = start_result {
             error!("Failed to start order producer service: {}", e);

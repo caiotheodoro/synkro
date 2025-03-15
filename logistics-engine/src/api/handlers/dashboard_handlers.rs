@@ -188,6 +188,7 @@ pub async fn get_recent_activities_handler(
                 OrderStatus::Delivered => "shipment",
                 OrderStatus::Cancelled => "order",
                 OrderStatus::Returned => "order",
+                OrderStatus::OutOfStock => "order",
             };
 
             let message = match order.status {
@@ -197,6 +198,7 @@ pub async fn get_recent_activities_handler(
                 OrderStatus::Delivered => format!("Order #{} has been delivered", order.id),
                 OrderStatus::Cancelled => format!("Order #{} has been cancelled", order.id),
                 OrderStatus::Returned => format!("Order #{} has been returned", order.id),
+                OrderStatus::OutOfStock => format!("Order #{} is out of stock", order.id),
             };
 
             let severity = match order.status {
