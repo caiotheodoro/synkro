@@ -16,6 +16,7 @@ import (
 	"github.com/synkro/inventory-sync-service/src/api/rest"
 	"github.com/synkro/inventory-sync-service/src/config"
 	"github.com/synkro/inventory-sync-service/src/di"
+	"github.com/synkro/inventory-sync-service/src/middleware"
 	pb "github.com/synkro/inventory-sync-service/src/proto"
 	grpcserver "google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
@@ -73,9 +74,25 @@ func main() {
 
 	// Initialize HTTP server
 	router := gin.Default()
-	restHandler := rest.NewHandler(container.ItemService, container.InventoryService, container.WarehouseService)
-	restHandler.RegisterRoutes(router)
 	
+	// Health check endpoint (no auth required)
+	router.GET("/health", func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{
+			"status": "healthy",
+		})
+	})
+	
+	// Set up API routes with auth middleware
+	apiRouter := router.Group("/api/v1")
+	apiRouter.Use(middleware.AuthMiddleware())
+	
+	// Initialize our REST handler
+	restHandler := rest.NewHandler(container.ItemService, container.InventoryService, container.WarehouseService)
+	
+	// Register routes to the secured API router
+	registerSecureRoutes(apiRouter, restHandler)
+	
+	// Log all registered routes
 	for _, route := range router.Routes() {
 		log.Printf("Registered route: %s %s", route.Method, route.Path)
 	}
@@ -105,6 +122,46 @@ func main() {
 	}
 	
 	log.Println("Servers shut down gracefully")
+}
+
+// registerSecureRoutes registers all the API routes with the auth middleware
+func registerSecureRoutes(router *gin.RouterGroup, h *rest.Handler) {
+	// Items routes
+	items := router.Group("/items")
+	{
+		items.GET("", h.ListItems)
+		items.GET("/:id", h.GetItem)
+		items.POST("", h.CreateItem)
+		items.PUT("/:id", h.UpdateItem)
+		items.DELETE("/:id", h.DeleteItem)
+		items.POST("/bulk", h.BulkCreateItems)
+		items.PUT("/bulk", h.BulkUpdateItems)
+	}
+
+	// Warehouses routes
+	warehouses := router.Group("/warehouses")
+	{
+		warehouses.GET("", h.ListWarehouses)
+		warehouses.GET("/:id", h.GetWarehouse)
+		warehouses.POST("", h.CreateWarehouse)
+		warehouses.PUT("/:id", h.UpdateWarehouse)
+		warehouses.DELETE("/:id", h.DeleteWarehouse)
+	}
+
+	// Inventory routes
+	inventory := router.Group("/inventory")
+	{
+		inventory.POST("/adjust", h.AdjustInventory)
+		inventory.POST("/allocate", h.AllocateInventory)
+		inventory.POST("/release", h.ReleaseInventory)
+		inventory.GET("/levels", h.GetInventoryLevels)
+	}
+
+	// Reports routes
+	reports := router.Group("/reports")
+	{
+		reports.GET("/inventory", h.GetInventoryReport)
+	}
 }
 
 func isAlreadyExistsError(err error) bool {

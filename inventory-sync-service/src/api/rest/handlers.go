@@ -25,59 +25,6 @@ func NewHandler(itemService services.ItemService, inventoryService services.Inve
 	}
 }
 
-func (h *Handler) RegisterRoutes(router *gin.Engine) {
-	println("RegisterRoutes called")
-	
-	router.GET("/health", h.HealthCheck)
-	
-	api := router.Group("/api/v1")
-	{
-		items := api.Group("/items")
-		{
-			items.GET("", h.ListItems)
-			items.GET("/:id", h.GetItem)
-			items.POST("", h.CreateItem)
-			items.PUT("/:id", h.UpdateItem)
-			items.DELETE("/:id", h.DeleteItem)
-			items.POST("/bulk", h.BulkCreateItems)
-			items.PUT("/bulk", h.BulkUpdateItems)
-		}
-
-		warehouses := api.Group("/warehouses")
-		{
-			warehouses.GET("", h.ListWarehouses)
-			warehouses.GET("/:id", h.GetWarehouse)
-			warehouses.POST("", h.CreateWarehouse)
-			warehouses.PUT("/:id", h.UpdateWarehouse)
-			warehouses.DELETE("/:id", h.DeleteWarehouse)
-		}
-
-		inventory := api.Group("/inventory")
-		{
-			inventory.POST("/adjust", h.AdjustInventory)
-			inventory.POST("/allocate", h.AllocateInventory)
-			inventory.POST("/release", h.ReleaseInventory)
-			inventory.GET("/levels", h.GetInventoryLevels)
-		}
-
-		reports := api.Group("/reports")
-		{
-			reports.GET("/inventory", h.GetInventoryReport)
-		}
-	}
-	
-	println("Routes registered:")
-	for _, route := range router.Routes() {
-		println(route.Method + " " + route.Path)
-	}
-}
-
-func (h *Handler) HealthCheck(c *gin.Context) {
-	c.JSON(http.StatusOK, gin.H{
-		"status": "healthy",
-	})
-}
-
 func (h *Handler) CreateItem(c *gin.Context) {
 	var dto models.CreateItemDTO
 	if err := c.ShouldBindJSON(&dto); err != nil {
