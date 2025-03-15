@@ -12,6 +12,7 @@ pub enum OrderStatus {
     Delivered,
     Cancelled,
     Returned,
+    OutOfStock,
 }
 
 impl Default for OrderStatus {
@@ -58,7 +59,7 @@ pub struct UpdateOrderDto {
 
 #[derive(Debug, Clone)]
 pub struct CreateOrderItemDto {
-    pub product_id: String,
+    pub product_id: Uuid,
     pub sku: String,
     pub name: String,
     pub quantity: i32,

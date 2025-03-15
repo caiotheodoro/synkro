@@ -74,7 +74,7 @@ pub struct InventoryReservedEvent {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ReservedItem {
-    pub product_id: String,
+    pub product_id: Uuid,
     pub sku: String,
     pub quantity: i32,
 }

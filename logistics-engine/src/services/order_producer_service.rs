@@ -178,7 +178,6 @@ impl OrderProducerService {
 
         info!("Attempting to generate {} orders", num_orders);
 
-        // First check if we have any customers
         let has_customers = if let Some(customer_service) = &customer_service {
             match customer_service.get_all_customers(1, 1, None).await {
                 Ok(customers) if !customers.is_empty() => true,
@@ -198,27 +197,62 @@ impl OrderProducerService {
             return Ok(());
         }
 
-        info!("Found customers. Generating {} orders", num_orders);
+        // Next, check if we have any inventory items
+        let has_inventory = if let Some(inventory_service) = &inventory_service {
+            match inventory_service.get_all_items(1, 0, None).await {
+                Ok(items) if !items.is_empty() => true,
+                _ => match inventory_service.get_random_item().await {
+                    Ok(Some(_)) => true,
+                    _ => {
+                        println!("No inventory items available in the system. Skipping order generation.");
+                        warn!("No inventory items available in the system. Skipping order generation.");
+                        false
+                    }
+                },
+            }
+        } else {
+            warn!("No inventory service provided. Skipping order generation.");
+            false
+        };
 
+        if !has_inventory {
+            info!("Order generation skipped due to missing inventory items.");
+            return Ok(());
+        }
+
+        info!(
+            "Found customers and inventory. Generating {} orders",
+            num_orders
+        );
+
+        let mut successful_orders = 0;
         for _ in 0..num_orders {
-            let order_dto = Self::generate_random_order(
+            match Self::generate_random_order(
                 config,
                 customer_service.clone(),
                 inventory_service.clone(),
             )
-            .await?;
-
-            if let Some(order_service) = &order_service {
-                match order_service.create_order(order_dto).await {
-                    Ok(order) => {
-                        info!("Created order: {}", order.id);
-                    }
-                    Err(e) => {
-                        error!("Failed to create order: {}", e);
+            .await
+            {
+                Ok(order_dto) => {
+                    if let Some(order_service) = &order_service {
+                        match order_service.create_order(order_dto).await {
+                            Ok(order) => {
+                                info!("Created order: {}", order.id);
+                                successful_orders += 1;
+                            }
+                            Err(e) => {
+                                error!("Failed to create order: {}", e);
+                            }
+                        }
+                    } else {
+                        info!("Order producer would create an order (no OrderService provided)");
+                        successful_orders += 1;
                     }
                 }
-            } else {
-                info!("Order producer would create an order (no OrderService provided)");
+                Err(e) => {
+                    error!("Failed to generate order: {}", e);
+                }
             }
 
             if num_orders > 1 && config.randomize_interval {
@@ -229,6 +263,10 @@ impl OrderProducerService {
             }
         }
 
+        info!(
+            "Successfully created {} out of {} attempted orders",
+            successful_orders, num_orders
+        );
         Ok(())
     }
 
@@ -277,71 +315,75 @@ impl OrderProducerService {
 
         let num_items = rng.gen_range(1..=5);
         let mut order_items = Vec::new();
+        let mut valid_items_found = false;
 
-        for _ in 0..num_items {
-            if let Some(inventory_service) = &inventory_service {
-                match inventory_service.get_random_item().await {
-                    Ok(Some(item)) => {
-                        info!("Using random inventory item: {}", item.id);
-                        let quantity = rng.gen_range(1..=3);
-                        let unit_price = item.price.to_f64().unwrap_or(10.0);
+        if let Some(inventory_service) = &inventory_service {
+            // Try multiple methods to get valid inventory items
+            let inventory_items = match inventory_service.get_all_items(100, 0, None).await {
+                Ok(items) if !items.is_empty() => {
+                    info!("Found {} inventory items to choose from", items.len());
+                    valid_items_found = true;
+                    items
+                }
+                _ => {
+                    info!("No items found with get_all_items, trying random item selection");
+                    Vec::new()
+                }
+            };
 
-                        order_items.push(CreateOrderItemDto {
-                            product_id: item.id.to_string(),
-                            sku: item.sku.clone(),
-                            name: item.name.clone(),
-                            quantity,
-                            unit_price,
-                        });
-                    }
-                    _ => {
-                        info!(
-                            "Failed to retrieve a random inventory item, generating a placeholder"
-                        );
-                        let item_id = Uuid::new_v4();
+            if valid_items_found {
+                for _ in 0..num_items {
+                    // Randomly select from the valid inventory items
+                    let item_index = rng.gen_range(0..inventory_items.len());
+                    let item = &inventory_items[item_index];
 
-                        // Verify if the randomly generated ID exists (extremely unlikely)
-                        match inventory_service.item_exists(&item_id).await {
-                            Ok(true) => {
-                                // If it exists (extremely unlikely), use it
-                                info!("Using existing inventory item by coincidence: {}", item_id);
-                            }
-                            _ => {
-                                // Otherwise, this is a placeholder that might cause order creation to fail
-                                warn!("Using placeholder inventory item ID that may cause order creation to fail");
-                            }
-                        }
+                    let quantity = rng.gen_range(1..=3);
+                    let unit_price = item.price.to_f64().unwrap_or(10.0);
 
-                        let quantity = rng.gen_range(1..=3);
-                        let unit_price = rng.gen_range(5.0..100.0);
-
-                        order_items.push(CreateOrderItemDto {
-                            product_id: item_id.to_string(),
-                            sku: format!("SKU-{}", Uuid::new_v4().to_string()[..8].to_uppercase()),
-                            name: format!(
-                                "Product {}",
-                                Uuid::new_v4().to_string()[..8].to_uppercase()
-                            ),
-                            quantity,
-                            unit_price,
-                        });
-                    }
+                    order_items.push(CreateOrderItemDto {
+                        product_id: item.id,
+                        sku: item.sku.clone(),
+                        name: item.name.clone(),
+                        quantity,
+                        unit_price,
+                    });
                 }
             } else {
-                // No inventory service available
-                warn!("No inventory service provided, generating placeholder item");
-                let item_id = Uuid::new_v4();
-                let quantity = rng.gen_range(1..=3);
-                let unit_price = rng.gen_range(5.0..100.0);
+                // Fallback to get_random_item if get_all_items didn't work
+                for _ in 0..num_items {
+                    match inventory_service.get_random_item().await {
+                        Ok(Some(item)) => {
+                            info!("Using random inventory item: {}", item.id);
+                            let quantity = rng.gen_range(1..=3);
+                            let unit_price = item.price.to_f64().unwrap_or(10.0);
 
-                order_items.push(CreateOrderItemDto {
-                    product_id: item_id.to_string(),
-                    sku: format!("SKU-{}", Uuid::new_v4().to_string()[..8].to_uppercase()),
-                    name: format!("Product {}", Uuid::new_v4().to_string()[..8].to_uppercase()),
-                    quantity,
-                    unit_price,
-                });
+                            order_items.push(CreateOrderItemDto {
+                                product_id: item.id,
+                                sku: item.sku.clone(),
+                                name: item.name.clone(),
+                                quantity,
+                                unit_price,
+                            });
+                            valid_items_found = true;
+                        }
+                        _ => {
+                            warn!("Failed to get a random inventory item");
+                            continue;
+                        }
+                    }
+                }
             }
+        } else {
+            warn!(
+                "No inventory service provided. Cannot create order items with valid product IDs."
+            );
+        }
+
+        // If no valid items were found or added, return an error
+        if order_items.is_empty() {
+            return Err(AppError::ValidationError(
+                "Cannot create order without valid inventory items".to_string(),
+            ));
         }
 
         let shipping_info = CreateShippingInfoDto {

@@ -7,8 +7,7 @@ use crate::models::entities::OrderItem;
 
 #[derive(Debug, Serialize, Deserialize, Validate, Clone)]
 pub struct CreateOrderItemDto {
-    #[validate(length(min = 1, message = "Product ID is required"))]
-    pub product_id: String,
+    pub product_id: Uuid,
 
     #[validate(length(min = 1, message = "SKU is required"))]
     pub sku: String,
@@ -40,7 +39,7 @@ pub struct UpdateOrderItemDto {
 pub struct OrderItemDto {
     pub id: Uuid,
     pub order_id: Uuid,
-    pub product_id: String,
+    pub product_id: Option<Uuid>,
     pub sku: String,
     pub name: String,
     pub quantity: i32,
@@ -65,4 +64,15 @@ impl From<OrderItem> for OrderItemDto {
             updated_at: item.updated_at,
         }
     }
+}
+
+fn validate_uuid_not_nil(uuid: &Uuid) -> Result<(), validator::ValidationError> {
+    if *uuid == Uuid::nil() {
+        let mut err = validator::ValidationError::new("uuid_not_nil");
+        err.message = Some(std::borrow::Cow::Owned(
+            "Product ID is required".to_string(),
+        ));
+        return Err(err);
+    }
+    Ok(())
 }

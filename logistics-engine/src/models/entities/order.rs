@@ -12,6 +12,7 @@ pub enum OrderStatus {
     Delivered,
     Cancelled,
     Returned,
+    OutOfStock,
 }
 
 impl ToString for OrderStatus {
@@ -23,6 +24,7 @@ impl ToString for OrderStatus {
             OrderStatus::Delivered => "delivered".to_string(),
             OrderStatus::Cancelled => "cancelled".to_string(),
             OrderStatus::Returned => "returned".to_string(),
+            OrderStatus::OutOfStock => "out_of_stock".to_string(),
         }
     }
 }
@@ -36,6 +38,7 @@ impl From<String> for OrderStatus {
             "delivered" => OrderStatus::Delivered,
             "cancelled" => OrderStatus::Cancelled,
             "returned" => OrderStatus::Returned,
+            "out_of_stock" => OrderStatus::OutOfStock,
             _ => OrderStatus::Pending,
         }
     }
@@ -50,6 +53,7 @@ impl From<i32> for OrderStatus {
             4 => OrderStatus::Delivered,
             5 => OrderStatus::Cancelled,
             6 => OrderStatus::Returned,
+            7 => OrderStatus::OutOfStock,
             _ => OrderStatus::Pending,
         }
     }
@@ -64,6 +68,7 @@ impl From<OrderStatus> for i32 {
             OrderStatus::Delivered => 4,
             OrderStatus::Cancelled => 5,
             OrderStatus::Returned => 6,
+            OrderStatus::OutOfStock => 7,
         }
     }
 }

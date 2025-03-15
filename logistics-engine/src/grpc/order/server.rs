@@ -37,6 +37,7 @@ impl OrderGrpcService {
             OrderStatus::Delivered => 4,
             OrderStatus::Cancelled => 5,
             OrderStatus::Returned => 6,
+            OrderStatus::OutOfStock => 7,
         }
     }
 
@@ -48,6 +49,7 @@ impl OrderGrpcService {
             4 => OrderStatus::Delivered,
             5 => OrderStatus::Cancelled,
             6 => OrderStatus::Returned,
+            7 => OrderStatus::OutOfStock,
             _ => OrderStatus::Pending, // Default to pending for unknown status
         }
     }

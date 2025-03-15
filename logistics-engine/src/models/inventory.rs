@@ -52,7 +52,7 @@ impl PgHasArrayType for ReservationStatus {
 pub struct InventoryReservation {
     pub id: Uuid,
     pub order_id: Uuid,
-    pub product_id: String,
+    pub product_id: Uuid,
     pub sku: String,
     pub quantity: i32,
     pub status: String,
@@ -70,7 +70,7 @@ impl InventoryReservation {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CreateReservationDto {
     pub order_id: Uuid,
-    pub product_id: String,
+    pub product_id: Uuid,
     pub sku: String,
     pub quantity: i32,
     pub expires_at: Option<DateTime<Utc>>,

@@ -7,7 +7,7 @@ use uuid::Uuid;
 pub struct OrderItem {
     pub id: Uuid,
     pub order_id: Uuid,
-    pub product_id: String,
+    pub product_id: Option<Uuid>,
     pub sku: String,
     pub name: String,
     pub quantity: i32,
@@ -20,7 +20,7 @@ pub struct OrderItem {
 impl OrderItem {
     pub fn new(
         order_id: Uuid,
-        product_id: String,
+        product_id: Option<Uuid>,
         sku: String,
         name: String,
         quantity: i32,

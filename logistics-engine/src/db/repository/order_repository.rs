@@ -236,6 +236,7 @@ impl OrderRepository {
             "delivered" => OrderStatus::Delivered,
             "cancelled" => OrderStatus::Cancelled,
             "returned" => OrderStatus::Returned,
+            "out_of_stock" => OrderStatus::OutOfStock,
             _ => OrderStatus::Pending,
         });
 

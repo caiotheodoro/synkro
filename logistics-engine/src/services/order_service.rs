@@ -15,6 +15,7 @@ use crate::mq::events::{
 };
 use crate::mq::publisher;
 use crate::proto::inventory::ProductItem;
+use chrono;
 use num_traits::FromPrimitive;
 use rust_decimal::Decimal;
 use sqlx::types::BigDecimal;
@@ -98,66 +99,177 @@ impl OrderService {
 
     pub async fn create_order(&self, dto: CreateOrderDto) -> Result<Order> {
         if let Ok(inventory_client) = crate::grpc::get_inventory_client().await {
-            let product_items = dto
+            // Filter out items without product_id before checking inventory
+            let items_with_product_id = dto
                 .items
                 .iter()
-                .map(|item| ProductItem {
-                    product_id: item.product_id.clone(),
-                    sku: item.sku.clone(),
-                    quantity: item.quantity,
-                })
+                .filter(|item| item.product_id != Uuid::nil())
                 .collect::<Vec<_>>();
 
-            // Generate a temporary order ID
-            let temp_order_id = Uuid::new_v4().to_string();
+            if !items_with_product_id.is_empty() {
+                let product_items = items_with_product_id
+                    .iter()
+                    .map(|item| ProductItem {
+                        product_id: item.product_id.to_string(),
+                        sku: item.sku.clone(),
+                        quantity: item.quantity,
+                    })
+                    .collect::<Vec<_>>();
 
-            // Warehouse ID (use a default if not provided)
-            let warehouse_id = "default-warehouse".to_string();
+                // Generate a temporary order ID
+                let temp_order_id = Uuid::new_v4().to_string();
 
-            // Try to reserve inventory
-            match inventory_client
-                .check_and_reserve_stock(temp_order_id, product_items, warehouse_id)
-                .await
-            {
-                Ok(reservation) => {
-                    if !reservation.success {
-                        return Err(LogisticsError::BadRequest(format!(
-                            "Inventory check failed: {}",
-                            reservation.message
-                        )));
+                // Warehouse ID (use a default if not provided)
+                let warehouse_id = "default-warehouse".to_string();
+
+                // Try to reserve inventory
+                match inventory_client
+                    .check_and_reserve_stock(temp_order_id, product_items, warehouse_id)
+                    .await
+                {
+                    Ok(reservation) => {
+                        if !reservation.success {
+                            return Err(LogisticsError::BadRequest(format!(
+                                "Inventory check failed: {}",
+                                reservation.message
+                            )));
+                        }
                     }
-                }
-                Err(e) => {
-                    warn!("Failed to check inventory: {}", e);
+                    Err(e) => {
+                        warn!("Failed to check inventory: {}", e);
+                    }
                 }
             }
         }
 
+        // Start a database transaction
         let mut tx = self
             .pool
             .begin()
             .await
             .map_err(LogisticsError::DatabaseError)?;
 
+        // Create a vector to store IDs of inventory items that need to be updated
+        let inventory_updates = dto
+            .items
+            .iter()
+            .map(|item| (item.product_id, item.quantity))
+            .collect::<Vec<_>>();
+
+        // Lock the inventory items for updating to prevent concurrency issues
+        // This query doesn't modify anything but acquires row-level locks on the specified inventory items
+        for (product_id, _) in &inventory_updates {
+            // Using SELECT FOR UPDATE to lock the rows while the transaction is in progress
+            let lock_result = sqlx::query(
+                r#"
+                SELECT id, quantity FROM inventory_items 
+                WHERE id = $1
+                FOR UPDATE
+                "#,
+            )
+            .bind(product_id)
+            .execute(&mut *tx)
+            .await;
+
+            if let Err(e) = lock_result {
+                tx.rollback().await.ok(); // Rollback the transaction
+                return Err(LogisticsError::DatabaseError(e));
+            }
+        }
+
+        // Create the order first
         let order = self
             .create_order_in_transaction(&mut tx, dto.clone())
             .await?;
 
+        // Create all order items
         for item_dto in &dto.items {
             self.create_order_item_in_transaction(&mut tx, order.id, item_dto)
                 .await?;
         }
 
+        // Create payment info
         let mut payment_dto = dto.payment_info.clone();
-        payment_dto.order_id = order.id; // Set the correct order ID
+        payment_dto.order_id = order.id;
         self.create_payment_in_transaction(&mut tx, payment_dto)
             .await?;
 
-        // 4. Create shipping info
+        // Create shipping info
         let mut shipping_dto = dto.shipping_info.clone();
-        shipping_dto.order_id = order.id; // Set the correct order ID
+        shipping_dto.order_id = order.id;
         self.create_shipping_in_transaction(&mut tx, shipping_dto)
             .await?;
+
+        // Now update the inventory quantities for each product
+        for (product_id, quantity) in inventory_updates {
+            // Reduce inventory by the ordered quantity
+            let update_result = sqlx::query(
+                r#"
+                UPDATE inventory_items
+                SET 
+                    quantity = quantity - $1,
+                    updated_at = NOW()
+                WHERE id = $2 AND quantity >= $1
+                RETURNING id, quantity
+                "#,
+            )
+            .bind(quantity)
+            .bind(product_id)
+            .fetch_optional(&mut *tx)
+            .await;
+
+            match update_result {
+                Ok(Some(_)) => {
+                    // Successfully updated the inventory
+                    info!(
+                        "Reduced inventory for product {} by {}",
+                        product_id, quantity
+                    );
+                }
+                Ok(None) => {
+                    // This means the WHERE condition failed (not enough quantity)
+                    // Rollback the inventory changes but keep the order with OutOfStock status
+                    tx.rollback().await.ok();
+
+                    // Update order status to OutOfStock
+                    let out_of_stock_update = UpdateOrderDto {
+                        status: Some("out_of_stock".to_string()),
+                        tracking_number: None,
+                        notes: Some(format!("Insufficient inventory for product {}", product_id)),
+                    };
+
+                    match self
+                        .order_repository
+                        .update(order.id, out_of_stock_update)
+                        .await
+                    {
+                        Ok(Some(updated_order)) => {
+                            info!("Order {} marked as OutOfStock due to insufficient inventory for product {}", 
+                                  order.id, product_id);
+                            return Ok(updated_order);
+                        }
+                        Ok(None) => {
+                            warn!("Could not update order {} to OutOfStock status", order.id);
+                        }
+                        Err(e) => {
+                            warn!(
+                                "Error updating order {} to OutOfStock status: {}",
+                                order.id, e
+                            );
+                        }
+                    }
+
+                    return Err(LogisticsError::BadRequest(format!(
+                        "Insufficient inventory for product {}",
+                        product_id
+                    )));
+                }
+                Err(e) => {
+                    tx.rollback().await.ok(); // Rollback the transaction
+                    return Err(LogisticsError::DatabaseError(e));
+                }
+            }
+        }
 
         // Commit the transaction
         tx.commit().await.map_err(LogisticsError::DatabaseError)?;
@@ -328,17 +440,171 @@ impl OrderService {
         let old_order = order.unwrap();
         let old_status = old_order.status.clone();
 
-        let updated_order = self
-            .order_repository
-            .update(
-                id,
-                UpdateOrderDto {
-                    status: Some(status.to_string()),
-                    tracking_number: None,
-                    notes: notes.clone(),
-                },
+        // If the order is already in the requested status, just return it
+        if old_status == status {
+            return Ok(old_order);
+        }
+
+        // Start a transaction if we're cancelling to handle inventory restoration
+        let mut tx_option = None;
+
+        // Special handling for cancellation: restore inventory
+        if status == OrderStatus::Cancelled && old_status != OrderStatus::Cancelled {
+            // Start a transaction
+            let tx = self
+                .pool
+                .begin()
+                .await
+                .map_err(LogisticsError::DatabaseError)?;
+            tx_option = Some(tx);
+
+            // Get all order items
+            let order_items = self.order_item_repository.find_by_order_id(id).await?;
+
+            // Lock the inventory items for updating
+            for item in &order_items {
+                let lock_result = sqlx::query(
+                    r#"
+                    SELECT id, quantity FROM inventory_items 
+                    WHERE id = $1
+                    FOR UPDATE
+                    "#,
+                )
+                .bind(item.product_id)
+                .execute(&mut **tx_option.as_mut().unwrap())
+                .await;
+
+                if let Err(e) = lock_result {
+                    if let Some(mut tx) = tx_option.take() {
+                        tx.rollback().await.ok();
+                    }
+                    return Err(LogisticsError::DatabaseError(e));
+                }
+            }
+
+            // Restore inventory quantities for each item
+            for item in order_items {
+                let restore_result = sqlx::query(
+                    r#"
+                    UPDATE inventory_items
+                    SET 
+                        quantity = quantity + $1,
+                        updated_at = NOW()
+                    WHERE id = $2
+                    RETURNING id, quantity
+                    "#,
+                )
+                .bind(item.quantity)
+                .bind(item.product_id)
+                .fetch_optional(&mut **tx_option.as_mut().unwrap())
+                .await;
+
+                match restore_result {
+                    Ok(Some(_)) => {
+                        info!(
+                            "Restored inventory for product {} by {}",
+                            item.product_id, item.quantity
+                        );
+                    }
+                    Ok(None) => {
+                        warn!("Could not restore inventory for product {}. Item may have been deleted.", item.product_id);
+                    }
+                    Err(e) => {
+                        if let Some(mut tx) = tx_option.take() {
+                            tx.rollback().await.ok();
+                        }
+                        return Err(LogisticsError::DatabaseError(e));
+                    }
+                }
+            }
+        }
+
+        // Update the order status
+        let updated_order = if let Some(mut tx) = tx_option {
+            // If we're in a transaction, update the order status within it
+            let update_result = sqlx::query!(
+                r#"
+                UPDATE orders
+                SET 
+                    status = $1,
+                    notes = COALESCE($2, notes),
+                    updated_at = NOW()
+                WHERE id = $3
+                RETURNING 
+                    id, 
+                    customer_id, 
+                    total_amount as "total_amount!: BigDecimal", 
+                    status as "status!: OrderStatus",
+                    currency,
+                    tracking_number,
+                    notes,
+                    created_at, 
+                    updated_at
+                "#,
+                status as OrderStatus,
+                notes,
+                id
             )
-            .await?;
+            .fetch_one(&mut *tx)
+            .await;
+
+            // Commit the transaction
+            match update_result {
+                Ok(row) => {
+                    tx.commit().await.map_err(LogisticsError::DatabaseError)?;
+
+                    // Convert the datetime values ourselves
+                    let created_dt = row.created_at;
+                    let updated_dt = row.updated_at;
+                    let created_at = chrono::DateTime::<chrono::Utc>::from_timestamp(
+                        created_dt.unix_timestamp(),
+                        created_dt.nanosecond(),
+                    )
+                    .unwrap_or_else(|| chrono::Utc::now());
+                    let updated_at = chrono::DateTime::<chrono::Utc>::from_timestamp(
+                        updated_dt.unix_timestamp(),
+                        updated_dt.nanosecond(),
+                    )
+                    .unwrap_or_else(|| chrono::Utc::now());
+
+                    Order {
+                        id: row.id,
+                        customer_id: row.customer_id,
+                        customer_name: None,
+                        total_amount: Decimal::from_str(&row.total_amount.to_string())
+                            .unwrap_or_default(),
+                        status: row.status,
+                        currency: row.currency,
+                        tracking_number: row.tracking_number,
+                        notes: row.notes,
+                        created_at,
+                        updated_at,
+                    }
+                }
+                Err(e) => {
+                    tx.rollback().await.ok();
+                    return Err(LogisticsError::DatabaseError(e));
+                }
+            }
+        } else {
+            // Use the regular repository method if we're not in a transaction
+            let updated = self
+                .order_repository
+                .update(
+                    id,
+                    UpdateOrderDto {
+                        status: Some(status.to_string()),
+                        tracking_number: None,
+                        notes: notes.clone(),
+                    },
+                )
+                .await?;
+
+            match updated {
+                Some(order) => order,
+                None => return Err(LogisticsError::NotFound("Order", id.to_string())),
+            }
+        };
 
         let event_data = OrderStatusChangedEvent {
             order_id: id,
@@ -397,6 +663,6 @@ impl OrderService {
             }
         }
 
-        Ok(updated_order.unwrap())
+        Ok(updated_order)
     }
 }
