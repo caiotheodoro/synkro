@@ -137,8 +137,12 @@ CREATE TABLE IF NOT EXISTS inventory_items (
     sku VARCHAR(100) NOT NULL,
     name VARCHAR(255) NOT NULL,
     description TEXT,
-    warehouse_id UUID NOT NULL REFERENCES warehouses(id),
+    category VARCHAR(100),
+    attributes JSONB,
     quantity INTEGER NOT NULL DEFAULT 0,
+    overstock_threshold INTEGER,
+    low_stock_threshold INTEGER,
+    warehouse_id UUID NOT NULL REFERENCES warehouses(id),
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
