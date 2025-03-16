@@ -32,10 +32,14 @@ pub fn create_router(state: SharedState) -> Router {
     let inventory_routes = Router::new()
         .route("/", get(inventory_handlers::list_inventory_items))
         .route("/", post(inventory_handlers::create_inventory_item))
-        .route("/{id}", get(inventory_handlers::get_inventory_item))
-        .route("/{id}", put(inventory_handlers::update_inventory_item))
-        .route("/{id}", delete(inventory_handlers::delete_inventory_item))
-        .route("/{id}/adjust", put(inventory_handlers::adjust_quantity))
+        .route(
+            "/transactions",
+            get(inventory_handlers::list_inventory_transactions),
+        )
+        .route(
+            "/transactions/{id}",
+            get(inventory_handlers::get_transaction),
+        )
         .route("/reservations", get(inventory_handlers::list_reservations))
         .route(
             "/reservations",
@@ -56,7 +60,11 @@ pub fn create_router(state: SharedState) -> Router {
         .route(
             "/reservations/{id}/status",
             put(inventory_handlers::update_reservation_status),
-        );
+        )
+        .route("/{id}", get(inventory_handlers::get_inventory_item))
+        .route("/{id}", put(inventory_handlers::update_inventory_item))
+        .route("/{id}", delete(inventory_handlers::delete_inventory_item))
+        .route("/{id}/adjust", put(inventory_handlers::adjust_quantity));
 
     let order_routes = Router::new()
         .route("/", get(order_handlers::list_orders))

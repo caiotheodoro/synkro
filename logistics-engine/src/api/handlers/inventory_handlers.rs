@@ -171,3 +171,25 @@ pub async fn update_reservation_status(
 
     Ok((StatusCode::OK, success(reservation)))
 }
+
+pub async fn list_inventory_transactions(
+    pagination: Query<PaginationParams>,
+    State(state): State<SharedState>,
+) -> Result<impl IntoResponse, LogisticsError> {
+    let transactions = state
+        .inventory_service
+        .get_all_transactions(pagination.page, pagination.limit)
+        .await?;
+
+    Ok((StatusCode::OK, success(transactions)))
+}
+
+pub async fn get_transaction(
+    Path(id): Path<String>,
+    State(state): State<SharedState>,
+) -> Result<impl IntoResponse, LogisticsError> {
+    let id = parse_uuid(&id)?;
+    let transaction = state.inventory_service.get_transaction_by_id(id).await?;
+
+    Ok((StatusCode::OK, success(transaction)))
+}

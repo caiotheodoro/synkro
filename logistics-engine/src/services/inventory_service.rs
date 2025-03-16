@@ -198,9 +198,38 @@ impl InventoryService {
 
     pub async fn get_random_item(&self) -> Result<Option<InventoryItem>> {
         self.repository
-            .get_random_item()
+            .find_random_item()
             .await
-            .map_err(LogisticsError::DatabaseError)
+            .map_err(LogisticsError::from)
+    }
+
+    pub async fn get_all_transactions(
+        &self,
+        page: u32,
+        limit: u32,
+    ) -> Result<Vec<crate::models::inventory::InventoryTransaction>> {
+        let limit = limit as i64;
+        let offset = (page - 1) as i64 * limit;
+
+        self.repository
+            .find_all_transactions(limit, offset)
+            .await
+            .map_err(LogisticsError::from)
+    }
+
+    pub async fn get_transaction_by_id(
+        &self,
+        id: Uuid,
+    ) -> Result<crate::models::inventory::InventoryTransaction> {
+        let transaction = self.repository.find_transaction_by_id(id).await?;
+
+        match transaction {
+            Some(transaction) => Ok(transaction),
+            None => Err(LogisticsError::NotFound(
+                "Inventory Transaction",
+                id.to_string(),
+            )),
+        }
     }
 
     pub async fn item_exists(&self, id: &Uuid) -> Result<bool> {

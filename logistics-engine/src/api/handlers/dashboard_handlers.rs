@@ -94,15 +94,14 @@ async fn get_inventory_overview(state: &SharedState) -> Result<InventoryOverview
 
     for item in items {
         total_quantity += item.quantity as i64;
-        // Use ToPrimitive trait for converting Decimal to f64
         let price_f64 = item.price.to_f64().unwrap_or(0.0);
         total_value += (price_f64 * item.quantity as f64);
 
-        if item.quantity <= LOW_STOCK_THRESHOLD {
+        if item.quantity < item.low_stock_threshold.unwrap_or(0) {
             low_stock_count += 1;
         }
 
-        if item.quantity >= OVERSTOCK_THRESHOLD {
+        if item.quantity > item.overstock_threshold.unwrap_or(0) {
             overstock_count += 1;
         }
     }

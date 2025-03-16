@@ -18,13 +18,27 @@ impl InventoryRepository {
         Self { pool }
     }
 
-    // Helper function to convert OffsetDateTime to DateTime<Utc>
     fn convert_datetime(offset_dt: OffsetDateTime) -> DateTime<Utc> {
         DateTime::<Utc>::from_timestamp(offset_dt.unix_timestamp(), offset_dt.nanosecond() as u32)
             .unwrap_or_else(|| Utc::now())
     }
 
-    // Helper function to map PostgreSQL row to InventoryItem
+    pub async fn find_random_item(&self) -> Result<Option<InventoryItem>, Error> {
+        let row = sqlx::query(
+            r#"
+            SELECT id FROM inventory_items ORDER BY RANDOM() LIMIT 1
+            "#,
+        )
+        .fetch_optional(&self.pool)
+        .await?;
+
+        if let Some(row) = row {
+            Ok(Some(Self::map_row_to_inventory_item(row)?))
+        } else {
+            Ok(None)
+        }
+    }
+
     fn map_row_to_inventory_item(row: sqlx::postgres::PgRow) -> Result<InventoryItem, Error> {
         let id: Uuid = row.try_get("id")?;
         let sku: String = row.try_get("sku")?;
@@ -37,12 +51,13 @@ impl InventoryRepository {
         let created_at: OffsetDateTime = row.try_get("created_at")?;
         let updated_at: OffsetDateTime = row.try_get("updated_at")?;
 
-        // Get price as BigDecimal and convert to rust_decimal::Decimal via string
         let price_bd: sqlx::types::BigDecimal = row.try_get("price")?;
         let price_str = price_bd.to_string();
         let price = rust_decimal::Decimal::from_str(&price_str).unwrap_or_default();
         let attributes: Option<serde_json::Value> = row.try_get("attributes")?;
         let category: Option<String> = row.try_get("category")?;
+        let low_stock_threshold: Option<i32> = row.try_get("low_stock_threshold")?;
+        let overstock_threshold: Option<i32> = row.try_get("overstock_threshold")?;
 
         Ok(InventoryItem {
             id,
@@ -55,6 +70,8 @@ impl InventoryRepository {
             price,
             attributes,
             category,
+            low_stock_threshold,
+            overstock_threshold,
             created_at: Self::convert_datetime(created_at),
             updated_at: Self::convert_datetime(updated_at),
         })
@@ -79,7 +96,9 @@ impl InventoryRepository {
                 inventory_items.attributes,
                 inventory_items.category,
                 inventory_items.created_at,
-                inventory_items.updated_at
+                inventory_items.updated_at,
+                inventory_items.low_stock_threshold,
+                inventory_items.overstock_threshold
             FROM inventory_items
             LEFT JOIN warehouses ON inventory_items.warehouse_id = warehouses.id
             ORDER BY created_at DESC
@@ -116,7 +135,9 @@ impl InventoryRepository {
                 inventory_items.attributes,
                 inventory_items.category,
                 inventory_items.created_at,
-                inventory_items.updated_at
+                inventory_items.updated_at,
+                inventory_items.low_stock_threshold,
+                inventory_items.overstock_threshold
             FROM inventory_items
             LEFT JOIN warehouses ON inventory_items.warehouse_id = warehouses.id
             WHERE inventory_items.id = $1
@@ -137,8 +158,8 @@ impl InventoryRepository {
         let row_result = sqlx::query(
             r#"
             INSERT INTO inventory_items
-            (id, sku, name, description, warehouse_id, quantity, price, attributes, category)
-            VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7, $8)
+            (id, sku, name, description, warehouse_id, quantity, price, attributes, category, low_stock_threshold, overstock_threshold)
+            VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
             RETURNING
                 id,
                 sku,
@@ -149,8 +170,10 @@ impl InventoryRepository {
                 price,
                 attributes,
                 category,
+                low_stock_threshold,
+                overstock_threshold,
                 created_at,
-                updated_at
+                updated_at  
             "#,
         )
         .bind(&dto.sku)
@@ -161,6 +184,8 @@ impl InventoryRepository {
         .bind(dto.price.to_f64().unwrap_or(0.0))
         .bind(&dto.attributes)
         .bind(&dto.category)
+        .bind(&dto.low_stock_threshold)
+        .bind(&dto.overstock_threshold)
         .map(Self::map_row_to_inventory_item)
         .fetch_one(&self.pool)
         .await?;
@@ -187,14 +212,16 @@ impl InventoryRepository {
             SET
                 sku = $1,
                 name = $2,
-                description = $3,
+                description = $3,   
                 warehouse_id = $4,
                 quantity = $5,
                 price = $6,
                 attributes = $7,
                 category = $8,
+                low_stock_threshold = $9,
+                overstock_threshold = $10,
                 updated_at = NOW()
-            WHERE id = $9
+            WHERE id = $11
             RETURNING
                 id,
                 sku,
@@ -205,6 +232,8 @@ impl InventoryRepository {
                 price,
                 attributes,
                 category,
+                low_stock_threshold,
+                overstock_threshold,
                 created_at,
                 updated_at
             "#,
@@ -226,6 +255,14 @@ impl InventoryRepository {
         .bind(
             dto.category
                 .unwrap_or(current_item.category.unwrap_or_default()),
+        )
+        .bind(
+            dto.low_stock_threshold
+                .unwrap_or(current_item.low_stock_threshold.unwrap_or(0)),
+        )
+        .bind(
+            dto.overstock_threshold
+                .unwrap_or(current_item.overstock_threshold.unwrap_or(0)),
         )
         .bind(id)
         .map(Self::map_row_to_inventory_item)
@@ -281,22 +318,32 @@ impl InventoryRepository {
         }
     }
 
-    // Generic method to map from database row to InventoryReservation
     fn map_row_to_inventory_reservation(
         row: &sqlx::postgres::PgRow,
     ) -> Result<InventoryReservation, Error> {
         let id: Uuid = row.try_get("id")?;
-        let order_id: Uuid = row.try_get("order_id")?;
+
+        let order_id_str: String = row.try_get("order_id")?;
+        let order_id = match Uuid::parse_str(&order_id_str) {
+            Ok(uuid) => uuid,
+            Err(_) => Uuid::nil(),
+        };
+
+        // Get quantity as i64 and convert to i32
+        let quantity_i64: i64 = row.try_get("quantity")?;
+        let quantity = quantity_i64 as i32; // Safe conversion since inventory quantities shouldn't exceed i32 range
+
         let status: String = row.try_get("status")?;
         let created_at: OffsetDateTime = row.try_get("created_at")?;
         let updated_at: OffsetDateTime = row.try_get("updated_at")?;
 
-        // Convert OffsetDateTime to chrono::DateTime<Utc>
         let created_at_chrono = DateTime::<Utc>::from_timestamp(
             created_at.unix_timestamp(),
             created_at.nanosecond() as u32,
         )
         .unwrap_or_else(|| Utc::now());
+
+        let product_name: Option<String> = row.try_get("product_name").ok();
 
         let updated_at_chrono = DateTime::<Utc>::from_timestamp(
             updated_at.unix_timestamp(),
@@ -307,9 +354,10 @@ impl InventoryRepository {
         Ok(InventoryReservation {
             id,
             order_id,
-            product_id: Uuid::nil(), // Default value
-            sku: String::from(""),   // Default value
-            quantity: 0,             // Default value
+            product_id: Uuid::nil(),
+            product_name,
+            sku: String::from(""),
+            quantity,
             status,
             expires_at: None,
             created_at: created_at_chrono,
@@ -323,8 +371,16 @@ impl InventoryRepository {
         offset: i64,
     ) -> Result<Vec<InventoryReservation>, Error> {
         let query = "
-            SELECT id, order_id, status, created_at, updated_at 
+            SELECT 
+                inventory_reservations.id,
+                inventory_reservations.order_id,
+                inventory_reservations.status,
+                inventory_reservations.created_at,
+                inventory_reservations.updated_at,
+                inventory_reservations.quantity,
+                inventory_items.name as product_name
             FROM inventory_reservations
+            LEFT JOIN inventory_items ON inventory_reservations.product_id = inventory_items.id
             ORDER BY created_at DESC
             LIMIT $1 OFFSET $2
         ";
@@ -348,7 +404,7 @@ impl InventoryRepository {
         id: Uuid,
     ) -> Result<Option<InventoryReservation>, Error> {
         let query = "
-            SELECT id, order_id, status, created_at, updated_at 
+            SELECT id, order_id, quantity, status, created_at, updated_at 
             FROM inventory_reservations
             WHERE id = $1
         ";
@@ -373,14 +429,20 @@ impl InventoryRepository {
 
         let query = "
             INSERT INTO inventory_reservations
-            (order_id, status, created_at, updated_at)
-            VALUES ($1, $2, NOW(), NOW())
-            RETURNING id, order_id, status, created_at, updated_at
+            (id, order_id, product_id, sku, quantity, status, expires_at, created_at, updated_at)
+            VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, NOW(), NOW())
+            RETURNING id, order_id, quantity, status, created_at, updated_at
         ";
 
         let row = sqlx::query(query)
-            .bind(dto.order_id)
+            .bind(dto.order_id.to_string())
+            .bind(dto.product_id)
+            .bind(dto.sku.clone())
+            .bind(dto.quantity)
             .bind(status_str)
+            .bind(dto.expires_at.map(|dt| {
+                sqlx::types::time::OffsetDateTime::from_unix_timestamp(dt.timestamp()).unwrap()
+            }))
             .fetch_one(&self.pool)
             .await?;
 
@@ -551,7 +613,9 @@ impl InventoryRepository {
                 inventory_items.attributes,
                 inventory_items.category,
                 inventory_items.created_at,
-                inventory_items.updated_at
+                inventory_items.updated_at,
+                inventory_items.low_stock_threshold,
+                inventory_items.overstock_threshold
             FROM inventory_items
             LEFT JOIN warehouses ON inventory_items.warehouse_id = warehouses.id
             WHERE inventory_items.id::text ILIKE $1
@@ -605,17 +669,114 @@ impl InventoryRepository {
     }
 
     pub async fn item_exists(&self, id: &Uuid) -> Result<bool, sqlx::Error> {
-        let result = sqlx::query!(
-            r#"
-            SELECT COUNT(*) as count 
-            FROM inventory_items 
-            WHERE id = $1
-            "#,
-            id
-        )
-        .fetch_one(&self.pool)
-        .await?;
+        let result = sqlx::query("SELECT EXISTS(SELECT 1 FROM inventory_items WHERE id = $1)")
+            .bind(id)
+            .fetch_one(&self.pool)
+            .await?;
 
-        Ok(result.count.unwrap_or(0) > 0)
+        let exists: bool = result.try_get(0)?;
+        Ok(exists)
+    }
+
+    fn map_row_to_inventory_transaction(
+        row: &sqlx::postgres::PgRow,
+    ) -> Result<crate::models::inventory::InventoryTransaction, Error> {
+        let id: Uuid = row.try_get("id")?;
+        let item_id: Uuid = row.try_get("item_id")?;
+        let warehouse_id: Uuid = row.try_get("warehouse_id")?;
+        let quantity: i32 = row.try_get("quantity")?;
+        let transaction_type: String = row.try_get("type")?;
+        let reference: Option<String> = row.try_get("reference").ok();
+        let user_id: Option<String> = row.try_get("user_id").ok();
+        let timestamp: OffsetDateTime = row.try_get("timestamp")?;
+
+        // Optional fields from join
+        let item_name: Option<String> = row.try_get("item_name").ok();
+        let item_sku: Option<String> = row.try_get("item_sku").ok();
+        let warehouse_name: Option<String> = row.try_get("warehouse_name").ok();
+
+        Ok(crate::models::inventory::InventoryTransaction {
+            id,
+            item_id,
+            item_name,
+            item_sku,
+            warehouse_id,
+            warehouse_name,
+            quantity,
+            transaction_type,
+            reference,
+            user_id,
+            timestamp: Self::convert_datetime(timestamp),
+        })
+    }
+
+    pub async fn find_all_transactions(
+        &self,
+        limit: i64,
+        offset: i64,
+    ) -> Result<Vec<crate::models::inventory::InventoryTransaction>, Error> {
+        let query = r#"
+            SELECT 
+                t.id, t.item_id, t.warehouse_id, t.quantity, t.type, 
+                t.reference, t.user_id, t.timestamp,
+                i.name as item_name, i.sku as item_sku,
+                w.name as warehouse_name
+            FROM 
+                inventory_transactions t
+            LEFT JOIN 
+                inventory_items i ON t.item_id = i.id
+            LEFT JOIN 
+                warehouses w ON t.warehouse_id = w.id
+            ORDER BY 
+                t.timestamp DESC
+            LIMIT $1 OFFSET $2
+        "#;
+
+        let rows = sqlx::query(query)
+            .bind(limit)
+            .bind(offset)
+            .fetch_all(&self.pool)
+            .await?;
+
+        let mut transactions = Vec::with_capacity(rows.len());
+        for row in rows {
+            match Self::map_row_to_inventory_transaction(&row) {
+                Ok(transaction) => transactions.push(transaction),
+                Err(e) => eprintln!("Error mapping transaction: {}", e),
+            }
+        }
+
+        Ok(transactions)
+    }
+
+    pub async fn find_transaction_by_id(
+        &self,
+        id: Uuid,
+    ) -> Result<Option<crate::models::inventory::InventoryTransaction>, Error> {
+        let query = r#"
+            SELECT 
+                t.id, t.item_id, t.warehouse_id, t.quantity, t.type, 
+                t.reference, t.user_id, t.timestamp,
+                i.name as item_name, i.sku as item_sku,
+                w.name as warehouse_name
+            FROM 
+                inventory_transactions t
+            LEFT JOIN 
+                inventory_items i ON t.item_id = i.id
+            LEFT JOIN 
+                warehouses w ON t.warehouse_id = w.id
+            WHERE 
+                t.id = $1
+        "#;
+
+        let row = sqlx::query(query)
+            .bind(id)
+            .fetch_optional(&self.pool)
+            .await?;
+
+        match row {
+            Some(row) => Ok(Some(Self::map_row_to_inventory_transaction(&row)?)),
+            None => Ok(None),
+        }
     }
 }
