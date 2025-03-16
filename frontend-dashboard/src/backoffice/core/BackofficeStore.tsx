@@ -79,12 +79,18 @@ export const useBackofficeStore = create<BackofficeState>((set, get) => ({
     const warehouseModule = director.buildWarehouseModule(dummyBuilder);
     const inventoryModule = director.buildInventoryModule(dummyBuilder);
     const orderModule = director.buildOrderModule(dummyBuilder);
+    const inventoryTransactionsModule =
+      director.buildInventoryTransactionsModule(dummyBuilder);
+    const inventoryReservationsModule =
+      director.buildInventoryReservationsModule(dummyBuilder);
 
     console.log("Created modules with endpoints:", {
       customers: customerModule.apiEndpoint,
       warehouses: warehouseModule.apiEndpoint,
       inventory: inventoryModule.apiEndpoint,
       orders: orderModule.apiEndpoint,
+      transactions: inventoryTransactionsModule.apiEndpoint,
+      reservations: inventoryReservationsModule.apiEndpoint,
     });
 
     set({
@@ -93,6 +99,8 @@ export const useBackofficeStore = create<BackofficeState>((set, get) => ({
         warehouses: warehouseModule,
         inventory: inventoryModule,
         orders: orderModule,
+        transactions: inventoryTransactionsModule,
+        reservations: inventoryReservationsModule,
       },
       isInitialized: true,
     });

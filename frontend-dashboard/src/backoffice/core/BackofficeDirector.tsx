@@ -390,6 +390,14 @@ export class BackofficeDirector {
             },
           },
           {
+            field: "low_stock_threshold",
+            header: "Low Stock Threshold",
+          },
+          {
+            field: "overstock_threshold",
+            header: "Overstock Threshold",
+          },
+          {
             field: "attributes",
             header: "Attributes",
             render: (value) => {
@@ -560,6 +568,16 @@ export class BackofficeDirector {
               );
             },
           },
+          {
+            name: "low_stock_threshold",
+            label: "Low Stock Threshold",
+            type: "number",
+          },
+          {
+            name: "overstock_threshold",
+            label: "Overstock Threshold",
+            type: "number",
+          },
         ],
       })
       .setDetailConfig({
@@ -572,8 +590,93 @@ export class BackofficeDirector {
               { field: "category", label: "Category" },
               { field: "description", label: "Description" },
               { field: "warehouse_name", label: "Warehouse" },
-              { field: "quantity", label: "Quantity" },
-              { field: "price", label: "Price" },
+            ],
+          },
+          {
+            title: "Inventory Levels",
+            fields: [
+              { field: "quantity", label: "Total Quantity" },
+              { field: "reserved", label: "Reserved Quantity" },
+              {
+                field: "available",
+                label: "Available Quantity",
+                render: (value, item) => {
+                  if (value === 0) {
+                    return (
+                      <span className="text-red-600 font-bold">
+                        0 - Out of Stock
+                      </span>
+                    );
+                  }
+                  if (
+                    item.low_stock_threshold &&
+                    value < item.low_stock_threshold
+                  ) {
+                    return (
+                      <span className="text-amber-600 font-bold">
+                        {value} - Low Stock
+                      </span>
+                    );
+                  }
+                  return (
+                    <span className="text-green-600 font-bold">{value}</span>
+                  );
+                },
+              },
+              { field: "price", label: "Unit Price" },
+              {
+                field: "total_value",
+                label: "Total Value",
+                render: (value, item) => {
+                  const total = (item.price * item.quantity).toFixed(2);
+                  return `$${total}`;
+                },
+              },
+            ],
+          },
+          {
+            title: "Stock Management",
+            fields: [
+              { field: "low_stock_threshold", label: "Low Stock Threshold" },
+              { field: "overstock_threshold", label: "Overstock Threshold" },
+              {
+                field: "stock_status",
+                label: "Stock Status",
+                render: (value, item) => {
+                  if (item.quantity === 0) {
+                    return (
+                      <span className="text-red-600 bg-red-100 px-2 py-1 rounded">
+                        Out of Stock
+                      </span>
+                    );
+                  }
+                  if (item.quantity < item.low_stock_threshold) {
+                    return (
+                      <span className="text-amber-600 bg-amber-100 px-2 py-1 rounded">
+                        Low Stock
+                      </span>
+                    );
+                  }
+                  if (item.quantity > item.overstock_threshold) {
+                    return (
+                      <span className="text-blue-600 bg-blue-100 px-2 py-1 rounded">
+                        Overstock
+                      </span>
+                    );
+                  }
+                  return (
+                    <span className="text-green-600 bg-green-100 px-2 py-1 rounded">
+                      Optimal
+                    </span>
+                  );
+                },
+              },
+              {
+                field: "last_updated",
+                label: "Last Updated",
+                render: (value) =>
+                  value ? new Date(value).toLocaleString() : "N/A",
+              },
             ],
           },
           {
@@ -597,10 +700,41 @@ export class BackofficeDirector {
             ],
           },
         ],
+        relatedEntities: [
+          {
+            title: "Recent Transactions",
+            entity: "transactions",
+            relationField: "item_id",
+            display: (item) => {
+              const date = new Date(item.timestamp).toLocaleDateString();
+              const time = new Date(item.timestamp).toLocaleTimeString();
+              const quantity =
+                item.type === "add" || item.type === "release"
+                  ? `+${item.quantity}`
+                  : `-${item.quantity}`;
+              return `${date} ${time} - ${item.type.toUpperCase()} ${quantity}`;
+            },
+          },
+          {
+            title: "Active Reservations",
+            entity: "reservations",
+            relationField: "product_id",
+            display: (item) => {
+              // Only display if item status is pending
+              if (item.status === "pending") {
+                return `Order #${item.order_id.substring(0, 8)} - ${
+                  item.quantity
+                } units - Expires: ${new Date(
+                  item.expires_at
+                ).toLocaleDateString()}`;
+              }
+              return null;
+            },
+          },
+        ],
       })
       .build();
 
-    // Add custom renderStats method for inventory module
     module.renderStats = (data: any[]) => {
       return (
         <>
@@ -618,12 +752,27 @@ export class BackofficeDirector {
               data.filter(
                 (item) =>
                   item.status === "Low Stock" ||
-                  (item.quantity < item.minQuantity && item.quantity > 0)
+                  (item.quantity < item.low_stock_threshold &&
+                    item.quantity > 0)
               ).length
             }
             icon={<AlertTriangle className="w-6 h-6" />}
             iconBgColor="bg-amber-100"
             iconColor="text-amber-600"
+          />
+
+          <StatsCard
+            title="Overstock Items"
+            value={
+              data.filter(
+                (item) =>
+                  item.status === "Overstock" ||
+                  item.quantity > item.overstock_threshold
+              ).length
+            }
+            icon={<TrendingUp className="w-6 h-6" />}
+            iconBgColor="bg-blue-100"
+            iconColor="text-blue-600"
           />
 
           <StatsCard
@@ -633,9 +782,711 @@ export class BackofficeDirector {
                 (item) => item.status === "Out of Stock" || item.quantity === 0
               ).length
             }
-            icon={<TrendingUp className="w-6 h-6" />}
+            icon={<AlertTriangle className="w-6 h-6" />}
+            iconBgColor="bg-red-100"
+            iconColor="text-red-600"
+          />
+        </>
+      );
+    };
+
+    return module;
+  }
+
+  buildInventoryTransactionsModule(builder: BackofficeBuilder) {
+    const moduleBuilder = new BackofficeBuilderImpl(this.apiService);
+
+    const module = moduleBuilder
+      .setConfig({
+        title: "Inv. Transactions",
+        basePath: "/backoffice/transactions",
+        permissions: ["view_inventory", "edit_inventory"],
+      })
+      .setApiEndpoint("/api/inventory/transactions")
+      .setNavItem({
+        label: "Inv. Transactions",
+        href: "/backoffice/transactions",
+        icon: List,
+      })
+      .setFormConfig({
+        fields: [
+          {
+            name: "item_id",
+            label: "Inventory Item",
+            type: "autocomplete",
+            required: true,
+            component: ({
+              value,
+              onChange,
+            }: {
+              value: string;
+              onChange: (value: string) => void;
+            }) => {
+              // Option type to properly define the selected option
+              type ItemOption = {
+                value: string;
+                label: string;
+                sku?: string;
+              };
+
+              // Store options for later reference
+              const [options, setOptions] = React.useState<ItemOption[]>([]);
+
+              return (
+                <AutocompleteSelect
+                  value={value || ""}
+                  onChange={(newValue) => {
+                    onChange(newValue);
+                    // Find and store the selected option for SKU access
+                    const option = options.find(
+                      (o: ItemOption) => o.value === newValue
+                    );
+
+                    // Directly update the form values for SKU
+                    if (option?.sku) {
+                      // Update form value via custom event
+                      const event = new CustomEvent("update-hidden-field", {
+                        detail: {
+                          name: "sku",
+                          value: option.sku,
+                        },
+                      });
+                      document.dispatchEvent(event);
+                    }
+                  }}
+                  label="Inventory Item"
+                  queryKey="inventory-search"
+                  fetchOptions={async (search: string) => {
+                    try {
+                      const response = await this.apiService.get<
+                        ApiResponse<any>
+                      >("/api/inventory", {
+                        params: { search: search },
+                      });
+                      const itemOptions = response.data.map((item: any) => ({
+                        value: item.id,
+                        label: `${item.name} (${item.sku}) - ${item.quantity} in stock`,
+                        sku: item.sku,
+                      }));
+                      // Store options for later access
+                      setOptions(itemOptions);
+                      return itemOptions;
+                    } catch (error) {
+                      console.error("Error fetching inventory items:", error);
+                      return [];
+                    }
+                  }}
+                  placeholder="Search for an inventory item..."
+                />
+              );
+            },
+          },
+          {
+            name: "sku",
+            label: "SKU",
+            type: "text",
+            hidden: true,
+          },
+          {
+            name: "warehouse_id",
+            label: "Warehouse",
+            type: "autocomplete",
+            required: true,
+            component: ({
+              value,
+              onChange,
+            }: {
+              value: string;
+              onChange: (value: string) => void;
+            }) => (
+              <AutocompleteSelect
+                value={value || ""}
+                onChange={onChange}
+                label="Warehouse"
+                queryKey="warehouses-search"
+                fetchOptions={async (search: string) => {
+                  try {
+                    const response = await this.apiService.get<
+                      ApiResponse<Warehouse>
+                    >("/api/warehouses", {
+                      params: { search: search },
+                    });
+                    return response.data.map((warehouse: Warehouse) => ({
+                      value: warehouse.id,
+                      label: warehouse.name,
+                    }));
+                  } catch (error) {
+                    console.error("Error fetching warehouses:", error);
+                    return [];
+                  }
+                }}
+                placeholder="Search for a warehouse..."
+              />
+            ),
+          },
+          {
+            name: "quantity",
+            label: "Quantity",
+            type: "number",
+            required: true,
+            validation: (value) =>
+              !value || Number(value) === 0
+                ? "Quantity cannot be zero"
+                : undefined,
+          },
+          {
+            name: "transaction_type",
+            label: "Transaction Type",
+            type: "select",
+            required: true,
+            options: [
+              { value: "add", label: "Add Stock" },
+              { value: "remove", label: "Remove Stock" },
+              { value: "transfer", label: "Transfer Stock" },
+              { value: "adjust", label: "Adjustment" },
+              { value: "reserve", label: "Reserve" },
+              { value: "unreserve", label: "Release Reservation" },
+              { value: "allocate", label: "Allocate for Order" },
+              { value: "deallocate", label: "Deallocate from Order" },
+            ],
+          },
+          {
+            name: "reference",
+            label: "Reference",
+            type: "text",
+            helperText: "Order ID, adjustment reference, etc.",
+          },
+          {
+            name: "user_id",
+            label: "User",
+            type: "autocomplete",
+            component: ({
+              value,
+              onChange,
+            }: {
+              value: string;
+              onChange: (value: string) => void;
+            }) => (
+              <AutocompleteSelect
+                value={value || ""}
+                onChange={onChange}
+                label="User"
+                queryKey="users-search"
+                fetchOptions={async (search: string) => {
+                  try {
+                    const response = await this.apiService.get<
+                      ApiResponse<any>
+                    >("/api/users", {
+                      params: { search: search },
+                    });
+                    return response.data.map((user: any) => ({
+                      value: user.id,
+                      label: `${user.name} (${user.email})`,
+                    }));
+                  } catch (error) {
+                    console.error("Error fetching users:", error);
+                    return [];
+                  }
+                }}
+                placeholder="Search for a user..."
+              />
+            ),
+          },
+        ],
+      })
+      .setListConfig({
+        columns: [
+          { field: "id", header: "Transaction ID" },
+          { field: "item_name", header: "Item Name" },
+          { field: "item_sku", header: "SKU" },
+          { field: "warehouse_name", header: "Warehouse" },
+          {
+            field: "quantity",
+            header: "Quantity",
+            render: (value, row) => {
+              const isPositive = row.type === "add" || row.type === "release";
+              return (
+                <span
+                  className={isPositive ? "text-green-600" : "text-red-600"}
+                >
+                  {isPositive ? "+" : "-"}
+                  {Math.abs(value)}
+                </span>
+              );
+            },
+          },
+          {
+            field: "type",
+            header: "Transaction Type",
+            render: (value) => {
+              let className = "";
+              switch (value) {
+                case "add":
+                  className = "text-green-600 bg-green-100";
+                  break;
+                case "remove":
+                  className = "text-red-600 bg-red-100";
+                  break;
+                case "allocate":
+                  className = "text-amber-600 bg-amber-100";
+                  break;
+                case "release":
+                  className = "text-blue-600 bg-blue-100";
+                  break;
+                default:
+                  className = "text-gray-600 bg-gray-100";
+              }
+              return (
+                <span className={`${className} px-2 py-1 rounded`}>
+                  {value}
+                </span>
+              );
+            },
+          },
+          { field: "reference", header: "Reference" },
+          {
+            field: "timestamp",
+            header: "Date/Time",
+            render: (value) => new Date(value).toLocaleString(),
+          },
+          { field: "user_id", header: "User" },
+        ],
+        searchFields: ["item_name", "item_sku", "reference", "user_id"],
+        filters: [
+          {
+            field: "type",
+            label: "Transaction Type",
+            type: "select",
+            options: [
+              { value: "add", label: "Add" },
+              { value: "remove", label: "Remove" },
+              { value: "allocate", label: "Allocate" },
+              { value: "release", label: "Release" },
+            ],
+          },
+          {
+            field: "warehouse_id",
+            label: "Warehouse",
+            type: "select",
+            options: [],
+          },
+        ],
+      })
+      .setDetailConfig({
+        sections: [
+          {
+            title: "Transaction Details",
+            fields: [
+              { field: "id", label: "Transaction ID" },
+              { field: "item_name", label: "Item Name" },
+              { field: "item_sku", label: "SKU" },
+              { field: "warehouse_name", label: "Warehouse" },
+              { field: "quantity", label: "Quantity" },
+              { field: "type", label: "Transaction Type" },
+              { field: "reference", label: "Reference" },
+              {
+                field: "timestamp",
+                label: "Date/Time",
+                render: (value) => new Date(value).toLocaleString(),
+              },
+              { field: "user_id", label: "User" },
+            ],
+          },
+        ],
+      })
+      .build();
+
+    module.renderStats = (data: any[]) => {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      const todayTransactions = data.filter((tx) => {
+        const txDate = new Date(tx.timestamp);
+        return txDate >= today;
+      });
+
+      const addTransactions = data.filter((tx) => tx.type === "add");
+      const removeTransactions = data.filter((tx) => tx.type === "remove");
+
+      return (
+        <>
+          <StatsCard
+            title="Total Transactions"
+            value={data.length}
+            icon={<List className="w-6 h-6" />}
             iconBgColor="bg-blue-100"
             iconColor="text-blue-600"
+          />
+
+          <StatsCard
+            title="Today's Transactions"
+            value={todayTransactions.length}
+            icon={<TrendingUp className="w-6 h-6" />}
+            iconBgColor="bg-green-100"
+            iconColor="text-green-600"
+          />
+
+          <StatsCard
+            title="Stock Additions"
+            value={addTransactions.length}
+            icon={<TrendingUp className="w-6 h-6" />}
+            iconBgColor="bg-green-100"
+            iconColor="text-green-600"
+          />
+
+          <StatsCard
+            title="Stock Removals"
+            value={removeTransactions.length}
+            icon={<TrendingUp className="w-6 h-6" />}
+            iconBgColor="bg-red-100"
+            iconColor="text-red-600"
+          />
+        </>
+      );
+    };
+
+    return module;
+  }
+
+  buildInventoryReservationsModule(builder: BackofficeBuilder) {
+    const moduleBuilder = new BackofficeBuilderImpl(this.apiService);
+
+    const module = moduleBuilder
+      .setConfig({
+        title: "Inv. Reservations",
+        basePath: "/backoffice/reservations",
+        permissions: ["view_inventory", "edit_inventory"],
+      })
+      .setApiEndpoint("/api/inventory/reservations")
+      .setNavItem({
+        label: "Inv. Reservations",
+        href: "/backoffice/reservations",
+        icon: Tag,
+      })
+      .setFormConfig({
+        fields: [
+          {
+            name: "order_id",
+            label: "Order",
+            type: "autocomplete",
+            required: true,
+            component: ({
+              value,
+              onChange,
+            }: {
+              value: string;
+              onChange: (value: string) => void;
+            }) => (
+              <AutocompleteSelect
+                value={value || ""}
+                onChange={onChange}
+                label="Order"
+                queryKey="orders-search"
+                fetchOptions={async (search: string) => {
+                  try {
+                    const response = await this.apiService.get<
+                      ApiResponse<any>
+                    >("/api/orders", {
+                      params: { search: search },
+                    });
+                    return response.data.map((order: any) => ({
+                      value: order.id,
+                      label: `Order #${order.id.substring(0, 8)} - ${
+                        order.customer_name
+                      } - ${order.status}`,
+                    }));
+                  } catch (error) {
+                    console.error("Error fetching orders:", error);
+                    return [];
+                  }
+                }}
+                placeholder="Search for an order..."
+              />
+            ),
+          },
+          {
+            name: "product_id",
+            label: "Product",
+            type: "autocomplete",
+            required: true,
+            component: ({
+              value,
+              onChange,
+            }: {
+              value: string;
+              onChange: (value: string) => void;
+            }) => {
+              // Option type to properly define the selected option
+              type ProductOption = {
+                value: string;
+                label: string;
+                sku?: string;
+              };
+
+              // Store options for later reference
+              const [options, setOptions] = React.useState<ProductOption[]>([]);
+
+              return (
+                <AutocompleteSelect
+                  value={value || ""}
+                  onChange={(newValue) => {
+                    onChange(newValue);
+                    // Find and store the selected option for SKU access
+                    const option = options.find(
+                      (o: ProductOption) => o.value === newValue
+                    );
+
+                    // Directly update the form values for SKU
+                    if (option?.sku) {
+                      // Find the form's internal state and update the SKU value directly
+                      const event = new CustomEvent("update-hidden-field", {
+                        detail: {
+                          name: "sku",
+                          value: option.sku,
+                        },
+                      });
+                      document.dispatchEvent(event);
+                    }
+                  }}
+                  label="Product"
+                  queryKey="inventory-search"
+                  fetchOptions={async (search: string) => {
+                    try {
+                      const response = await this.apiService.get<
+                        ApiResponse<any>
+                      >("/api/inventory", {
+                        params: { search: search },
+                      });
+                      const productOptions = response.data.map((item: any) => ({
+                        value: item.id,
+                        label: `${item.name} (${item.sku}) - ${item.quantity} in stock`,
+                        sku: item.sku,
+                      }));
+                      // Store options for later access
+                      setOptions(productOptions);
+                      return productOptions;
+                    } catch (error) {
+                      console.error("Error fetching inventory items:", error);
+                      return [];
+                    }
+                  }}
+                  placeholder="Search for a product..."
+                />
+              );
+            },
+          },
+          {
+            name: "sku",
+            label: "SKU",
+            type: "text",
+            required: true,
+            hidden: true,
+            helperText: "This will be auto-filled when a product is selected",
+          },
+          {
+            name: "quantity",
+            label: "Quantity",
+            type: "number",
+            required: true,
+            validation: (value) =>
+              !value || Number(value) < 1
+                ? "Quantity must be at least 1"
+                : undefined,
+          },
+          {
+            name: "status",
+            label: "Status",
+            type: "select",
+            required: true,
+            options: [
+              { value: "pending", label: "Pending" },
+              { value: "committed", label: "Committed" },
+              { value: "cancelled", label: "Cancelled" },
+              { value: "expired", label: "Expired" },
+            ],
+          },
+          {
+            name: "expires_at",
+            label: "Expiration Date",
+            type: "date",
+            helperText: "When this reservation expires if not committed",
+          },
+        ],
+      })
+      .setListConfig({
+        columns: [
+          { field: "id", header: "Reservation ID" },
+          { field: "order_id", header: "Order ID" },
+          { field: "product_name", header: "Product" },
+          { field: "quantity", header: "Quantity" },
+          {
+            field: "status",
+            header: "Status",
+            render: (value) => {
+              let className = "";
+              switch (value) {
+                case "pending":
+                  className = "text-yellow-600 bg-yellow-100";
+                  break;
+                case "committed":
+                  className = "text-green-600 bg-green-100";
+                  break;
+                case "cancelled":
+                  className = "text-red-600 bg-red-100";
+                  break;
+                case "expired":
+                  className = "text-gray-600 bg-gray-100";
+                  break;
+                default:
+                  className = "text-blue-600 bg-blue-100";
+              }
+              return (
+                <span className={`${className} px-2 py-1 rounded`}>
+                  {value}
+                </span>
+              );
+            },
+          },
+          {
+            field: "created_at",
+            header: "Created At",
+            render: (value) => new Date(value).toLocaleString(),
+          },
+          {
+            field: "expires_at",
+            header: "Expires At",
+            render: (value) =>
+              value ? new Date(value).toLocaleString() : "N/A",
+          },
+          {
+            field: "completed_at",
+            header: "Completed At",
+            render: (value) =>
+              value ? new Date(value).toLocaleString() : "N/A",
+          },
+        ],
+        searchFields: ["order_id", "product_name", "sku"],
+        filters: [
+          {
+            field: "status",
+            label: "Status",
+            type: "select",
+            options: [
+              { value: "pending", label: "Pending" },
+              { value: "committed", label: "Committed" },
+              { value: "cancelled", label: "Cancelled" },
+              { value: "expired", label: "Expired" },
+            ],
+          },
+        ],
+        actions: [
+          {
+            label: "Commit",
+            action: (item) => {
+              if (item.status === "pending") {
+                console.log("Commit", item);
+              }
+            },
+            permission: "edit_inventory",
+          },
+          {
+            label: "Cancel",
+            action: (item) => {
+              if (item.status === "pending") {
+                console.log("Cancel", item);
+              }
+            },
+            permission: "edit_inventory",
+          },
+        ],
+      })
+      .setDetailConfig({
+        sections: [
+          {
+            title: "Reservation Details",
+            fields: [
+              { field: "id", label: "Reservation ID" },
+              { field: "order_id", label: "Order ID" },
+              { field: "product_name", label: "Product" },
+              { field: "sku", label: "SKU" },
+              { field: "quantity", label: "Quantity" },
+              { field: "status", label: "Status" },
+              {
+                field: "created_at",
+                label: "Created At",
+                render: (value) => new Date(value).toLocaleString(),
+              },
+              {
+                field: "expires_at",
+                label: "Expires At",
+                render: (value) =>
+                  value ? new Date(value).toLocaleString() : "N/A",
+              },
+              {
+                field: "completed_at",
+                label: "Completed At",
+                render: (value) =>
+                  value ? new Date(value).toLocaleString() : "N/A",
+              },
+            ],
+          },
+        ],
+      })
+      .build();
+
+    module.renderStats = (data: any[]) => {
+      const pendingReservations = data.filter((r) => r.status === "pending");
+      const committedReservations = data.filter(
+        (r) => r.status === "committed"
+      );
+      const cancelledReservations = data.filter(
+        (r) => r.status === "cancelled"
+      );
+      const expiredReservations = data.filter((r) => r.status === "expired");
+
+      // Calculate expiring soon - reservations that expire within 24 hours
+      const now = new Date();
+      const tomorrow = new Date(now);
+      tomorrow.setDate(tomorrow.getDate() + 1);
+
+      const expiringSoon = pendingReservations.filter((r) => {
+        if (!r.expires_at) return false;
+        const expiryDate = new Date(r.expires_at);
+        return expiryDate <= tomorrow && expiryDate > now;
+      });
+
+      return (
+        <>
+          <StatsCard
+            title="Pending Reservations"
+            value={pendingReservations.length}
+            icon={<Tag className="w-6 h-6" />}
+            iconBgColor="bg-yellow-100"
+            iconColor="text-yellow-600"
+          />
+
+          <StatsCard
+            title="Committed Reservations"
+            value={committedReservations.length}
+            icon={<Tag className="w-6 h-6" />}
+            iconBgColor="bg-green-100"
+            iconColor="text-green-600"
+          />
+
+          <StatsCard
+            title="Cancelled Reservations"
+            value={cancelledReservations.length}
+            icon={<Tag className="w-6 h-6" />}
+            iconBgColor="bg-red-100"
+            iconColor="text-red-600"
+          />
+
+          <StatsCard
+            title="Expiring Soon"
+            value={expiringSoon.length}
+            icon={<AlertTriangle className="w-6 h-6" />}
+            iconBgColor="bg-amber-100"
+            iconColor="text-amber-600"
           />
         </>
       );

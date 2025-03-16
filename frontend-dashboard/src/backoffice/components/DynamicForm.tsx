@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
-import { BackofficeFormConfig } from '../core/BackofficeBuilder';
-import { Button } from '@/components/ui/Button';
+import React, { useState, useEffect } from "react";
+import { BackofficeFormConfig } from "../core/BackofficeBuilder";
+import { Button } from "@/components/ui/Button";
 
 interface FormComponentProps {
   value: any;
@@ -32,93 +32,168 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
     setValues(initialValues);
   }, [initialValues]);
 
+  // Listen for hidden field updates
+  useEffect(() => {
+    const handleHiddenFieldUpdate = (event: CustomEvent) => {
+      const { name, value } = event.detail;
+      setValues((prevValues) => ({
+        ...prevValues,
+        [name]: value,
+      }));
+    };
+
+    // Add event listener
+    document.addEventListener(
+      "update-hidden-field",
+      handleHiddenFieldUpdate as EventListener
+    );
+
+    // Clean up
+    return () => {
+      document.removeEventListener(
+        "update-hidden-field",
+        handleHiddenFieldUpdate as EventListener
+      );
+    };
+  }, []);
+
   const validateField = (name: string, value: any) => {
-    const field = config.fields.find(f => f.name === name);
-    
+    const field = config.fields.find((f) => f.name === name);
+
     if (!field) return undefined;
-    
-    if (field.required && (value === undefined || value === null || value === '')) {
+
+    if (
+      field.required &&
+      (value === undefined || value === null || value === "")
+    ) {
       return `${field.label} is required`;
     }
-    
+
     if (field.validation) {
       return field.validation(value);
     }
-    
+
     return undefined;
   };
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
     let isValid = true;
-    
-    config.fields.forEach(field => {
+
+    config.fields.forEach((field) => {
+      // Only validate hidden fields if they're required
+      if (field.hidden && !field.required) {
+        return;
+      }
+
       const error = validateField(field.name, values[field.name]);
-      
+
       if (error) {
         newErrors[field.name] = error;
         isValid = false;
       }
     });
-    
+
     setErrors(newErrors);
     return isValid;
   };
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+  const handleChange = (
+    e: React.ChangeEvent<
+      HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
+    >
+  ) => {
     const { name, value, type } = e.target as HTMLInputElement;
-    
+
     let newValue: any = value;
-    
-    if (type === 'checkbox') {
+
+    if (type === "checkbox") {
       newValue = (e.target as HTMLInputElement).checked;
-    } else if (type === 'number') {
-      newValue = value === '' ? '' : Number(value);
+    } else if (type === "number") {
+      newValue = value === "" ? "" : Number(value);
     }
-    
+
     setValues({
       ...values,
       [name]: newValue,
     });
-    
+
     setTouched({
       ...touched,
       [name]: true,
     });
-    
+
     const error = validateField(name, newValue);
-    
+
     setErrors({
       ...errors,
-      [name]: error ?? '',
+      [name]: error ?? "",
     });
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     const allTouched: Record<string, boolean> = {};
-    config.fields.forEach(field => {
+    config.fields.forEach((field) => {
       allTouched[field.name] = true;
     });
-    
+
     setTouched(allTouched);
-    
+
     if (validateForm()) {
-      onSubmit(values);
+      // Process date fields to ensure they're properly formatted
+      const processedValues = { ...values };
+
+      config.fields.forEach((field) => {
+        if (field.type === "date" && processedValues[field.name]) {
+          // Convert date objects to ISO strings if they aren't already
+          if (processedValues[field.name] instanceof Date) {
+            processedValues[field.name] =
+              processedValues[field.name].toISOString();
+          } else if (
+            typeof processedValues[field.name] === "string" &&
+            !processedValues[field.name].includes("T")
+          ) {
+            // If it's a date string without time component (YYYY-MM-DD), add time
+            processedValues[field.name] = new Date(
+              `${processedValues[field.name]}T00:00:00Z`
+            ).toISOString();
+          }
+        }
+      });
+
+      onSubmit(processedValues);
     }
   };
 
-  const renderField = (field: BackofficeFormConfig['fields'][0]) => {
-    const { name, label, type, options, required, placeholder, helperText, component } = field;
-    
-    const value = values[name] !== undefined ? values[name] : '';
+  const renderField = (field: BackofficeFormConfig["fields"][0]) => {
+    const {
+      name,
+      label,
+      type,
+      options,
+      required,
+      placeholder,
+      helperText,
+      component,
+      hidden,
+    } = field;
+
+    if (hidden) {
+      return null;
+    }
+
+    const value = values[name] !== undefined ? values[name] : "";
     const error = touched[name] && errors[name];
-    
+
     if (component) {
       return (
         <div key={name} className="mb-4">
-          <label className="block mb-2 font-bold">{label}{required && <span className="text-red-500">*</span>}</label>
+          <label className="block mb-2 font-bold">
+            {label}
+            {required && <span className="text-red-500">*</span>}
+          </label>
           {component({
             value,
             onChange: (val: any) => {
@@ -126,32 +201,37 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
                 ...values,
                 [name]: val,
               });
-              
+
               setTouched({
                 ...touched,
                 [name]: true,
               });
-              
+
               const error = validateField(name, val);
-              
+
               setErrors({
                 ...errors,
-                [name]: error ?? '',
+                [name]: error ?? "",
               });
             },
           })}
-          {error && <p className="mt-2 text-sm text-red-500 font-medium">{error}</p>}
-          {helperText && !error && <p className="mt-2 text-sm text-neutral-600">{helperText}</p>}
+          {error && (
+            <p className="mt-2 text-sm text-red-500 font-medium">{error}</p>
+          )}
+          {helperText && !error && (
+            <p className="mt-2 text-sm text-neutral-600">{helperText}</p>
+          )}
         </div>
       );
     }
-    
+
     switch (type) {
-      case 'textarea':
+      case "textarea":
         return (
           <div key={name} className="mb-4">
             <label className="block mb-2 font-bold" htmlFor={name}>
-              {label}{required && <span className="text-red-500">*</span>}
+              {label}
+              {required && <span className="text-red-500">*</span>}
             </label>
             <textarea
               id={name}
@@ -162,16 +242,21 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
               className="w-full p-3 bg-white border-2 border-black rounded-none shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] focus:outline-none focus:ring-2 focus:ring-black focus:ring-offset-2"
               rows={5}
             />
-            {error && <p className="mt-2 text-sm text-red-500 font-medium">{error}</p>}
-            {helperText && !error && <p className="mt-2 text-sm text-neutral-600">{helperText}</p>}
+            {error && (
+              <p className="mt-2 text-sm text-red-500 font-medium">{error}</p>
+            )}
+            {helperText && !error && (
+              <p className="mt-2 text-sm text-neutral-600">{helperText}</p>
+            )}
           </div>
         );
-      
-      case 'select':
+
+      case "select":
         return (
           <div key={name} className="mb-4">
             <label className="block mb-2 font-bold" htmlFor={name}>
-              {label}{required && <span className="text-red-500">*</span>}
+              {label}
+              {required && <span className="text-red-500">*</span>}
             </label>
             <select
               id={name}
@@ -187,12 +272,16 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
                 </option>
               ))}
             </select>
-            {error && <p className="mt-2 text-sm text-red-500 font-medium">{error}</p>}
-            {helperText && !error && <p className="mt-2 text-sm text-neutral-600">{helperText}</p>}
+            {error && (
+              <p className="mt-2 text-sm text-red-500 font-medium">{error}</p>
+            )}
+            {helperText && !error && (
+              <p className="mt-2 text-sm text-neutral-600">{helperText}</p>
+            )}
           </div>
         );
-      
-      case 'boolean':
+
+      case "boolean":
         return (
           <div key={name} className="mb-4">
             <div className="flex items-center">
@@ -205,19 +294,25 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
                 className="w-5 h-5 border-2 border-black rounded-none shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] focus:outline-none focus:ring-2 focus:ring-black focus:ring-offset-2"
               />
               <label className="ml-3 font-bold" htmlFor={name}>
-                {label}{required && <span className="text-red-500">*</span>}
+                {label}
+                {required && <span className="text-red-500">*</span>}
               </label>
             </div>
-            {error && <p className="mt-2 text-sm text-red-500 font-medium">{error}</p>}
-            {helperText && !error && <p className="mt-2 text-sm text-neutral-600">{helperText}</p>}
+            {error && (
+              <p className="mt-2 text-sm text-red-500 font-medium">{error}</p>
+            )}
+            {helperText && !error && (
+              <p className="mt-2 text-sm text-neutral-600">{helperText}</p>
+            )}
           </div>
         );
-      
-      case 'number':
+
+      case "number":
         return (
           <div key={name} className="mb-4">
             <label className="block mb-2 font-bold" htmlFor={name}>
-              {label}{required && <span className="text-red-500">*</span>}
+              {label}
+              {required && <span className="text-red-500">*</span>}
             </label>
             <input
               type="number"
@@ -228,16 +323,21 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
               placeholder={placeholder}
               className="w-full p-3 bg-white border-2 border-black rounded-none shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] focus:outline-none focus:ring-2 focus:ring-black focus:ring-offset-2"
             />
-            {error && <p className="mt-2 text-sm text-red-500 font-medium">{error}</p>}
-            {helperText && !error && <p className="mt-2 text-sm text-neutral-600">{helperText}</p>}
+            {error && (
+              <p className="mt-2 text-sm text-red-500 font-medium">{error}</p>
+            )}
+            {helperText && !error && (
+              <p className="mt-2 text-sm text-neutral-600">{helperText}</p>
+            )}
           </div>
         );
-      
+
       default:
         return (
           <div key={name} className="mb-4">
             <label className="block mb-2 font-bold" htmlFor={name}>
-              {label}{required && <span className="text-red-500">*</span>}
+              {label}
+              {required && <span className="text-red-500">*</span>}
             </label>
             <input
               type={type}
@@ -248,8 +348,12 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
               placeholder={placeholder}
               className="w-full p-3 bg-white border-2 border-black rounded-none shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] focus:outline-none focus:ring-2 focus:ring-black focus:ring-offset-2"
             />
-            {error && <p className="mt-2 text-sm text-red-500 font-medium">{error}</p>}
-            {helperText && !error && <p className="mt-2 text-sm text-neutral-600">{helperText}</p>}
+            {error && (
+              <p className="mt-2 text-sm text-red-500 font-medium">{error}</p>
+            )}
+            {helperText && !error && (
+              <p className="mt-2 text-sm text-neutral-600">{helperText}</p>
+            )}
           </div>
         );
     }
@@ -259,20 +363,22 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
     if (config.sections) {
       return config.sections.map((section, index) => (
         <div key={index} className="mb-6">
-          <h3 className="mb-4 text-xl font-bold border-b-4 border-black pb-2">{section.title}</h3>
+          <h3 className="mb-4 text-xl font-bold border-b-4 border-black pb-2">
+            {section.title}
+          </h3>
           <div className="grid grid-cols-1 gap-4">
-            {section.fields.map(fieldName => {
-              const field = config.fields.find(f => f.name === fieldName);
+            {section.fields.map((fieldName) => {
+              const field = config.fields.find((f) => f.name === fieldName);
               return field ? renderField(field) : null;
             })}
           </div>
         </div>
       ));
     }
-    
+
     return (
       <div className="grid grid-cols-1 gap-4">
-        {config.fields.map(field => renderField(field))}
+        {config.fields.map((field) => renderField(field))}
       </div>
     );
   };
@@ -280,7 +386,7 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
   return (
     <form onSubmit={handleSubmit}>
       {renderFields()}
-      
+
       <div className="mt-6 flex justify-end space-x-4 gap-2">
         {onCancel && (
           <button
@@ -292,16 +398,16 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
             Cancel
           </button>
         )}
-        
+
         <Button
           type="submit"
           variant="primary"
           className="px-6 py-3"
           disabled={isLoading}
         >
-          {isLoading ? 'Saving...' : 'Save'}
+          {isLoading ? "Saving..." : "Save"}
         </Button>
       </div>
     </form>
   );
-}; 
+};

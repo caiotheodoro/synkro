@@ -51,6 +51,7 @@ export interface BackofficeFormField {
   required?: boolean;
   placeholder?: string;
   helperText?: string;
+  hidden?: boolean;
   validation?: (value: any) => string | undefined;
   options?: Array<{ value: string; label: string }>;
   component?: (props: {
