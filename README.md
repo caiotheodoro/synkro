@@ -370,6 +370,204 @@ The system uses Atomic Design methodology:
 4. **Templates**: Page layouts without specific content
 5. **Pages**: Specific instances of templates with real data
 
+## Entity Relationships
+
+```mermaid
+erDiagram
+    INVENTORY_LEVELS {
+        uuid item_id PK
+        uuid warehouse_id FK
+        int quantity
+        int reserved
+        int available
+        timestamp last_updated
+    }
+
+    INVENTORY_ITEMS {
+        uuid id PK
+        string sku
+        string name
+        string description
+        string category
+        jsonb attributes
+        uuid warehouse_id FK
+        timestamp created_at
+        timestamp updated_at
+        decimal price
+        int overstock_threshold
+        int low_stock_threshold
+        int quantity
+    }
+
+    WAREHOUSES {
+        uuid id PK
+        string code
+        string name
+        string address_line1
+        string address_line2
+        string state
+        string postal_code
+        string country
+        string contact_name
+        string contact_phone
+        string contact_email
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    INVENTORY_RESERVATIONS {
+        uuid id PK
+        uuid order_id FK
+        uuid product_id FK
+        int quantity
+        string status
+        timestamp created_at
+        timestamp expires_at
+        timestamp updated_at
+    }
+
+    INVENTORY_TRANSACTIONS {
+        uuid id PK
+        uuid item_id FK
+        string type
+        string reference
+        uuid warehouse_id FK
+        timestamp timestamp
+        uuid user_id FK
+        timestamp updated_at
+    }
+
+    ORDER_ITEMS {
+        uuid id PK
+        uuid order_id FK
+        string sku
+        string name
+        int quantity
+        decimal unit_price
+        decimal total_price
+        timestamp created_at
+        timestamp updated_at
+        uuid product_id FK
+    }
+
+    ORDER_STATUS_HISTORY {
+        uuid id PK
+        uuid order_id FK
+        string previous_status
+        string new_status
+        string status_notes
+        string changed_by
+        timestamp created_at
+    }
+
+    ORDERS {
+        uuid id PK
+        uuid customer_id FK
+        string status
+        decimal total_amount
+        string currency
+        string tracking_number
+        string notes
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    CUSTOMERS {
+        uuid id PK
+        string name
+        string email
+        string phone
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    PAYMENT_INFO {
+        uuid id PK
+        uuid order_id FK
+        string payment_method
+        string transaction_id
+        string reference
+        string currency
+        timestamp payment_date
+        timestamp created_at
+        timestamp updated_at
+        string status
+    }
+
+    SHIPPING_INFO {
+        uuid id PK
+        uuid order_id FK
+        string address_line1
+        string address_line2
+        string city
+        string state
+        string postal_code
+        string country
+        string recipient_name
+        string recipient_phone
+        string shipping_method
+        decimal shipping_cost
+        timestamp created_at
+        timestamp updated_at
+        string tracking_number
+        string carrier
+        string status
+        timestamp expected_delivery
+        timestamp actual_delivery
+    }
+
+    SCHEMA_MIGRATIONS {
+        string version PK
+        string description
+        timestamp installed_on
+        boolean success
+        string checksum
+        timestamp execution_time
+    }
+
+    INVENTORY_LEVELS ||--|| WAREHOUSES : "stored_in"
+    INVENTORY_LEVELS ||--|| INVENTORY_ITEMS : "tracks"
+    INVENTORY_ITEMS ||--|| WAREHOUSES : "belongs_to"
+    INVENTORY_RESERVATIONS ||--|| INVENTORY_ITEMS : "reserves"
+    INVENTORY_TRANSACTIONS ||--|| INVENTORY_ITEMS : "affects"
+    INVENTORY_TRANSACTIONS ||--|| WAREHOUSES : "occurs_in"
+    ORDER_ITEMS ||--|| ORDERS : "part_of"
+    ORDER_STATUS_HISTORY ||--|| ORDERS : "tracks"
+    ORDERS ||--|| CUSTOMERS : "placed_by"
+    PAYMENT_INFO ||--|| ORDERS : "belongs_to"
+    SHIPPING_INFO ||--|| ORDERS : "belongs_to"
+```
+
+### Entity Relationships Description
+
+1. **Inventory Management**
+   - `INVENTORY_LEVELS` tracks the quantity of items in each warehouse
+   - `INVENTORY_ITEMS` stores product information and thresholds
+   - `WAREHOUSES` contains warehouse location and contact details
+   - `INVENTORY_RESERVATIONS` manages temporary item holds
+   - `INVENTORY_TRANSACTIONS` records all inventory movements
+
+2. **Order Management**
+   - `ORDERS` stores main order information
+   - `ORDER_ITEMS` contains individual items in each order
+   - `ORDER_STATUS_HISTORY` tracks order status changes
+   - `CUSTOMERS` stores customer information
+   - `PAYMENT_INFO` manages payment details
+   - `SHIPPING_INFO` handles shipping details
+
+3. **Database Management**
+   - `SCHEMA_MIGRATIONS` tracks database schema changes
+
+### Key Relationships
+
+- Each inventory item belongs to a warehouse
+- Inventory levels are tracked per item per warehouse
+- Orders contain multiple order items
+- Each order has associated payment and shipping information
+- Order status changes are tracked historically
+- Inventory transactions record all stock movements
+- Inventory reservations temporarily hold stock for orders
+
 ## Conclusion
 
 The Synkro system architecture follows modern microservice principles with a focus on:
