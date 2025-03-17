@@ -9,8 +9,8 @@ use crate::api::utils::{parse_uuid, success, PaginationParams};
 use crate::api::SharedState;
 use crate::errors::LogisticsError;
 use crate::models::inventory::{
-    CreateInventoryItemDto, CreateReservationDto, ReservationStatus, UpdateInventoryItemDto,
-    UpdateReservationDto,
+    CreateInventoryItemDto, CreateReservationDto, CreateTransactionDto, ReservationStatus,
+    UpdateInventoryItemDto, UpdateReservationDto,
 };
 
 pub async fn list_inventory_items(
@@ -192,4 +192,13 @@ pub async fn get_transaction(
     let transaction = state.inventory_service.get_transaction_by_id(id).await?;
 
     Ok((StatusCode::OK, success(transaction)))
+}
+
+pub async fn create_transaction(
+    State(state): State<SharedState>,
+    Json(payload): Json<CreateTransactionDto>,
+) -> Result<impl IntoResponse, LogisticsError> {
+    let transaction = state.inventory_service.create_transaction(payload).await?;
+
+    Ok((StatusCode::CREATED, success(transaction)))
 }

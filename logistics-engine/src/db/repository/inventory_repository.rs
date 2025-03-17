@@ -1,7 +1,9 @@
+use crate::models::inventory::CreateTransactionDto;
 use crate::models::inventory::{
     CreateInventoryItemDto, CreateReservationDto, InventoryItem, InventoryReservation,
     ReservationStatus, UpdateInventoryItemDto, UpdateReservationDto,
 };
+use crate::models::warehouse::Warehouse;
 use chrono::{DateTime, Utc};
 use num_traits::ToPrimitive;
 use rust_decimal;
@@ -679,12 +681,12 @@ impl InventoryRepository {
     }
 
     fn map_row_to_inventory_transaction(
-        row: &sqlx::postgres::PgRow,
+        row: sqlx::postgres::PgRow,
     ) -> Result<crate::models::inventory::InventoryTransaction, Error> {
         let id: Uuid = row.try_get("id")?;
         let item_id: Uuid = row.try_get("item_id")?;
         let warehouse_id: Uuid = row.try_get("warehouse_id")?;
-        let quantity: i32 = row.try_get("quantity")?;
+        let quantity: i64 = row.try_get("quantity")?;
         let transaction_type: String = row.try_get("type")?;
         let reference: Option<String> = row.try_get("reference").ok();
         let user_id: Option<String> = row.try_get("user_id").ok();
@@ -702,7 +704,7 @@ impl InventoryRepository {
             item_sku,
             warehouse_id,
             warehouse_name,
-            quantity,
+            quantity: quantity as i32, // Convert i64 to i32 since our model uses i32
             transaction_type,
             reference,
             user_id,
@@ -717,7 +719,7 @@ impl InventoryRepository {
     ) -> Result<Vec<crate::models::inventory::InventoryTransaction>, Error> {
         let query = r#"
             SELECT 
-                t.id, t.item_id, t.warehouse_id, t.quantity, t.type, 
+                t.id, t.item_id, t.warehouse_id, t.quantity, t."type", 
                 t.reference, t.user_id, t.timestamp,
                 i.name as item_name, i.sku as item_sku,
                 w.name as warehouse_name
@@ -740,7 +742,7 @@ impl InventoryRepository {
 
         let mut transactions = Vec::with_capacity(rows.len());
         for row in rows {
-            match Self::map_row_to_inventory_transaction(&row) {
+            match Self::map_row_to_inventory_transaction(row) {
                 Ok(transaction) => transactions.push(transaction),
                 Err(e) => eprintln!("Error mapping transaction: {}", e),
             }
@@ -755,7 +757,7 @@ impl InventoryRepository {
     ) -> Result<Option<crate::models::inventory::InventoryTransaction>, Error> {
         let query = r#"
             SELECT 
-                t.id, t.item_id, t.warehouse_id, t.quantity, t.type, 
+                t.id, t.item_id, t.warehouse_id, t.quantity, t."type", 
                 t.reference, t.user_id, t.timestamp,
                 i.name as item_name, i.sku as item_sku,
                 w.name as warehouse_name
@@ -775,7 +777,79 @@ impl InventoryRepository {
             .await?;
 
         match row {
-            Some(row) => Ok(Some(Self::map_row_to_inventory_transaction(&row)?)),
+            Some(row) => Ok(Some(Self::map_row_to_inventory_transaction(row)?)),
+            None => Ok(None),
+        }
+    }
+
+    pub async fn create_transaction(
+        &self,
+        dto: CreateTransactionDto,
+    ) -> Result<crate::models::inventory::InventoryTransaction, Error> {
+        let query = r#"
+            INSERT INTO inventory_transactions (id, item_id, warehouse_id, quantity, "type", reference, user_id, timestamp)
+            VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, NOW())
+            RETURNING 
+                id, item_id, warehouse_id, quantity, "type", 
+                reference, user_id, timestamp,
+                (SELECT name FROM inventory_items WHERE id = item_id) as item_name,
+                (SELECT sku FROM inventory_items WHERE id = item_id) as item_sku,
+                (SELECT name FROM warehouses WHERE id = warehouse_id) as warehouse_name
+        "#;
+
+        let row = sqlx::query(query)
+            .bind(&dto.item_id)
+            .bind(&dto.warehouse_id)
+            .bind(&dto.quantity)
+            .bind(&dto.transaction_type)
+            .bind(&dto.reference)
+            .bind(&dto.user_id)
+            .map(|row| Self::map_row_to_inventory_transaction(row))
+            .fetch_one(&self.pool)
+            .await?;
+
+        Ok(row?)
+    }
+
+    pub async fn find_warehouse_by_id(&self, id: Uuid) -> Result<Option<Warehouse>, Error> {
+        let query = r#"
+            SELECT 
+                id, name, code,
+                address_line1, address_line2, city, state, postal_code, country,
+                contact_name, contact_email, contact_phone,
+                active,
+                created_at, updated_at
+            FROM warehouses
+            WHERE id = $1
+        "#;
+
+        let row = sqlx::query(query)
+            .bind(id)
+            .map(|row: sqlx::postgres::PgRow| {
+                Ok(Warehouse {
+                    id: row.try_get("id")?,
+                    name: row.try_get("name")?,
+                    code: row.try_get("code")?,
+                    address_line1: row.try_get("address_line1")?,
+                    address_line2: row.try_get("address_line2").ok(),
+                    city: row.try_get("city")?,
+                    state: row.try_get("state")?,
+                    postal_code: row.try_get("postal_code")?,
+                    country: row.try_get("country")?,
+                    contact_name: row.try_get("contact_name").ok(),
+                    contact_email: row.try_get("contact_email").ok(),
+                    contact_phone: row.try_get("contact_phone").ok(),
+                    active: row.try_get("active")?,
+                    created_at: Self::convert_datetime(row.try_get("created_at")?),
+                    updated_at: Self::convert_datetime(row.try_get("updated_at")?),
+                })
+            })
+            .fetch_optional(&self.pool)
+            .await?;
+
+        match row {
+            Some(Ok(warehouse)) => Ok(Some(warehouse)),
+            Some(Err(e)) => Err(e),
             None => Ok(None),
         }
     }

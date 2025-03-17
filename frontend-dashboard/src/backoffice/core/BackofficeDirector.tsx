@@ -956,42 +956,6 @@ export class BackofficeDirector {
             type: "text",
             helperText: "Order ID, adjustment reference, etc.",
           },
-          {
-            name: "user_id",
-            label: "User",
-            type: "autocomplete",
-            component: ({
-              value,
-              onChange,
-            }: {
-              value: string;
-              onChange: (value: string) => void;
-            }) => (
-              <AutocompleteSelect
-                value={value || ""}
-                onChange={onChange}
-                label="User"
-                queryKey="users-search"
-                fetchOptions={async (search: string) => {
-                  try {
-                    const response = await this.apiService.get<
-                      ApiResponse<any>
-                    >("/api/users", {
-                      params: { search: search },
-                    });
-                    return response.data.map((user: any) => ({
-                      value: user.id,
-                      label: `${user.name} (${user.email})`,
-                    }));
-                  } catch (error) {
-                    console.error("Error fetching users:", error);
-                    return [];
-                  }
-                }}
-                placeholder="Search for a user..."
-              />
-            ),
-          },
         ],
       })
       .setListConfig({
@@ -1016,7 +980,7 @@ export class BackofficeDirector {
             },
           },
           {
-            field: "type",
+            field: "transaction_type",
             header: "Transaction Type",
             render: (value) => {
               let className = "";
@@ -1049,9 +1013,8 @@ export class BackofficeDirector {
             header: "Date/Time",
             render: (value) => new Date(value).toLocaleString(),
           },
-          { field: "user_id", header: "User" },
         ],
-        searchFields: ["item_name", "item_sku", "reference", "user_id"],
+        searchFields: ["item_name", "item_sku", "reference"],
         filters: [
           {
             field: "type",
@@ -1089,7 +1052,6 @@ export class BackofficeDirector {
                 label: "Date/Time",
                 render: (value) => new Date(value).toLocaleString(),
               },
-              { field: "user_id", label: "User" },
             ],
           },
         ],

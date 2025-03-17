@@ -37,6 +37,10 @@ pub fn create_router(state: SharedState) -> Router {
             get(inventory_handlers::list_inventory_transactions),
         )
         .route(
+            "/transactions",
+            post(inventory_handlers::create_transaction),
+        )
+        .route(
             "/transactions/{id}",
             get(inventory_handlers::get_transaction),
         )

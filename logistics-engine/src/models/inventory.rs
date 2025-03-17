@@ -225,3 +225,13 @@ pub struct UpdateInventoryItemDto {
     pub low_stock_threshold: Option<i32>,
     pub overstock_threshold: Option<i32>,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CreateTransactionDto {
+    pub item_id: Uuid,
+    pub warehouse_id: Uuid,
+    pub quantity: i32,
+    pub transaction_type: String,
+    pub reference: Option<String>,
+    pub user_id: Option<String>,
+}

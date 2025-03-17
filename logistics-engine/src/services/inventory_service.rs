@@ -4,8 +4,8 @@ use uuid::Uuid;
 use crate::db::repository::inventory_repository::InventoryRepository;
 use crate::errors::{LogisticsError, Result};
 use crate::models::inventory::{
-    CreateInventoryItemDto, CreateReservationDto, InventoryItem, InventoryReservation,
-    ReservationStatus, UpdateInventoryItemDto, UpdateReservationDto,
+    CreateInventoryItemDto, CreateReservationDto, CreateTransactionDto, InventoryItem,
+    InventoryReservation, ReservationStatus, UpdateInventoryItemDto, UpdateReservationDto,
 };
 
 pub struct InventoryService {
@@ -237,5 +237,55 @@ impl InventoryService {
             .item_exists(id)
             .await
             .map_err(LogisticsError::DatabaseError)
+    }
+
+    pub async fn create_transaction(
+        &self,
+        dto: CreateTransactionDto,
+    ) -> Result<crate::models::inventory::InventoryTransaction> {
+        let item_id = dto.item_id;
+        let item = self.repository.find_item_by_id(item_id).await?;
+        if item.is_none() {
+            return Err(LogisticsError::NotFound(
+                "Inventory Item",
+                item_id.to_string(),
+            ));
+        }
+
+        let warehouse = self
+            .repository
+            .find_warehouse_by_id(dto.warehouse_id)
+            .await?;
+        if warehouse.is_none() {
+            return Err(LogisticsError::NotFound(
+                "Warehouse",
+                dto.warehouse_id.to_string(),
+            ));
+        }
+
+        let transaction = self.repository.create_transaction(dto).await?;
+
+        let quantity_delta = match transaction.transaction_type.as_str() {
+            "add" | "release" => transaction.quantity,
+            "remove" | "allocate" => -transaction.quantity,
+            _ => {
+                return Err(LogisticsError::ValidationError(
+                    "Invalid transaction type".to_string(),
+                ))
+            }
+        };
+
+        if let Some(_) = self
+            .repository
+            .adjust_quantity(item_id, quantity_delta)
+            .await?
+        {
+            Ok(transaction)
+        } else {
+            Err(LogisticsError::NotFound(
+                "Inventory Item",
+                item_id.to_string(),
+            ))
+        }
     }
 }
