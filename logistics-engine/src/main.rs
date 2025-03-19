@@ -29,8 +29,8 @@ pub mod proto {
 use config::get as get_config;
 use services::order_producer_service::OrderProducerConfig;
 use services::{
-    CustomerService, InventoryService, OrderProducerService, OrderService, PaymentService,
-    ShippingService, WarehouseService,
+    AnalyticsService, CustomerService, InventoryService, OrderProducerService, OrderService,
+    PaymentService, ShippingService, WarehouseService,
 };
 
 #[tokio::main]
@@ -84,6 +84,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let order_item_repo = Arc::new(db::repository::OrderItemRepository::new(pool.clone()));
     let payment_repo = Arc::new(db::repository::PaymentRepository::new(pool.clone()));
     let shipping_repo = Arc::new(db::repository::ShippingRepository::new(pool.clone()));
+    let analytics_repo =
+        Arc::new(db::repository::analytics_repository::AnalyticsRepository::new(pool.clone()));
 
     // Initialize services
     let customer_service = Arc::new(CustomerService::new(customer_repo.clone()));
@@ -98,6 +100,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     ));
     let payment_service = Arc::new(PaymentService::new(payment_repo.clone()));
     let shipping_service = Arc::new(ShippingService::new(shipping_repo.clone()));
+    let analytics_service = Arc::new(AnalyticsService::new(analytics_repo.clone()));
 
     let order_producer_service = if config.order_producer.enabled {
         info!("Order producer service is enabled");
@@ -128,6 +131,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         order_service,
         payment_service,
         shipping_service,
+        analytics_service,
     };
 
     // Initialize gRPC clients

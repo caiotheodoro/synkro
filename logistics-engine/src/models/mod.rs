@@ -1,3 +1,4 @@
+pub mod analytics;
 pub mod customer;
 pub mod dto;
 pub mod entities;

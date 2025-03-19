@@ -10,8 +10,8 @@ use tower_http::cors::CorsLayer;
 use crate::api::{handlers::customer_handlers, middleware::auth_middleware, SharedState};
 
 use super::handlers::{
-    dashboard_handlers, inventory_handlers, order_handlers, payment_handlers, shipping_handlers,
-    warehouse_handlers,
+    analytics_handlers, dashboard_handlers, inventory_handlers, order_handlers, payment_handlers,
+    shipping_handlers, warehouse_handlers,
 };
 
 pub fn create_router(state: SharedState) -> Router {
@@ -140,6 +140,111 @@ pub fn create_router(state: SharedState) -> Router {
             get(dashboard_handlers::get_recent_activities_handler),
         );
 
+    // Analytics routes
+    let analytics_routes = Router::new()
+        // Inventory Analytics
+        .route(
+            "/inventory/stock-levels",
+            get(analytics_handlers::get_stock_level_trends),
+        )
+        .route(
+            "/inventory/distribution",
+            get(analytics_handlers::get_inventory_distribution),
+        )
+        .route(
+            "/inventory/warehouse",
+            get(analytics_handlers::get_warehouse_distribution),
+        )
+        .route(
+            "/inventory/reorder",
+            get(analytics_handlers::get_reorder_points),
+        )
+        // Order Analytics
+        .route("/orders/flow", get(analytics_handlers::get_order_flow))
+        .route(
+            "/orders/pipeline",
+            get(analytics_handlers::get_order_pipeline),
+        )
+        .route(
+            "/orders/lifecycle",
+            get(analytics_handlers::get_order_lifecycle),
+        )
+        .route(
+            "/orders/volume-trends",
+            get(analytics_handlers::get_order_volume_trends),
+        )
+        .route(
+            "/orders/value-distribution",
+            get(analytics_handlers::get_order_value_distribution),
+        )
+        .route(
+            "/orders/peak-times",
+            get(analytics_handlers::get_order_peak_times),
+        )
+        // Transaction Analytics
+        .route(
+            "/transactions/volume",
+            get(analytics_handlers::get_transaction_volume),
+        )
+        .route(
+            "/transactions/stock-movements",
+            get(analytics_handlers::get_stock_movements),
+        )
+        .route(
+            "/transactions/metrics",
+            get(analytics_handlers::get_transaction_metrics),
+        )
+        .route(
+            "/transactions/patterns",
+            get(analytics_handlers::get_transaction_patterns),
+        )
+        .route(
+            "/transactions/clusters",
+            get(analytics_handlers::get_transaction_clusters),
+        )
+        .route(
+            "/transactions/flow",
+            get(analytics_handlers::get_transaction_flow),
+        )
+        // Performance Analytics
+        .route(
+            "/performance/metrics",
+            get(analytics_handlers::get_real_time_metrics),
+        )
+        .route(
+            "/performance/trends",
+            get(analytics_handlers::get_performance_trends),
+        )
+        .route(
+            "/performance/health",
+            get(analytics_handlers::get_system_health),
+        )
+        .route(
+            "/performance/resources",
+            get(analytics_handlers::get_resource_utilization),
+        )
+        // Business Analytics
+        .route(
+            "/business/financial",
+            get(analytics_handlers::get_financial_analytics),
+        )
+        .route(
+            "/business/revenue",
+            get(analytics_handlers::get_revenue_analysis),
+        )
+        .route(
+            "/business/hierarchical",
+            get(analytics_handlers::get_hierarchical_data),
+        )
+        .route(
+            "/business/forecast",
+            get(analytics_handlers::get_forecast_data),
+        )
+        .route(
+            "/business/trends",
+            get(analytics_handlers::get_trend_predictions),
+        );
+
     let cors = CorsLayer::new()
         .allow_origin([
             "http://localhost:3000".parse().unwrap(),
@@ -187,7 +292,8 @@ pub fn create_router(state: SharedState) -> Router {
         .nest("/orders", order_routes)
         .nest("/shipping", shipping_routes)
         .nest("/payments", payment_routes)
-        .nest("/dashboard", dashboard_routes) // Add dashboard routes
+        .nest("/dashboard", dashboard_routes)
+        .nest("/analytics", analytics_routes)
         .layer(from_fn(auth_middleware));
 
     Router::new()

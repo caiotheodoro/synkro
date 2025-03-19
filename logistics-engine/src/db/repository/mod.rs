@@ -1,3 +1,4 @@
+pub mod analytics_repository;
 pub mod customer_repository;
 pub mod inventory_repository;
 pub mod order_item_repository;

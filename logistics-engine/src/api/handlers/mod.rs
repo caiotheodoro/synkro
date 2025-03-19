@@ -1,3 +1,4 @@
+pub mod analytics_handlers;
 pub mod customer_handlers;
 pub mod dashboard_handlers;
 pub mod inventory_handlers;
