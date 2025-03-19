@@ -10,7 +10,7 @@ import (
 	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq"
 	"github.com/synkro/inventory-sync-service/src/config"
-}
+)
 
 type PostgresDB struct {
 	DB     *sqlx.DB
@@ -152,6 +152,7 @@ func (d *PostgresDB) RunMigrations(ctx context.Context) error {
 			warehouse_id UUID NOT NULL,
 			timestamp TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 			updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+			created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 			user_id VARCHAR(36),
 			FOREIGN KEY (item_id) REFERENCES inventory_items(id) ON DELETE CASCADE,
 			FOREIGN KEY (warehouse_id) REFERENCES warehouses(id) ON DELETE CASCADE
