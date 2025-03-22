@@ -101,7 +101,35 @@ const TransactionAnalytics: React.FC = () => {
               {loading && !transactionVolume ? (
                 <div className="animate-pulse h-64 bg-gray-100 rounded"></div>
               ) : transactionVolume ? (
-                <D3Chart data={transactionVolume} height={300} />
+                <div>
+                  <div className="flex justify-between items-center mb-2">
+                    <div className="text-sm text-gray-500">
+                      {transactionVolume.data.length > 0 && (
+                        <span>
+                          Showing {transactionVolume.data.length} data points
+                        </span>
+                      )}
+                    </div>
+                    <div className="text-sm font-medium">
+                      {transactionVolume.data.length > 0 && (
+                        <span className="text-blue-600">
+                          Total:{" "}
+                          {transactionVolume.data.reduce((sum, item) => {
+                            // Get the count value accounting for possible field name variations
+                            const count =
+                              item.count !== undefined
+                                ? item.count
+                                : item.transaction_count !== undefined
+                                ? item.transaction_count
+                                : item.transactionCount || 0;
+                            return sum + count;
+                          }, 0)}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <D3Chart data={transactionVolume} height={300} />
+                </div>
               ) : null}
             </div>
 

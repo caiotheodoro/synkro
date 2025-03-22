@@ -188,7 +188,18 @@ export const D3Chart: React.FC<D3ChartProps> = ({
           ? metadata.metrics
           : [metadata.yAxis as string];
 
-      const isDate = data.some(
+      // Sort data chronologically if timestamp field is available
+      const sortedData = [...data];
+      if (sortedData.length > 0 && sortedData[0].timestamp) {
+        sortedData.sort((a, b) => {
+          const dateA = new Date(a.timestamp);
+          const dateB = new Date(b.timestamp);
+          return dateA.getTime() - dateB.getTime();
+        });
+      }
+
+      // Check if data contains dates or ISO strings
+      const isDate = sortedData.some(
         (d) =>
           d[metadata.xAxis!] instanceof Date ||
           (typeof d[metadata.xAxis!] === "string" &&
@@ -198,7 +209,7 @@ export const D3Chart: React.FC<D3ChartProps> = ({
       let x: d3.ScaleBand<string> | d3.ScaleTime<number, number>;
 
       if (isDate) {
-        const dateData = data.map((d) => ({
+        const dateData = sortedData.map((d) => ({
           ...d,
           [metadata.xAxis!]:
             typeof d[metadata.xAxis!] === "string"
@@ -217,14 +228,14 @@ export const D3Chart: React.FC<D3ChartProps> = ({
       } else {
         x = d3
           .scaleBand()
-          .domain(data.map((d) => String(d[metadata.xAxis!])))
+          .domain(sortedData.map((d) => String(d[metadata.xAxis!])))
           .range([margin.left, width - margin.right])
           .padding(0.1);
       }
 
       let allValues: number[] = [];
       series.forEach((metric) => {
-        const values = data.map((d) => +d[metric] || 0);
+        const values = sortedData.map((d) => +d[metric] || 0);
         allValues = [...allValues, ...values];
       });
 
@@ -233,7 +244,7 @@ export const D3Chart: React.FC<D3ChartProps> = ({
 
       const y = d3
         .scaleLinear()
-        .domain([yMin, yMax * 1.1])
+        .domain([yMin, yMax * 1.1]) // Add 10% padding at the top
         .range([height - margin.bottom, margin.top]);
 
       const colorScale = d3.scaleOrdinal([
@@ -276,49 +287,51 @@ export const D3Chart: React.FC<D3ChartProps> = ({
 
       yAxis.selectAll("path").attr("stroke", "#ccc");
 
+      // Create a line generator
       const line = d3
         .line<any>()
         .x((d) => {
           return isDate
-            ? (x as d3.ScaleTime<number, number>)(new Date(d[metadata.xAxis!]))
+            ? (x as d3.ScaleTime<number, number>)(
+                typeof d[metadata.xAxis!] === "string"
+                  ? new Date(d[metadata.xAxis!])
+                  : (d[metadata.xAxis!] as Date)
+              )
             : (x as d3.ScaleBand<string>)(String(d[metadata.xAxis!]))! +
                 (x as d3.ScaleBand<string>).bandwidth() / 2;
         })
-        .y((d) => y(d.value))
-        .curve(d3.curveMonotoneX);
+        .y((d) => y(+d[series[0]] || 0))
+        .curve(d3.curveMonotoneX); // Smooth curve
 
-      series.forEach((metric, i) => {
-        const seriesData = data.map((d) => ({
-          ...d,
-          value: +d[metric] || 0,
-        }));
+      // Add the line path
+      g.append("path")
+        .datum(sortedData)
+        .attr("fill", "none")
+        .attr("stroke", "#ff6b6b") // Neo-brutalist pink
+        .attr("stroke-width", 3)
+        .attr("d", line);
 
-        g.append("path")
-          .datum(seriesData)
-          .attr("fill", "none")
-          .attr("stroke", colorScale(metric))
-          .attr("stroke-width", 3)
-          .attr("d", line);
-
-        g.selectAll(`.dot-${i}`)
-          .data(seriesData)
-          .enter()
-          .append("circle")
-          .attr("class", `dot-${i}`)
-          .attr("cx", (d) => {
-            return isDate
-              ? (x as d3.ScaleTime<number, number>)(
-                  new Date(d[metadata.xAxis!])
-                )
-              : (x as d3.ScaleBand<string>)(String(d[metadata.xAxis!]))! +
-                  (x as d3.ScaleBand<string>).bandwidth() / 2;
-          })
-          .attr("cy", (d) => y(d.value))
-          .attr("r", 5)
-          .attr("fill", colorScale(metric))
-          .attr("stroke", "#fff")
-          .attr("stroke-width", 2);
-      });
+      // Add data points as circles
+      g.selectAll(".data-point")
+        .data(sortedData)
+        .enter()
+        .append("circle")
+        .attr("class", "data-point")
+        .attr("cx", (d) =>
+          isDate
+            ? (x as d3.ScaleTime<number, number>)(
+                typeof d[metadata.xAxis!] === "string"
+                  ? new Date(d[metadata.xAxis!])
+                  : (d[metadata.xAxis!] as Date)
+              )
+            : (x as d3.ScaleBand<string>)(String(d[metadata.xAxis!]))! +
+              (x as d3.ScaleBand<string>).bandwidth() / 2
+        )
+        .attr("cy", (d) => y(+d[series[0]] || 0))
+        .attr("r", 5)
+        .attr("fill", "#ff6b6b")
+        .attr("stroke", "#fff")
+        .attr("stroke-width", 2);
 
       g.append("g")
         .attr("class", "grid")
@@ -332,6 +345,145 @@ export const D3Chart: React.FC<D3ChartProps> = ({
         .attr("y1", (d) => y(d))
         .attr("y2", (d) => y(d))
         .attr("stroke", "#000");
+
+      // Add tooltip
+      const tooltip = d3
+        .select("body")
+        .append("div")
+        .attr("class", "chart-tooltip")
+        .style("position", "absolute")
+        .style("padding", "8px")
+        .style("background", "rgba(0, 0, 0, 0.7)")
+        .style("color", "white")
+        .style("border-radius", "4px")
+        .style("font-size", "12px")
+        .style("pointer-events", "none")
+        .style("opacity", 0)
+        .style("z-index", "100");
+
+      // Create a vertical line for hover
+      const verticalLine = g
+        .append("line")
+        .attr("class", "hover-line")
+        .attr("y1", margin.top)
+        .attr("y2", height - margin.bottom)
+        .style("stroke", "#888")
+        .style("stroke-width", 1)
+        .style("stroke-dasharray", "5,5")
+        .style("opacity", 0);
+
+      // Create a voronoi overlay for better interaction
+      const voronoiData = sortedData.map((d, i) => {
+        const xValue = d[metadata.xAxis!];
+        const xPos = isDate
+          ? (x as d3.ScaleTime<number, number>)(
+              typeof xValue === "string" ? new Date(xValue) : (xValue as Date)
+            )
+          : (x as d3.ScaleBand<string>)(String(xValue))! +
+            (x as d3.ScaleBand<string>).bandwidth() / 2;
+
+        const yValue = +d[metadata.yAxis as string] || 0;
+        const yPos = y(yValue);
+
+        return {
+          x: xPos,
+          y: yPos,
+          data: d,
+          index: i,
+        };
+      });
+
+      const delaunay = d3.Delaunay.from(voronoiData.map((d) => [d.x, d.y]));
+
+      const voronoi = delaunay.voronoi([
+        margin.left,
+        margin.top,
+        width - margin.right,
+        height - margin.bottom,
+      ]);
+
+      // Add invisible overlay for mouse interaction
+      g.append("rect")
+        .attr("class", "overlay")
+        .attr("x", margin.left)
+        .attr("y", margin.top)
+        .attr("width", width - margin.left - margin.right)
+        .attr("height", height - margin.top - margin.bottom)
+        .style("fill", "none")
+        .style("pointer-events", "all")
+        .on("mousemove", function (event) {
+          const [mx, my] = d3.pointer(event);
+          const dataIndex = delaunay.find(mx, my);
+          const d = sortedData[dataIndex];
+
+          if (!d) return;
+
+          const xValue = d[metadata.xAxis!];
+          const xPos = isDate
+            ? (x as d3.ScaleTime<number, number>)(
+                typeof xValue === "string" ? new Date(xValue) : (xValue as Date)
+              )
+            : (x as d3.ScaleBand<string>)(String(xValue))! +
+              (x as d3.ScaleBand<string>).bandwidth() / 2;
+
+          // Position the vertical line
+          verticalLine.attr("x1", xPos).attr("x2", xPos).style("opacity", 1);
+
+          // Format tooltip content
+          let content = `<strong>${xValue}</strong><br/>`;
+
+          // Add timestamp formatting if it exists
+          if (d.timestamp) {
+            const timestamp = new Date(d.timestamp);
+            const formattedDate = timestamp.toLocaleDateString();
+            const formattedTime = timestamp.toLocaleTimeString();
+            content += `<div style="font-size:10px;opacity:0.7">${formattedDate} ${formattedTime}</div>`;
+          }
+
+          // Add metrics
+          const metrics = Array.isArray(metadata.yAxis)
+            ? (metadata.yAxis as string[])
+            : [metadata.yAxis as string];
+
+          metrics.forEach((metric) => {
+            // Handle snake_case/camelCase variations of field names
+            let value = +d[metric] || 0;
+
+            // If we couldn't find the value directly, try alternate field names
+            if (
+              value === 0 &&
+              metric === "count" &&
+              d.transaction_count !== undefined
+            ) {
+              value = +d.transaction_count;
+            } else if (
+              value === 0 &&
+              metric === "count" &&
+              d.transactionCount !== undefined
+            ) {
+              value = +d.transactionCount;
+            }
+
+            const formattedValue = Number.isInteger(value)
+              ? value.toString()
+              : value.toFixed(2);
+
+            // Use more human-readable field name for display
+            const displayMetric = metric === "count" ? "Count" : metric;
+            content += `${displayMetric}: <strong>${formattedValue}</strong><br/>`;
+          });
+
+          // Position and show tooltip
+          tooltip
+            .html(content)
+            .style("left", `${event.pageX + 15}px`)
+            .style("top", `${event.pageY - 28}px`)
+            .style("opacity", 1);
+        })
+        .on("mouseleave", function () {
+          tooltip.style("opacity", 0);
+          verticalLine.style("opacity", 0);
+        });
     } catch (error: any) {
       console.error("Error generating line chart:", error);
       g.append("text")
@@ -493,47 +645,195 @@ export const D3Chart: React.FC<D3ChartProps> = ({
     height: number
   ) => {
     const { data, metadata } = chartData;
-    const categories = Array.from(
-      new Set(data.map((d) => d[metadata.groupBy!]))
-    );
 
-    const x = d3
-      .scaleBand()
-      .domain(data.map((d) => String(d[metadata.xAxis!])))
-      .range([0, width])
-      .padding(0.1);
+    // Clear any existing content
+    g.selectAll("*").remove();
 
-    const y = d3
-      .scaleLinear()
-      .domain([0, d3.max(data, (d) => d[metadata.yAxis as string])!])
-      .range([height, 0]);
+    try {
+      if (!data || !Array.isArray(data) || data.length === 0) {
+        throw new Error("Invalid data for stacked bar chart");
+      }
 
-    const color = d3.scaleOrdinal(d3.schemeCategory10).domain(categories);
+      const margin = { top: 20, right: 30, bottom: 40, left: 40 };
+      const innerWidth = width - margin.left - margin.right;
+      const innerHeight = height - margin.top - margin.bottom;
 
-    const stackedData = d3.stack().keys(categories)(data);
+      // Get category field (X-axis)
+      const categoryField = (metadata.xAxis as string) || "resource";
 
-    g.selectAll("g")
-      .data(stackedData)
-      .enter()
-      .append("g")
-      .attr("fill", (d) => color(d.key))
-      .selectAll("rect")
-      .data((d) => d)
-      .enter()
-      .append("rect")
-      .attr("x", (d) => {
-        const xValue = String(d.data[metadata.xAxis!]);
-        return x(xValue) || 0;
-      })
-      .attr("y", (d) => y(d[1]))
-      .attr("height", (d) => y(d[0]) - y(d[1]))
-      .attr("width", x.bandwidth());
+      // Get value field (Y-axis) - ensure it's a string, not a string array
+      const valueField = (metadata.yAxis as string) || "value";
 
-    g.append("g")
-      .attr("transform", `translate(0,${height})`)
-      .call(d3.axisBottom(x));
+      // Get grouping field
+      const groupField = (metadata.groupBy as string) || "type";
 
-    g.append("g").call(d3.axisLeft(y));
+      // Extract categories from the data
+      const categories = Array.from(
+        new Set(data.map((d) => d[categoryField] as string))
+      );
+
+      // Extract groups
+      let groups: string[] = [];
+
+      // Resource utilization special case - the data is structured differently
+      // We need to reshape it to work with D3's stack layout
+      const stackedData: any[] = [];
+
+      // Check if we have 'used' and 'available' fields (special case for resource utilization)
+      const isResourceFormat =
+        data.length > 0 && "used" in data[0] && "available" in data[0];
+
+      if (isResourceFormat) {
+        // Convert from {resource: "X", used: 10, available: 90} format
+        // to [{resource: "X", type: "used", value: 10}, {resource: "X", type: "available", value: 90}]
+        groups = ["used", "available"];
+
+        data.forEach((d) => {
+          const resourceName = d[categoryField] as string;
+
+          stackedData.push({
+            [categoryField]: resourceName,
+            type: "used",
+            value: d.used || 0,
+          });
+
+          stackedData.push({
+            [categoryField]: resourceName,
+            type: "available",
+            value: d.available || 0,
+          });
+        });
+      } else {
+        // Standard format - extract groups dynamically
+        groups = Array.from(new Set(data.map((d) => d[groupField] as string)));
+        stackedData.push(...data);
+      }
+
+      // Create X scale
+      const x = d3
+        .scaleBand()
+        .domain(categories)
+        .range([margin.left, width - margin.right])
+        .padding(0.3);
+
+      // Find the maximum stacked value - make sure to use string for valueField access
+      const valueFieldStr = valueField; // Create a local non-array reference
+      const stackedMax =
+        d3.max(categories, (category) => {
+          return d3.sum(groups, (group) => {
+            const filteredData = stackedData.filter(
+              (d) =>
+                d[categoryField] === category &&
+                d[groupField || "type"] === group
+            );
+            return filteredData.length > 0
+              ? (filteredData[0][valueFieldStr] as number)
+              : 0;
+          });
+        }) || 0;
+
+      // Create Y scale
+      const y = d3
+        .scaleLinear()
+        .domain([0, stackedMax * 1.1]) // Add 10% padding at the top
+        .range([height - margin.bottom, margin.top]);
+
+      // Color scale - Use more vibrant colors
+      const color = d3
+        .scaleOrdinal()
+        .domain(groups)
+        .range(["#06D6A0", "#E3E3E3"]); // Green for used, lighter gray for available
+
+      // Draw bars
+      categories.forEach((category) => {
+        let y0 = height - margin.bottom; // Start at the bottom
+
+        // Draw each group segment for this category
+        groups.forEach((group) => {
+          const filteredData = stackedData.filter(
+            (d) =>
+              d[categoryField] === category && d[groupField || "type"] === group
+          );
+
+          if (filteredData.length > 0) {
+            // Use the local valueField reference
+            const value = filteredData[0][valueFieldStr] as number;
+            const barHeight = innerHeight - y(value);
+            const xPosition = x(category);
+
+            if (xPosition !== undefined) {
+              // Draw bar segment
+              g.append("rect")
+                .attr("x", xPosition)
+                .attr("y", y0 - barHeight)
+                .attr("width", x.bandwidth())
+                .attr("height", barHeight)
+                .attr("fill", color(group) as string)
+                .attr("stroke", "#000")
+                .attr("stroke-width", 2);
+
+              // Update y0 for the next segment
+              y0 -= barHeight;
+
+              // Add text label if segment is large enough
+              if (barHeight > 20) {
+                g.append("text")
+                  .attr("x", xPosition + x.bandwidth() / 2)
+                  .attr("y", y0 + barHeight / 2)
+                  .attr("text-anchor", "middle")
+                  .attr("dominant-baseline", "middle")
+                  .attr("fill", group === "used" ? "#fff" : "#000")
+                  .attr("font-size", "12px")
+                  .attr("font-weight", "bold")
+                  .text(value);
+              }
+            }
+          }
+        });
+
+        // Add category label
+        const xPosition = x(category);
+        if (xPosition !== undefined) {
+          g.append("text")
+            .attr("x", xPosition + x.bandwidth() / 2)
+            .attr("y", height - margin.bottom + 20)
+            .attr("text-anchor", "middle")
+            .attr("font-size", "12px")
+            .attr("fill", "#333")
+            .text(category);
+        }
+      });
+
+      // Add legend
+      const legendX = width - margin.right - 120;
+      const legendY = margin.top;
+
+      groups.forEach((group, i) => {
+        g.append("rect")
+          .attr("x", legendX)
+          .attr("y", legendY + i * 20)
+          .attr("width", 15)
+          .attr("height", 15)
+          .attr("fill", color(group) as string)
+          .attr("stroke", "#000")
+          .attr("stroke-width", 1);
+
+        g.append("text")
+          .attr("x", legendX + 20)
+          .attr("y", legendY + i * 20 + 12)
+          .attr("font-size", "12px")
+          .attr("fill", "#333")
+          .text(group.charAt(0).toUpperCase() + group.slice(1)); // Capitalize first letter
+      });
+    } catch (error: any) {
+      console.error("Error generating stacked bar chart:", error);
+      g.append("text")
+        .attr("x", width / 2)
+        .attr("y", height / 2)
+        .attr("text-anchor", "middle")
+        .attr("fill", "red")
+        .text(`Error: ${error.message || "Unknown error"}`);
+    }
   };
 
   const drawBarChart = (
@@ -560,44 +860,85 @@ export const D3Chart: React.FC<D3ChartProps> = ({
       console.log("Drawing bar chart with data:", data);
       console.log("First data point example:", data[0]);
       console.log("X-axis field:", metadata.xAxis);
-      console.log("Y-axis field:", metadata.yAxis);
+      console.log("Y-axis fields:", metadata.yAxis);
 
-      // Define margin
-      const margin = { top: 30, right: 30, bottom: 70, left: 60 };
+      // Define larger left margin to accommodate legend and center the chart
+      // Increased top margin to move chart down
+      const margin = { top: 80, right: 30, bottom: 90, left: 80 };
       const innerWidth = width - margin.left - margin.right;
       const innerHeight = height - margin.top - margin.bottom;
+
+      // Get x-axis values
+      const xAxisField = metadata.xAxis;
+      const xValues = data.map((d) => String(d[xAxisField] || ""));
 
       // Define scales
       const x = d3
         .scaleBand()
-        .domain(data.map((d) => String(d[metadata.xAxis!])))
+        .domain(xValues)
         .range([0, innerWidth])
         .padding(0.2);
 
-      // Find the max y value
-      const yAxisField =
-        typeof metadata.yAxis === "string" ? metadata.yAxis : "count";
-      const yMax = d3.max(data, (d) => +d[yAxisField]) || 0;
+      // Determine y-axis fields (array or single string)
+      const yAxisFields = Array.isArray(metadata.yAxis)
+        ? metadata.yAxis
+        : [metadata.yAxis as string];
 
-      const y = d3
-        .scaleLinear()
-        .domain([0, yMax * 1.1]) // Add 10% padding at the top
-        .range([innerHeight, 0]);
+      // For each item, get the y values using either camelCase or snake_case field names
+      const getFieldValue = (item: any, fieldName: string): number => {
+        // Check for direct field match
+        if (fieldName in item) {
+          return Number(item[fieldName]) || 0;
+        }
+
+        // Check for snake_case version of camelCase field
+        const snakeCase = fieldName.replace(
+          /[A-Z]/g,
+          (m) => "_" + m.toLowerCase()
+        );
+        if (snakeCase in item) {
+          return Number(item[snakeCase]) || 0;
+        }
+
+        return 0;
+      };
+
+      // Find the maximum y value across all fields
+      let yMax = 0;
+      data.forEach((d) => {
+        yAxisFields.forEach((field) => {
+          const value = getFieldValue(d, field);
+          if (!isNaN(value) && value > yMax) {
+            yMax = value;
+          }
+        });
+      });
+
+      // Add 10% padding to yMax
+      yMax = yMax * 1.1;
+
+      const y = d3.scaleLinear().domain([0, yMax]).range([innerHeight, 0]);
 
       // Create a group element for the chart
       const chart = g
         .append("g")
         .attr("transform", `translate(${margin.left},${margin.top})`);
 
-      // Define color scheme
+      // Define color scheme for different metrics
       const colors = [
-        "#FF6384", // pink
-        "#36A2EB", // blue
-        "#FFCE56", // yellow
+        "#36A2EB", // blue for quantity
+        "#FF6384", // pink for lowStockThreshold
+        "#FFCE56", // yellow for overstockThreshold
         "#4BC0C0", // teal
         "#9966FF", // purple
         "#FF9F40", // orange
       ];
+
+      // Create a color scale for the different metrics
+      const colorScale = d3
+        .scaleOrdinal<string>()
+        .domain(yAxisFields)
+        .range(colors);
 
       // Add X axis
       chart
@@ -613,22 +954,87 @@ export const D3Chart: React.FC<D3ChartProps> = ({
       // Add Y axis
       chart
         .append("g")
-        .call(d3.axisLeft(y))
+        .call(d3.axisLeft(y).tickValues([0, 2, 4]))
         .selectAll("text")
         .attr("font-size", "10px")
         .attr("fill", "#333");
 
-      // Add X axis title
-      chart
-        .append("text")
-        .attr("text-anchor", "middle")
-        .attr("x", innerWidth / 2)
-        .attr("y", innerHeight + margin.bottom - 10)
-        .attr("font-size", "12px")
-        .attr("fill", "#333")
-        .text(metadata.xAxis);
+      // Calculate bar width based on the number of metrics
+      const groupWidth = x.bandwidth();
+      const barWidth = groupWidth / yAxisFields.length;
 
-      // Add Y axis title
+      // Draw grouped bars for each data point
+      data.forEach((d) => {
+        const xPos = x(String(d[xAxisField])) || 0;
+
+        // Draw bars for each metric
+        yAxisFields.forEach((field, fieldIndex) => {
+          const value = getFieldValue(d, field);
+
+          // Skip if value is NaN or zero
+          if (isNaN(value) || value === 0) return;
+
+          // Calculate bar position within the group
+          const barX = xPos + barWidth * fieldIndex;
+
+          // Draw the bar
+          chart
+            .append("rect")
+            .attr("x", barX)
+            .attr("y", y(value))
+            .attr("width", barWidth - 2) // Small gap between bars
+            .attr("height", innerHeight - y(value))
+            .attr("fill", colorScale(field))
+            .attr("stroke", "white")
+            .attr("stroke-width", 1)
+            .attr("rx", 4)
+            .attr("ry", 4);
+
+          // Add value label on top of the bar
+          chart
+            .append("text")
+            .attr("x", barX + barWidth / 2)
+            .attr("y", y(value) - 5)
+            .attr("text-anchor", "middle")
+            .attr("font-size", "10px")
+            .attr("fill", "#333")
+            .attr("font-weight", "bold")
+            .text(value);
+        });
+      });
+
+      // Add legend at the top left
+      const legend = chart
+        .append("g")
+        .attr("font-family", "sans-serif")
+        .attr("font-size", 10)
+        .attr("text-anchor", "start");
+
+      // Create legend entries horizontally at the top left
+      yAxisFields.forEach((field, i) => {
+        const legendItem = legend
+          .append("g")
+          .attr("transform", `translate(0, ${-margin.top / 2 + i * 20})`);
+
+        legendItem
+          .append("rect")
+          .attr("width", 15)
+          .attr("x", -120)
+          .attr("y", -30)
+          .attr("height", 15)
+          .attr("fill", colorScale(field));
+
+        legendItem
+          .append("text")
+          .attr("x", -100)
+          .attr("y", -20)
+          .text((d) => {
+            if (field === "lowStockThreshold") return "Low Stock Threshold";
+            if (field === "overstockThreshold") return "Overstock Threshold";
+            return field.charAt(0).toUpperCase() + field.slice(1);
+          });
+      });
+
       chart
         .append("text")
         .attr("text-anchor", "middle")
@@ -637,63 +1043,7 @@ export const D3Chart: React.FC<D3ChartProps> = ({
         .attr("y", -margin.left + 15)
         .attr("font-size", "12px")
         .attr("fill", "#333")
-        .text(yAxisField);
-
-      // Add grid lines
-      chart
-        .append("g")
-        .attr("class", "grid")
-        .attr("opacity", 0.1)
-        .selectAll("line")
-        .data(y.ticks(5))
-        .enter()
-        .append("line")
-        .attr("x1", 0)
-        .attr("x2", innerWidth)
-        .attr("y1", (d) => y(d))
-        .attr("y2", (d) => y(d))
-        .attr("stroke", "#000");
-
-      // Add the bars with gradient fill
-      chart
-        .selectAll(".bar")
-        .data(data)
-        .enter()
-        .append("rect")
-        .attr("class", "bar")
-        .attr("x", (d) => x(String(d[metadata.xAxis!]))!)
-        .attr("width", x.bandwidth())
-        .attr("y", (d) => y(+d[yAxisField]))
-        .attr("height", (d) => innerHeight - y(+d[yAxisField]))
-        .attr("fill", (_, i) => colors[i % colors.length])
-        .attr("rx", 4)
-        .attr("ry", 4);
-
-      // Add value labels on top of bars
-      chart
-        .selectAll(".label")
-        .data(data)
-        .enter()
-        .append("text")
-        .attr("class", "label")
-        .attr("text-anchor", "middle")
-        .attr("x", (d) => x(String(d[metadata.xAxis!]))! + x.bandwidth() / 2)
-        .attr("y", (d) => y(+d[yAxisField]) - 5)
-        .attr("font-size", "10px")
-        .attr("fill", "#333")
-        .attr("font-weight", "bold")
-        .text((d) => +d[yAxisField]);
-
-      // Add title
-      chart
-        .append("text")
-        .attr("x", innerWidth / 2)
-        .attr("y", -10)
-        .attr("text-anchor", "middle")
-        .attr("font-size", "14px")
-        .attr("font-weight", "bold")
-        .attr("fill", "#333")
-        .text("Order Pipeline");
+        .text("Count");
     } catch (error: any) {
       console.error("Error generating bar chart:", error);
       g.append("text")
@@ -903,10 +1253,15 @@ export const D3Chart: React.FC<D3ChartProps> = ({
     height: number
   ) => {
     try {
-      // Define margins
-      const margin = { top: 10, right: 10, bottom: 10, left: 10 };
+      // Define margins - increase horizontal margins to center the diagram
+      const margin = { top: 20, right: 80, bottom: 20, left: 80 };
       const innerWidth = width - margin.left - margin.right;
       const innerHeight = height - margin.top - margin.bottom;
+
+      // Add a group element to center the entire diagram
+      const diagramGroup = g
+        .append("g")
+        .attr("transform", `translate(${margin.left},${margin.top})`);
 
       // Check if we have actual sankey data with source/target properties
       if (!chartData.metadata.source || !chartData.metadata.target) {
@@ -937,7 +1292,7 @@ export const D3Chart: React.FC<D3ChartProps> = ({
       const { data } = chartData;
 
       // Clear any existing content
-      g.selectAll("*").remove();
+      diagramGroup.selectAll("*").remove();
 
       // Validate data
       if (!data || !Array.isArray(data) || data.length === 0) {
@@ -974,9 +1329,9 @@ export const D3Chart: React.FC<D3ChartProps> = ({
         value: +d[valueField] || 1,
       }));
 
-      // Define node width and padding
-      const nodeWidth = 40;
-      const nodePadding = 10;
+      // Define node width and padding - adjusted for better spacing
+      const nodeWidth = 50;
+      const nodePadding = 20;
 
       // Create a simple layout
       let layerCount = 0;
@@ -1062,6 +1417,10 @@ export const D3Chart: React.FC<D3ChartProps> = ({
       const totalWidth = innerWidth;
       const layerWidth = totalWidth / Math.max(1, layerCount);
 
+      // Find maximum nodes in any layer for vertical centering
+      const maxNodesInLayer = Math.max(...layerSizes);
+      const maxLayerHeight = innerHeight / maxNodesInLayer;
+
       // Position nodes
       nodes.forEach((node, i) => {
         const layer = nodeLayer.get(i) || 0;
@@ -1078,15 +1437,20 @@ export const D3Chart: React.FC<D3ChartProps> = ({
           }
         }
 
+        // Calculate vertical offset to center nodes in layers with fewer nodes
+        const verticalOffset =
+          (innerHeight - nodesInThisLayer * layerHeight) / 2;
+
         // Set node positions
         node.x0 = layer * layerWidth;
         node.x1 = node.x0 + nodeWidth;
-        node.y0 = posInLayer * layerHeight;
+        node.y0 = posInLayer * layerHeight + verticalOffset;
         node.y1 = node.y0 + layerHeight - nodePadding;
       });
 
       // Draw the links
-      g.selectAll(".link")
+      diagramGroup
+        .selectAll(".link")
         .data(links)
         .enter()
         .append("path")
@@ -1149,7 +1513,7 @@ export const D3Chart: React.FC<D3ChartProps> = ({
           const gradientId = `link-gradient-${d.source}-${d.target}`;
 
           // Create linear gradient
-          const gradient = g
+          const gradient = diagramGroup
             .append("linearGradient")
             .attr("id", gradientId)
             .attr("gradientUnits", "userSpaceOnUse")
@@ -1180,7 +1544,7 @@ export const D3Chart: React.FC<D3ChartProps> = ({
         .attr("opacity", 0.7);
 
       // Draw the nodes
-      const nodeGroups = g
+      const nodeGroups = diagramGroup
         .selectAll(".node")
         .data(nodes)
         .enter()
@@ -1199,7 +1563,7 @@ export const D3Chart: React.FC<D3ChartProps> = ({
         .attr("fill", "#333") // Dark color for labels
         .text((d) => d.name);
 
-      // Add rectangles for nodes (remove the text inside)
+      // Add rectangles for nodes
       nodeGroups
         .append("rect")
         .attr("width", (d) => (d.x1 || 0) - (d.x0 || 0))
@@ -1222,7 +1586,8 @@ export const D3Chart: React.FC<D3ChartProps> = ({
         .attr("ry", 4);
 
       // Add value labels on links
-      g.selectAll(".link-label")
+      diagramGroup
+        .selectAll(".link-label")
         .data(links)
         .enter()
         .append("text")
@@ -1242,7 +1607,8 @@ export const D3Chart: React.FC<D3ChartProps> = ({
           );
         })
         .attr("text-anchor", "middle")
-        .attr("font-size", "10px")
+        .attr("font-size", "12px")
+        .attr("font-weight", "bold")
         .attr("fill", "#000")
         .attr("stroke", "#fff")
         .attr("stroke-width", 3)
@@ -1266,32 +1632,206 @@ export const D3Chart: React.FC<D3ChartProps> = ({
     height: number
   ) => {
     const { data, metadata } = chartData;
-    const color = d3.scaleOrdinal(d3.schemeCategory10);
-    const radius = Math.min(width, height) / 2;
-    const gauge = d3.arc().innerRadius(0).outerRadius(radius);
 
-    const arcs = g
-      .selectAll(".arc")
-      .data(data)
-      .enter()
-      .append("g")
-      .attr("class", "arc")
-      .attr("transform", `translate(${width / 2},${height / 2})`);
+    if (!data || data.length === 0) {
+      return console.error("No data for gauge chart");
+    }
 
-    arcs
-      .append("path")
-      .attr("d", gauge)
-      .attr("fill", (_, i) => color(i as unknown as string));
+    // Clear any existing content
+    g.selectAll("*").remove();
 
-    arcs
-      .append("text")
-      .attr("transform", (d) => `translate(${gauge.centroid(d)})`)
+    // Use the first data point
+    const dataPoint = data[0];
+    const totalOrders = dataPoint.total_orders || 0;
+    const completedOrders = dataPoint.completed_orders || 0;
+    const completionRate = dataPoint.completion_rate || 0;
+
+    // Calculate completion percentage (with safety checks)
+    const percentValue =
+      completionRate > 1
+        ? completionRate
+        : totalOrders > 0
+        ? Math.round((completedOrders / totalOrders) * 100)
+        : 0;
+
+    // Setup gauge dimensions
+    const radius = Math.min(width, height) * 0.45;
+
+    // Position the gauge in the center of the available space
+    const centerX = width / 2;
+    const centerY = height / 2;
+
+    // Define gauge arc parameters - half circle from bottom left to bottom right
+    // π radians = 180 degrees
+    const startAngle = Math.PI; // 180 degrees (bottom left)
+    const endAngle = 0; // 0 degrees (top)
+    const endAngle2 = -Math.PI; // -180 degrees (bottom right)
+
+    // Create an arc generator for the gauge background (180 degrees)
+    const arc = d3
+      .arc()
+      .innerRadius(radius * 0.6)
+      .outerRadius(radius)
+      .startAngle(startAngle)
+      .endAngle(endAngle2);
+
+    // Create the gauge background arc
+    g.append("path")
+      .attr("d", arc as any)
+      .attr("fill", "#f3f4f6")
+      .attr("stroke", "#000")
+      .attr("stroke-width", 2)
+      .attr("transform", `translate(${centerX},${centerY})`);
+
+    // Add tick marks and labels for major values (0, 25, 50, 75, 100)
+    const tickData = [0, 25, 50, 75, 100];
+
+    // Draw major ticks and labels
+    tickData.forEach((tick) => {
+      // Convert percentage to angle (0% = 180°, 50% = 0°, 100% = -180°)
+      const tickAngle = startAngle - (tick / 100) * (2 * Math.PI);
+
+      // Calculate tick line coordinates
+      const innerPoint = {
+        x: centerX + Math.cos(tickAngle) * (radius * 0.6),
+        y: centerY + Math.sin(tickAngle) * (radius * 0.6),
+      };
+      const outerPoint = {
+        x: centerX + Math.cos(tickAngle) * (radius * 1.05),
+        y: centerY + Math.sin(tickAngle) * (radius * 1.05),
+      };
+
+      // Draw tick line
+      g.append("line")
+        .attr("x1", innerPoint.x)
+        .attr("y1", innerPoint.y)
+        .attr("x2", outerPoint.x)
+        .attr("y2", outerPoint.y)
+        .attr("stroke", "#000")
+        .attr("stroke-width", 2);
+
+      // Add tick label
+      g.append("text")
+        .attr("x", centerX + Math.cos(tickAngle) * (radius * 1.15))
+        .attr("y", centerY + Math.sin(tickAngle) * (radius * 1.15))
+        .attr("text-anchor", "middle")
+        .attr("dominant-baseline", "middle")
+        .attr("font-size", "12px")
+        .attr("fill", "#000")
+        .attr("font-weight", tick === 0 || tick === 100 ? "bold" : "normal")
+        .text(`${tick}%`);
+    });
+
+    // Draw minor tick marks (without labels)
+    for (let i = 1; i < 20; i++) {
+      const tick = i * 5; // 5, 10, 15, ... 95
+      if (tickData.includes(tick)) continue; // Skip major ticks already drawn
+
+      const tickAngle = startAngle - (tick / 100) * (2 * Math.PI);
+      const innerPoint = {
+        x: centerX + Math.cos(tickAngle) * (radius * 0.7),
+        y: centerY + Math.sin(tickAngle) * (radius * 0.7),
+      };
+      const outerPoint = {
+        x: centerX + Math.cos(tickAngle) * radius,
+        y: centerY + Math.sin(tickAngle) * radius,
+      };
+
+      // Draw minor tick line (lighter, thinner)
+      g.append("line")
+        .attr("x1", innerPoint.x)
+        .attr("y1", innerPoint.y)
+        .attr("x2", outerPoint.x)
+        .attr("y2", outerPoint.y)
+        .attr("stroke", "#777")
+        .attr("stroke-width", 1);
+    }
+
+    // Add the needle
+    const needleAngle = startAngle - (percentValue / 100) * (2 * Math.PI);
+    const needleLength = radius * 0.85;
+
+    // Create needle
+    g.append("line")
+      .attr("x1", centerX)
+      .attr("y1", centerY)
+      .attr("x2", centerX + Math.cos(needleAngle) * needleLength)
+      .attr("y2", centerY + Math.sin(needleAngle) * needleLength)
+      .attr("stroke", "#FF4560")
+      .attr("stroke-width", 4)
+      .attr("stroke-linecap", "round");
+
+    // Add a pivot circle at the needle base
+    g.append("circle")
+      .attr("cx", centerX)
+      .attr("cy", centerY)
+      .attr("r", radius * 0.08)
+      .attr("fill", "#666")
+      .attr("stroke", "#000")
+      .attr("stroke-width", 1);
+
+    // Add text labels - central placement like in the image
+    // Total Orders (centered at top)
+    g.append("text")
+      .attr("x", centerX)
+      .attr("y", centerY - radius * 0.2)
       .attr("text-anchor", "middle")
-      .text((d) => d[metadata.metric!]);
+      .attr("font-size", "14px")
+      .attr("font-weight", "bold")
+      .attr("fill", "#000")
+      .text("Total Orders");
 
-    return () => {
-      arcs.remove();
-    };
+    g.append("text")
+      .attr("x", centerX)
+      .attr("y", centerY)
+      .attr("text-anchor", "middle")
+      .attr("font-size", "24px")
+      .attr("font-weight", "bold")
+      .attr("fill", "#000")
+      .text(totalOrders.toString());
+
+    // Completed (left bottom)
+    g.append("text")
+      .attr("x", centerX - radius * 0.3)
+      .attr("y", centerY + radius * 0.3)
+      .attr("text-anchor", "middle")
+      .attr("font-size", "12px")
+      .attr("fill", "#555")
+      .text("Completed");
+
+    g.append("text")
+      .attr("x", centerX - radius * 0.3)
+      .attr("y", centerY + radius * 0.5)
+      .attr("text-anchor", "middle")
+      .attr("font-size", "14px")
+      .attr("font-weight", "bold")
+      .attr("fill", "#000")
+      .text(completedOrders.toString());
+
+    // Completion (right bottom)
+    g.append("text")
+      .attr("x", centerX + radius * 0.3)
+      .attr("y", centerY + radius * 0.3)
+      .attr("text-anchor", "middle")
+      .attr("font-size", "12px")
+      .attr("fill", "#555")
+      .text("Completion");
+
+    g.append("text")
+      .attr("x", centerX + radius * 0.3)
+      .attr("y", centerY + radius * 0.5)
+      .attr("text-anchor", "middle")
+      .attr("font-size", "14px")
+      .attr("font-weight", "bold")
+      .attr("fill", percentValue > 50 ? "#0CAA41" : "#FF4560")
+      .text(`${percentValue}%`);
+
+    // Helper function to get color based on percentage
+    function getColorForPercentage(pct: number) {
+      if (pct < 30) return "#FF6B6B"; // Red
+      if (pct < 70) return "#FFD166"; // Yellow
+      return "#06D6A0"; // Green
+    }
   };
 
   const drawComboChart = (

@@ -144,12 +144,25 @@ pub fn create_router(state: SharedState) -> Router {
     let analytics_routes = Router::new()
         // Inventory Analytics
         .route(
-            "/inventory/stock-levels",
+            "/inventory/stock-trends",
             get(analytics_handlers::get_stock_level_trends),
         )
         .route(
             "/inventory/distribution",
             get(analytics_handlers::get_inventory_distribution),
+        )
+        .route(
+            "/inventory/warehouse-distribution",
+            get(analytics_handlers::get_warehouse_distribution),
+        )
+        .route(
+            "/inventory/reorder-points",
+            get(analytics_handlers::get_reorder_points),
+        )
+        // Keep the old routes for backward compatibility
+        .route(
+            "/inventory/stock-levels",
+            get(analytics_handlers::get_stock_level_trends),
         )
         .route(
             "/inventory/warehouse",

@@ -87,6 +87,9 @@ const PerformanceAnalytics: React.FC = () => {
               ) : realTimeMetrics ? (
                 <D3Chart data={realTimeMetrics} height={300} />
               ) : null}
+              <div className="mt-4 text-sm text-gray-600">
+                Displaying real-time order metrics and completion rates.
+              </div>
             </div>
 
             <div className="bg-white p-6 rounded-lg border-[3px] border-black shadow-neo">
@@ -96,6 +99,9 @@ const PerformanceAnalytics: React.FC = () => {
               ) : trends ? (
                 <D3Chart data={trends} height={300} />
               ) : null}
+              <div className="mt-4 text-sm text-gray-600">
+                Showing trends in order volume and completion rates over time.
+              </div>
             </div>
 
             <div className="bg-white p-6 rounded-lg border-[3px] border-black shadow-neo">
@@ -105,6 +111,9 @@ const PerformanceAnalytics: React.FC = () => {
               ) : health ? (
                 <D3Chart data={health} height={300} />
               ) : null}
+              <div className="mt-4 text-sm text-gray-600">
+                Monitoring system health and order processing status.
+              </div>
             </div>
 
             <div className="bg-white p-6 rounded-lg border-[3px] border-black shadow-neo">
@@ -114,6 +123,9 @@ const PerformanceAnalytics: React.FC = () => {
               ) : resources ? (
                 <D3Chart data={resources} height={300} />
               ) : null}
+              <div className="mt-4 text-sm text-gray-600">
+                Tracking resource usage and efficiency metrics.
+              </div>
             </div>
           </div>
         </div>

@@ -78,27 +78,27 @@ impl AnalyticsService {
     }
 
     pub async fn get_stock_movements(&self) -> Result<TransactionVolumeResponse> {
-        let data = self.repository.get_transaction_volume().await?;
+        let data = self.repository.get_stock_movements().await?;
         Ok(data)
     }
 
     pub async fn get_transaction_metrics(&self) -> Result<TransactionVolumeResponse> {
-        let data = self.repository.get_transaction_volume().await?;
+        let data = self.repository.get_transaction_metrics().await?;
         Ok(data)
     }
 
     pub async fn get_transaction_patterns(&self) -> Result<TransactionVolumeResponse> {
-        let data = self.repository.get_transaction_volume().await?;
+        let data = self.repository.get_transaction_patterns().await?;
         Ok(data)
     }
 
     pub async fn get_transaction_clusters(&self) -> Result<TransactionVolumeResponse> {
-        let data = self.repository.get_transaction_volume().await?;
+        let data = self.repository.get_transaction_clusters().await?;
         Ok(data)
     }
 
     pub async fn get_transaction_flow(&self) -> Result<TransactionVolumeResponse> {
-        let data = self.repository.get_transaction_volume().await?;
+        let data = self.repository.get_transaction_flow().await?;
         Ok(data)
     }
 
@@ -109,17 +109,17 @@ impl AnalyticsService {
     }
 
     pub async fn get_performance_trends(&self) -> Result<RealTimeMetricsResponse> {
-        let data = self.repository.get_real_time_metrics().await?;
+        let data = self.repository.get_performance_trends().await?;
         Ok(data)
     }
 
     pub async fn get_system_health(&self) -> Result<RealTimeMetricsResponse> {
-        let data = self.repository.get_real_time_metrics().await?;
+        let data = self.repository.get_system_health().await?;
         Ok(data)
     }
 
     pub async fn get_resource_utilization(&self) -> Result<RealTimeMetricsResponse> {
-        let data = self.repository.get_real_time_metrics().await?;
+        let data = self.repository.get_resource_utilization().await?;
         Ok(data)
     }
 
@@ -130,22 +130,22 @@ impl AnalyticsService {
     }
 
     pub async fn get_revenue_analysis(&self) -> Result<FinancialAnalyticsResponse> {
-        let data = self.repository.get_financial_analytics().await?;
+        let data = self.repository.get_revenue_analysis().await?;
         Ok(data)
     }
 
     pub async fn get_hierarchical_data(&self) -> Result<FinancialAnalyticsResponse> {
-        let data = self.repository.get_financial_analytics().await?;
+        let data = self.repository.get_hierarchical_data().await?;
         Ok(data)
     }
 
     pub async fn get_forecast_data(&self) -> Result<FinancialAnalyticsResponse> {
-        let data = self.repository.get_financial_analytics().await?;
+        let data = self.repository.get_forecast_data().await?;
         Ok(data)
     }
 
     pub async fn get_trend_predictions(&self) -> Result<FinancialAnalyticsResponse> {
-        let data = self.repository.get_financial_analytics().await?;
+        let data = self.repository.get_trend_predictions().await?;
         Ok(data)
     }
 }

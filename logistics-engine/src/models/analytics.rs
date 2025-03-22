@@ -1,5 +1,6 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use serde_json;
 use sqlx::types::Uuid;
 
 // Common metadata structures
@@ -63,7 +64,7 @@ pub struct ComboChartMetadata {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StockLevelTrendData {
     pub date: DateTime<Utc>,
-    pub quantity: i64,
+    pub quantity: f64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -151,8 +152,22 @@ pub struct TransactionVolumeData {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TransactionVolumeResponse {
-    pub data: Vec<TransactionVolumeData>,
-    pub metadata: LineChartMetadata,
+    pub data: serde_json::Value,
+    #[serde(flatten)]
+    pub metadata: ChartMetadata,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum ChartMetadata {
+    Line(LineChartMetadata),
+    Pie(PieChartMetadata),
+    Bar(BarChartMetadata),
+    StackedBar(StackedBarChartMetadata),
+    Sankey(SankeyChartMetadata),
+    Funnel(FunnelChartMetadata),
+    Gauge(GaugeChartMetadata),
+    Combo(ComboChartMetadata),
 }
 
 // Real-time Metrics

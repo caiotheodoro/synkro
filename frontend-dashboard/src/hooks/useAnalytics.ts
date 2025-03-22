@@ -1,5 +1,6 @@
 import { useState, useCallback } from "react";
 import { ApiService } from "@/services/api.service";
+import { TimeSeriesHelper } from "@/utils/chartHelpers";
 
 const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
 const apiService = new ApiService({ baseUrl });
@@ -28,6 +29,21 @@ const validateChartData = (data: ChartData): ChartData => {
   }
 
   const validatedData = JSON.parse(JSON.stringify(data));
+
+  // Map snake_case field names to camelCase if needed
+  const meta = validatedData.metadata as any;
+
+  if (meta.x_axis && !meta.xAxis) {
+    validatedData.metadata.xAxis = meta.x_axis;
+  }
+
+  if (meta.y_axis && !meta.yAxis) {
+    validatedData.metadata.yAxis = meta.y_axis;
+  }
+
+  if (meta.group_by && !meta.groupBy) {
+    validatedData.metadata.groupBy = meta.group_by;
+  }
 
   // Check if the data appears to be status counts but is labeled as sankey
   if (
@@ -334,30 +350,144 @@ export const useAnalytics = () => {
       );
       return validateChartData({
         data: [
-          { warehouse: "North", count: 230 },
-          { warehouse: "South", count: 190 },
-          { warehouse: "East", count: 150 },
-          { warehouse: "West", count: 210 },
+          {
+            warehouse: "New York City Warehouse",
+            category: "Electronics",
+            item_count: 2,
+          },
+          {
+            warehouse: "Los Angeles Warehouse",
+            category: "Clothing",
+            item_count: 2,
+          },
+          {
+            warehouse: "Los Angeles Warehouse",
+            category: "Electronics",
+            item_count: 1,
+          },
+          {
+            warehouse: "Atlanta Warehouse",
+            category: "Home Goods",
+            item_count: 1,
+          },
+          {
+            warehouse: "Seattle Warehouse",
+            category: "Home Goods",
+            item_count: 1,
+          },
+          {
+            warehouse: "Atlanta Warehouse",
+            category: "Clothing",
+            item_count: 1,
+          },
+          {
+            warehouse: "Atlanta Warehouse",
+            category: "Electronics",
+            item_count: 1,
+          },
+          {
+            warehouse: "Chicago Warehouse",
+            category: "Home Goods",
+            item_count: 1,
+          },
+          {
+            warehouse: "Chicago Warehouse",
+            category: "Electronics",
+            item_count: 1,
+          },
+          {
+            warehouse: "Chicago Warehouse",
+            category: "Clothing",
+            item_count: 1,
+          },
+          {
+            warehouse: "New York City Warehouse",
+            category: "Home Goods",
+            item_count: 2,
+          },
+          {
+            warehouse: "Seattle Warehouse",
+            category: "Clothing",
+            item_count: 1,
+          },
         ],
         metadata: {
-          type: "pie",
-          dimension: "warehouse",
-          metric: "count",
+          type: "stacked-bar",
+          xAxis: "warehouse",
+          yAxis: "item_count",
+          groupBy: "category",
         },
       });
     } catch (err) {
       console.error("API error for warehouse-distribution:", err);
       return validateChartData({
         data: [
-          { warehouse: "North", count: 230 },
-          { warehouse: "South", count: 190 },
-          { warehouse: "East", count: 150 },
-          { warehouse: "West", count: 210 },
+          {
+            warehouse: "New York City Warehouse",
+            category: "Electronics",
+            item_count: 2,
+          },
+          {
+            warehouse: "Los Angeles Warehouse",
+            category: "Clothing",
+            item_count: 2,
+          },
+          {
+            warehouse: "Los Angeles Warehouse",
+            category: "Electronics",
+            item_count: 1,
+          },
+          {
+            warehouse: "Atlanta Warehouse",
+            category: "Home Goods",
+            item_count: 1,
+          },
+          {
+            warehouse: "Seattle Warehouse",
+            category: "Home Goods",
+            item_count: 1,
+          },
+          {
+            warehouse: "Atlanta Warehouse",
+            category: "Clothing",
+            item_count: 1,
+          },
+          {
+            warehouse: "Atlanta Warehouse",
+            category: "Electronics",
+            item_count: 1,
+          },
+          {
+            warehouse: "Chicago Warehouse",
+            category: "Home Goods",
+            item_count: 1,
+          },
+          {
+            warehouse: "Chicago Warehouse",
+            category: "Electronics",
+            item_count: 1,
+          },
+          {
+            warehouse: "Chicago Warehouse",
+            category: "Clothing",
+            item_count: 1,
+          },
+          {
+            warehouse: "New York City Warehouse",
+            category: "Home Goods",
+            item_count: 2,
+          },
+          {
+            warehouse: "Seattle Warehouse",
+            category: "Clothing",
+            item_count: 1,
+          },
         ],
         metadata: {
-          type: "pie",
-          dimension: "warehouse",
-          metric: "count",
+          type: "stacked-bar",
+          xAxis: "warehouse",
+          yAxis: "item_count",
+          groupBy: "category",
         },
       });
     } finally {
@@ -882,25 +1012,120 @@ export const useAnalytics = () => {
     setLoading(true);
     setError(null);
     try {
-      return await apiService.get<ChartData>(
+      const response = await apiService.get<ChartData>(
         "/api/analytics/transactions/volume"
       );
-    } catch (err) {
-      console.error("Using mock data for transaction-volume:", err);
-      return {
+
+      // If we have a valid response with data
+      if (response && response.data && response.data.length > 0) {
+        // Process and aggregate the time series data
+        const processedData = TimeSeriesHelper.transformTransactionVolumeData(
+          response.data,
+          response.metadata || {
+            type: "line",
+            xAxis: "hour",
+            yAxis: "transaction_count",
+          }
+        );
+
+        return validateChartData(processedData);
+      }
+
+      // If we get an empty response, use mock data
+      console.warn(
+        "Empty response from API for transaction-volume, using mock data"
+      );
+      return validateChartData({
         data: [
-          { date: "2023-01-01", count: 420 },
-          { date: "2023-02-01", count: 530 },
-          { date: "2023-03-01", count: 380 },
-          { date: "2023-04-01", count: 610 },
-          { date: "2023-05-01", count: 540 },
+          {
+            period: "May 25",
+            count: 420,
+            timestamp: "2024-05-25T00:00:00.000Z",
+          },
+          {
+            period: "May 26",
+            count: 530,
+            timestamp: "2024-05-26T00:00:00.000Z",
+          },
+          {
+            period: "May 27",
+            count: 380,
+            timestamp: "2024-05-27T00:00:00.000Z",
+          },
+          {
+            period: "May 28",
+            count: 610,
+            timestamp: "2024-05-28T00:00:00.000Z",
+          },
+          {
+            period: "May 29",
+            count: 540,
+            timestamp: "2024-05-29T00:00:00.000Z",
+          },
+          {
+            period: "May 30",
+            count: 490,
+            timestamp: "2024-05-30T00:00:00.000Z",
+          },
+          {
+            period: "May 31",
+            count: 720,
+            timestamp: "2024-05-31T00:00:00.000Z",
+          },
         ],
         metadata: {
-          type: "area",
-          xAxis: "date",
+          type: "line",
+          xAxis: "period",
           yAxis: "count",
         },
-      };
+      });
+    } catch (err) {
+      console.error("API error for transaction-volume:", err);
+      // Use the same mock data format as above
+      return validateChartData({
+        data: [
+          {
+            period: "May 25",
+            count: 420,
+            timestamp: "2024-05-25T00:00:00.000Z",
+          },
+          {
+            period: "May 26",
+            count: 530,
+            timestamp: "2024-05-26T00:00:00.000Z",
+          },
+          {
+            period: "May 27",
+            count: 380,
+            timestamp: "2024-05-27T00:00:00.000Z",
+          },
+          {
+            period: "May 28",
+            count: 610,
+            timestamp: "2024-05-28T00:00:00.000Z",
+          },
+          {
+            period: "May 29",
+            count: 540,
+            timestamp: "2024-05-29T00:00:00.000Z",
+          },
+          {
+            period: "May 30",
+            count: 490,
+            timestamp: "2024-05-30T00:00:00.000Z",
+          },
+          {
+            period: "May 31",
+            count: 720,
+            timestamp: "2024-05-31T00:00:00.000Z",
+          },
+        ],
+        metadata: {
+          type: "line",
+          xAxis: "period",
+          yAxis: "count",
+        },
+      });
     } finally {
       setLoading(false);
     }
@@ -910,25 +1135,43 @@ export const useAnalytics = () => {
     setLoading(true);
     setError(null);
     try {
-      return await apiService.get<ChartData>(
+      const response = await apiService.get<any>(
         "/api/analytics/transactions/stock-movements"
       );
+
+      // Check if metadata fields are at the top level and fix the structure
+      if (response && response.data && response.type && !response.metadata) {
+        // Create a properly formatted chartData object
+        const formattedResponse: ChartData = {
+          data: response.data,
+          metadata: {
+            type: response.type,
+            xAxis: response.x_axis || response.xAxis,
+            yAxis: response.y_axis || response.yAxis,
+            groupBy: response.group_by || response.groupBy,
+          },
+        };
+
+        return validateChartData(formattedResponse);
+      }
+
+      return validateChartData(response);
     } catch (err) {
       console.error("Using mock data for stock-movements:", err);
-      return {
+      return validateChartData({
         data: [
-          { item: "Electronics", in: 320, out: 280 },
-          { item: "Clothing", in: 240, out: 220 },
-          { item: "Home Goods", in: 180, out: 170 },
-          { item: "Books", in: 120, out: 90 },
+          { category: "Electronics", inbound: 320, outbound: 280 },
+          { category: "Clothing", inbound: 240, outbound: 220 },
+          { category: "Home Goods", inbound: 180, outbound: 170 },
+          { category: "Books", inbound: 120, outbound: 90 },
         ],
         metadata: {
           type: "stacked-bar",
-          xAxis: "item",
-          yAxis: "count",
+          xAxis: "category",
+          yAxis: "value",
           groupBy: "direction",
         },
-      };
+      });
     } finally {
       setLoading(false);
     }
@@ -938,12 +1181,29 @@ export const useAnalytics = () => {
     setLoading(true);
     setError(null);
     try {
-      return await apiService.get<ChartData>(
+      const response = await apiService.get<any>(
         "/api/analytics/transactions/metrics"
       );
+
+      // Check if metadata fields are at the top level and fix the structure
+      if (response && response.data && response.type && !response.metadata) {
+        // Create a properly formatted chartData object
+        const formattedResponse: ChartData = {
+          data: response.data,
+          metadata: {
+            type: response.type,
+            dimension: response.dimension,
+            metric: response.metric,
+          },
+        };
+
+        return validateChartData(formattedResponse);
+      }
+
+      return validateChartData(response);
     } catch (err) {
       console.error("Using mock data for transaction-metrics:", err);
-      return {
+      return validateChartData({
         data: [
           { metric: "Processed", value: 85 },
           { metric: "Pending", value: 12 },
@@ -954,7 +1214,7 @@ export const useAnalytics = () => {
           dimension: "metric",
           metric: "value",
         },
-      };
+      });
     } finally {
       setLoading(false);
     }
@@ -964,26 +1224,43 @@ export const useAnalytics = () => {
     setLoading(true);
     setError(null);
     try {
-      return await apiService.get<ChartData>(
+      const response = await apiService.get<any>(
         "/api/analytics/transactions/patterns"
       );
+
+      // Check if metadata fields are at the top level and fix the structure
+      if (response && response.data && response.type && !response.metadata) {
+        // Create a properly formatted chartData object
+        const formattedResponse: ChartData = {
+          data: response.data,
+          metadata: {
+            type: response.type,
+            xAxis: response.x_axis || response.xAxis,
+            yAxis: response.y_axis || response.yAxis,
+          },
+        };
+
+        return validateChartData(formattedResponse);
+      }
+
+      return validateChartData(response);
     } catch (err) {
       console.error("Using mock data for transaction-patterns:", err);
-      return {
+      return validateChartData({
         data: [
-          { hour: "00:00", value: 20 },
-          { hour: "04:00", value: 10 },
-          { hour: "08:00", value: 50 },
-          { hour: "12:00", value: 80 },
-          { hour: "16:00", value: 70 },
-          { hour: "20:00", value: 40 },
+          { hour: "00:00", count: 20 },
+          { hour: "04:00", count: 10 },
+          { hour: "08:00", count: 50 },
+          { hour: "12:00", count: 80 },
+          { hour: "16:00", count: 70 },
+          { hour: "20:00", count: 40 },
         ],
         metadata: {
           type: "line",
           xAxis: "hour",
-          yAxis: "value",
+          yAxis: "count",
         },
-      };
+      });
     } finally {
       setLoading(false);
     }
@@ -993,12 +1270,29 @@ export const useAnalytics = () => {
     setLoading(true);
     setError(null);
     try {
-      return await apiService.get<ChartData>(
+      const response = await apiService.get<any>(
         "/api/analytics/transactions/clusters"
       );
+
+      // Check if metadata fields are at the top level and fix the structure
+      if (response && response.data && response.type && !response.metadata) {
+        // Create a properly formatted chartData object
+        const formattedResponse: ChartData = {
+          data: response.data,
+          metadata: {
+            type: response.type,
+            dimension: response.dimension,
+            metric: response.metric,
+          },
+        };
+
+        return validateChartData(formattedResponse);
+      }
+
+      return validateChartData(response);
     } catch (err) {
       console.error("Using mock data for transaction-clusters:", err);
-      return {
+      return validateChartData({
         data: [
           { group: "Group A", value: 45 },
           { group: "Group B", value: 25 },
@@ -1010,7 +1304,7 @@ export const useAnalytics = () => {
           dimension: "group",
           metric: "value",
         },
-      };
+      });
     } finally {
       setLoading(false);
     }
@@ -1020,12 +1314,31 @@ export const useAnalytics = () => {
     setLoading(true);
     setError(null);
     try {
-      return await apiService.get<ChartData>(
+      const response = await apiService.get<any>(
         "/api/analytics/transactions/flow"
       );
+
+      // Check if metadata fields are at the top level and fix the structure
+      if (response && response.data && response.type && !response.metadata) {
+        // Create a properly formatted chartData object
+        const formattedResponse: ChartData = {
+          data: response.data,
+          metadata: {
+            type: response.type,
+            nodes: response.nodes,
+            source: response.source || "source",
+            target: response.target || "target",
+            value: response.value || "value",
+          },
+        };
+
+        return validateChartData(formattedResponse);
+      }
+
+      return validateChartData(response);
     } catch (err) {
       console.error("Using mock data for transaction-flow:", err);
-      return {
+      return validateChartData({
         data: [
           { source: "Initiation", target: "Processing", value: 100 },
           { source: "Processing", target: "Validation", value: 90 },
@@ -1039,7 +1352,7 @@ export const useAnalytics = () => {
           target: "target",
           value: "value",
         },
-      };
+      });
     } finally {
       setLoading(false);
     }
@@ -1050,23 +1363,48 @@ export const useAnalytics = () => {
     setLoading(true);
     setError(null);
     try {
-      return await apiService.get<ChartData>(
+      const response = await apiService.get<ChartData>(
         "/api/analytics/performance/metrics"
       );
+
+      if (response && response.data) {
+        // Pass through the raw data format for the gauge chart
+        return {
+          data: response.data,
+          metadata: {
+            type: "gauge",
+            metrics: ["total_orders", "completed_orders", "completion_rate"],
+          },
+        };
+      }
+
+      // Use mock data that matches the expected format and shows 0 initially
+      return {
+        data: [
+          {
+            total_orders: 0,
+            completed_orders: 0,
+            completion_rate: 0,
+          },
+        ],
+        metadata: {
+          type: "gauge",
+          metrics: ["total_orders", "completed_orders", "completion_rate"],
+        },
+      };
     } catch (err) {
       console.error("Using mock data for real-time-metrics:", err);
       return {
         data: [
-          { time: "10:00", cpu: 45, memory: 60, network: 35 },
-          { time: "10:05", cpu: 50, memory: 62, network: 40 },
-          { time: "10:10", cpu: 55, memory: 65, network: 38 },
-          { time: "10:15", cpu: 48, memory: 63, network: 42 },
-          { time: "10:20", cpu: 52, memory: 67, network: 45 },
+          {
+            total_orders: 0,
+            completed_orders: 0,
+            completion_rate: 0,
+          },
         ],
         metadata: {
-          type: "line",
-          xAxis: "time",
-          yAxis: "cpu",
+          type: "gauge",
+          metrics: ["total_orders", "completed_orders", "completion_rate"],
         },
       };
     } finally {
@@ -1078,23 +1416,62 @@ export const useAnalytics = () => {
     setLoading(true);
     setError(null);
     try {
-      return await apiService.get<ChartData>(
+      const response = await apiService.get<ChartData>(
         "/api/analytics/performance/trends"
       );
-    } catch (err) {
-      console.error("Using mock data for performance-trends:", err);
+
+      if (response && response.data) {
+        // Transform data for a line chart with proper fields
+        const formattedData = {
+          data: response.data.map((item, index) => ({
+            date: new Date(
+              Date.now() - (response.data.length - index) * 86400000
+            )
+              .toISOString()
+              .split("T")[0],
+            orders: item.total_orders || 0,
+            completion: item.completion_rate
+              ? Math.min(100, Math.max(-100, item.completion_rate))
+              : 0,
+          })),
+          metadata: {
+            type: "line",
+            xAxis: "date",
+            yAxis: "orders",
+            metrics: ["orders", "completion"],
+          },
+        };
+
+        return formattedData;
+      }
+
+      // Create a proper trend line chart with dates
       return {
         data: [
-          { date: "2023-01-01", response: 120 },
-          { date: "2023-02-01", response: 110 },
-          { date: "2023-03-01", response: 105 },
-          { date: "2023-04-01", response: 95 },
-          { date: "2023-05-01", response: 90 },
+          { date: "2023-01-01", orders: 3, completion: 0 },
+          { date: "2023-01-02", orders: 1, completion: 10 },
+          { date: "2023-01-03", orders: 2, completion: 15 },
         ],
         metadata: {
           type: "line",
           xAxis: "date",
-          yAxis: "response",
+          yAxis: "orders",
+          metrics: ["orders", "completion"],
+        },
+      };
+    } catch (err) {
+      console.error("Using mock data for performance-trends:", err);
+      return {
+        data: [
+          { date: "2023-01-01", orders: 3, completion: 0 },
+          { date: "2023-01-02", orders: 1, completion: 10 },
+          { date: "2023-01-03", orders: 2, completion: 15 },
+        ],
+        metadata: {
+          type: "line",
+          xAxis: "date",
+          yAxis: "orders",
+          metrics: ["orders", "completion"],
         },
       };
     } finally {
@@ -1106,23 +1483,55 @@ export const useAnalytics = () => {
     setLoading(true);
     setError(null);
     try {
-      return await apiService.get<ChartData>(
+      const response = await apiService.get<ChartData>(
         "/api/analytics/performance/health"
       );
+
+      if (response && response.data) {
+        // Pass through the raw data format for the gauge chart
+        // Just ensure we have the right format for our needle gauge
+        return {
+          data: response.data.map((item) => ({
+            total_orders: item.total_orders || 1,
+            completed_orders: Math.round(
+              (item.completion_rate || 0.85) * (item.total_orders || 1)
+            ),
+            completion_rate: item.completion_rate || 0.85,
+          })),
+          metadata: {
+            type: "gauge",
+            metrics: ["total_orders", "completed_orders", "completion_rate"],
+          },
+        };
+      }
+
+      // Use mock data that matches the expected format
+      return {
+        data: [
+          {
+            total_orders: 99,
+            completed_orders: 84,
+            completion_rate: 0.85,
+          },
+        ],
+        metadata: {
+          type: "gauge",
+          metrics: ["total_orders", "completed_orders", "completion_rate"],
+        },
+      };
     } catch (err) {
       console.error("Using mock data for system-health:", err);
       return {
         data: [
-          { component: "API Gateway", status: 95 },
-          { component: "Authentication", status: 98 },
-          { component: "Database", status: 92 },
-          { component: "Storage", status: 97 },
-          { component: "Processing", status: 94 },
+          {
+            total_orders: 99,
+            completed_orders: 84,
+            completion_rate: 0.85,
+          },
         ],
         metadata: {
           type: "gauge",
-          dimension: "component",
-          metric: "status",
+          metrics: ["total_orders", "completed_orders", "completion_rate"],
         },
       };
     } finally {
@@ -1134,17 +1543,62 @@ export const useAnalytics = () => {
     setLoading(true);
     setError(null);
     try {
-      return await apiService.get<ChartData>(
+      const response = await apiService.get<ChartData>(
         "/api/analytics/performance/resources"
       );
+
+      if (response && response.data) {
+        // Get the first data item
+        const item = response.data[0];
+        const totalOrders = item.total_orders || 1000;
+        const completedOrders = item.completed_orders || 0;
+        const utilizationRate = item.completion_rate
+          ? Math.min(100, Math.max(0, item.completion_rate * 100))
+          : 40;
+
+        // Transform data for a stacked bar chart showing resource utilization
+        const formattedData = {
+          data: [
+            {
+              resource: "Orders",
+              used: completedOrders,
+              available: totalOrders - completedOrders,
+            },
+            {
+              resource: "System",
+              used: Math.round(utilizationRate),
+              available: 100 - Math.round(utilizationRate),
+            },
+          ],
+          metadata: {
+            type: "stacked-bar",
+            xAxis: "resource",
+            yAxis: "value",
+            groupBy: "type",
+          },
+        };
+
+        return formattedData;
+      }
+
+      return {
+        data: [
+          { resource: "Orders", used: 376, available: 624 },
+          { resource: "System", used: 72, available: 28 },
+        ],
+        metadata: {
+          type: "stacked-bar",
+          xAxis: "resource",
+          yAxis: "value",
+          groupBy: "type",
+        },
+      };
     } catch (err) {
       console.error("Using mock data for resource-utilization:", err);
       return {
         data: [
-          { resource: "CPU", used: 65, available: 35 },
-          { resource: "Memory", used: 72, available: 28 },
-          { resource: "Storage", used: 45, available: 55 },
-          { resource: "Network", used: 58, available: 42 },
+          { resource: "Orders", used: 376, available: 624 },
+          { resource: "System", used: 72, available: 28 },
         ],
         metadata: {
           type: "stacked-bar",

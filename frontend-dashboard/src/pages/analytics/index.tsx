@@ -54,7 +54,7 @@ const analyticsOptions: AnalyticsOption[] = [
       "Data Flow",
     ],
   },
-  {
+  /*  {
     title: "Performance Analytics",
     description: "Track system performance, health, and resource utilization",
     href: "/analytics/performance",
@@ -65,7 +65,7 @@ const analyticsOptions: AnalyticsOption[] = [
       "System Health",
       "Resource Usage",
     ],
-  },
+  },*/
   {
     title: "Business Analytics",
     description: "Gain insights into financial performance and forecasts",

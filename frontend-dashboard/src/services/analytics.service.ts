@@ -27,9 +27,27 @@ export const analyticsService = {
     apiService.get<ChartData>("/api/analytics/inventory/distribution"),
 
   getWarehouseDistribution: () =>
-    apiService.get<ChartData>(
-      "/api/analytics/inventory/warehouse-distribution"
-    ),
+    apiService
+      .get<ChartData>("/api/analytics/inventory/warehouse-distribution")
+      .then((response) => {
+        // Fix field names if they're in snake_case
+        if (response && response.metadata) {
+          // Use type assertion to access potential snake_case properties
+          const meta = response.metadata as any;
+
+          // Map snake_case to camelCase for consistency
+          if (meta.x_axis && !meta.xAxis) {
+            response.metadata.xAxis = meta.x_axis;
+          }
+          if (meta.y_axis && !meta.yAxis) {
+            response.metadata.yAxis = meta.y_axis;
+          }
+          if (meta.group_by && !meta.groupBy) {
+            response.metadata.groupBy = meta.group_by;
+          }
+        }
+        return response;
+      }),
 
   getReorderPoints: () =>
     apiService.get<ChartData>("/api/analytics/inventory/reorder-points"),
