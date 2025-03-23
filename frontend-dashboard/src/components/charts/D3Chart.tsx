@@ -654,176 +654,144 @@ export const D3Chart: React.FC<D3ChartProps> = ({
         throw new Error("Invalid data for stacked bar chart");
       }
 
-      const margin = { top: 20, right: 30, bottom: 40, left: 40 };
+      const margin = { top: 20, right: 50, bottom: 50, left: 60 };
       const innerWidth = width - margin.left - margin.right;
       const innerHeight = height - margin.top - margin.bottom;
 
-      // Get category field (X-axis)
       const categoryField = (metadata.xAxis as string) || "resource";
-
-      // Get value field (Y-axis) - ensure it's a string, not a string array
       const valueField = (metadata.yAxis as string) || "value";
-
-      // Get grouping field
       const groupField = (metadata.groupBy as string) || "type";
 
-      // Extract categories from the data
       const categories = Array.from(
         new Set(data.map((d) => d[categoryField] as string))
       );
 
-      // Extract groups
       let groups: string[] = [];
-
-      // Resource utilization special case - the data is structured differently
-      // We need to reshape it to work with D3's stack layout
       const stackedData: any[] = [];
-
-      // Check if we have 'used' and 'available' fields (special case for resource utilization)
-      const isResourceFormat =
-        data.length > 0 && "used" in data[0] && "available" in data[0];
+      const isResourceFormat = "used" in data[0] && "available" in data[0];
 
       if (isResourceFormat) {
-        // Convert from {resource: "X", used: 10, available: 90} format
-        // to [{resource: "X", type: "used", value: 10}, {resource: "X", type: "available", value: 90}]
         groups = ["used", "available"];
-
         data.forEach((d) => {
-          const resourceName = d[categoryField] as string;
-
           stackedData.push({
-            [categoryField]: resourceName,
+            [categoryField]: d[categoryField],
             type: "used",
             value: d.used || 0,
           });
-
           stackedData.push({
-            [categoryField]: resourceName,
+            [categoryField]: d[categoryField],
             type: "available",
             value: d.available || 0,
           });
         });
       } else {
-        // Standard format - extract groups dynamically
         groups = Array.from(new Set(data.map((d) => d[groupField] as string)));
         stackedData.push(...data);
       }
 
-      // Create X scale
       const x = d3
         .scaleBand()
         .domain(categories)
         .range([margin.left, width - margin.right])
         .padding(0.3);
 
-      // Find the maximum stacked value - make sure to use string for valueField access
-      const valueFieldStr = valueField; // Create a local non-array reference
       const stackedMax =
-        d3.max(categories, (category) => {
-          return d3.sum(groups, (group) => {
-            const filteredData = stackedData.filter(
+        d3.max(categories, (category) =>
+          d3.sum(groups, (group) => {
+            const filteredData = stackedData.find(
               (d) =>
                 d[categoryField] === category &&
                 d[groupField || "type"] === group
             );
-            return filteredData.length > 0
-              ? (filteredData[0][valueFieldStr] as number)
-              : 0;
-          });
-        }) || 0;
+            return filteredData ? (filteredData[valueField] as number) : 0;
+          })
+        ) || 0;
 
-      // Create Y scale
       const y = d3
         .scaleLinear()
-        .domain([0, stackedMax * 1.1]) // Add 10% padding at the top
+        .domain([0, stackedMax * 1.1])
         .range([height - margin.bottom, margin.top]);
 
-      // Color scale - Use more vibrant colors
-      const color = d3
-        .scaleOrdinal()
-        .domain(groups)
-        .range(["#06D6A0", "#E3E3E3"]); // Green for used, lighter gray for available
+      const colors = [
+        "#36A2EB",
+        "#FF6384",
+        "#FFCE56",
+        "#4BC0C0",
+        "#9966FF",
+        "#FF9F40",
+      ];
+      const color = d3.scaleOrdinal<string>().domain(groups).range(colors);
 
-      // Draw bars
+      g.append("g")
+        .attr("transform", `translate(${margin.left}, 0)`)
+        .call(d3.axisLeft(y).ticks(5).tickSize(-innerWidth))
+        .selectAll("text")
+        .style("font-size", "12px");
+
+      g.append("g")
+        .attr("transform", `translate(0, ${height - margin.bottom})`)
+        .call(d3.axisBottom(x))
+        .selectAll("text")
+        .style("font-size", "12px")
+        .attr("transform", "rotate(-20)")
+        .style("text-anchor", "end");
+
       categories.forEach((category) => {
-        let y0 = height - margin.bottom; // Start at the bottom
+        let y0 = height - margin.bottom;
 
-        // Draw each group segment for this category
-        groups.forEach((group) => {
-          const filteredData = stackedData.filter(
+        groups.forEach((group, index) => {
+          const filteredData = stackedData.find(
             (d) =>
               d[categoryField] === category && d[groupField || "type"] === group
           );
 
-          if (filteredData.length > 0) {
-            // Use the local valueField reference
-            const value = filteredData[0][valueFieldStr] as number;
+          if (filteredData) {
+            const value = filteredData[valueField] as number;
             const barHeight = innerHeight - y(value);
             const xPosition = x(category);
 
             if (xPosition !== undefined) {
-              // Draw bar segment
               g.append("rect")
                 .attr("x", xPosition)
                 .attr("y", y0 - barHeight)
                 .attr("width", x.bandwidth())
                 .attr("height", barHeight)
-                .attr("fill", color(group) as string)
-                .attr("stroke", "#000")
-                .attr("stroke-width", 2);
+                .attr("fill", color(group) as string);
 
-              // Update y0 for the next segment
-              y0 -= barHeight;
-
-              // Add text label if segment is large enough
               if (barHeight > 20) {
                 g.append("text")
                   .attr("x", xPosition + x.bandwidth() / 2)
-                  .attr("y", y0 + barHeight / 2)
+                  .attr("y", y0 - barHeight / 2)
                   .attr("text-anchor", "middle")
                   .attr("dominant-baseline", "middle")
-                  .attr("fill", group === "used" ? "#fff" : "#000")
+                  .attr("fill", "#fff")
                   .attr("font-size", "12px")
-                  .attr("font-weight", "bold")
                   .text(value);
               }
+              y0 -= barHeight;
             }
           }
         });
-
-        // Add category label
-        const xPosition = x(category);
-        if (xPosition !== undefined) {
-          g.append("text")
-            .attr("x", xPosition + x.bandwidth() / 2)
-            .attr("y", height - margin.bottom + 20)
-            .attr("text-anchor", "middle")
-            .attr("font-size", "12px")
-            .attr("fill", "#333")
-            .text(category);
-        }
       });
 
-      // Add legend
-      const legendX = width - margin.right - 120;
+      const legendX = width - margin.right - 140;
       const legendY = margin.top;
-
       groups.forEach((group, i) => {
         g.append("rect")
           .attr("x", legendX)
           .attr("y", legendY + i * 20)
           .attr("width", 15)
           .attr("height", 15)
-          .attr("fill", color(group) as string)
-          .attr("stroke", "#000")
-          .attr("stroke-width", 1);
+          .attr("fill", color(group) as string);
 
         g.append("text")
           .attr("x", legendX + 20)
           .attr("y", legendY + i * 20 + 12)
           .attr("font-size", "12px")
           .attr("fill", "#333")
-          .text(group.charAt(0).toUpperCase() + group.slice(1)); // Capitalize first letter
+          .text(
+            group ? group.charAt(0).toUpperCase() + group.slice(1) : "Unknown"
+          );
       });
     } catch (error: any) {
       console.error("Error generating stacked bar chart:", error);
@@ -1825,13 +1793,6 @@ export const D3Chart: React.FC<D3ChartProps> = ({
       .attr("font-weight", "bold")
       .attr("fill", percentValue > 50 ? "#0CAA41" : "#FF4560")
       .text(`${percentValue}%`);
-
-    // Helper function to get color based on percentage
-    function getColorForPercentage(pct: number) {
-      if (pct < 30) return "#FF6B6B"; // Red
-      if (pct < 70) return "#FFD166"; // Yellow
-      return "#06D6A0"; // Green
-    }
   };
 
   const drawComboChart = (

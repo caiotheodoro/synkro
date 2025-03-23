@@ -12,6 +12,9 @@ import {
   CreditCard,
   LogOut,
   ArrowLeft,
+  Activity,
+  Gauge,
+  TrendingUp,
 } from "lucide-react";
 import { authService } from "@/services/auth.service";
 
@@ -43,6 +46,8 @@ const getModuleIcon = (moduleName: string) => {
 export const BackofficeNavigation: React.FC = () => {
   const router = useRouter();
   const { modules } = useBackofficeRegistry();
+  const isAnalyticsPath = router.pathname.startsWith("/analytics");
+  const isBackofficePath = router.pathname.startsWith("/backoffice");
 
   const handleLogout = (e: React.MouseEvent<HTMLAnchorElement>) => {
     e.preventDefault();
@@ -53,7 +58,10 @@ export const BackofficeNavigation: React.FC = () => {
     if (href === "/") {
       return router.pathname === href;
     }
-    return href.includes(router.query.moduleId as string);
+    return (
+      router.pathname.startsWith(href) ||
+      href.includes(router.query.moduleId as string)
+    );
   };
 
   const navItems: NavItem[] = Object.values(modules).map((item) => ({
@@ -62,6 +70,35 @@ export const BackofficeNavigation: React.FC = () => {
     icon: item.navItem?.icon || getModuleIcon(item.config?.title || ""),
   }));
 
+  const analyticsItems: NavItem[] = [
+    {
+      label: "Analytics Overview",
+      href: "/analytics/overview",
+      icon: <LayoutDashboard className="w-5 h-5" />,
+    },
+    {
+      label: "Inventory Analytics",
+      href: "/analytics/inventory",
+      icon: <Package className="w-5 h-5" />,
+    },
+    {
+      label: "Order Analytics",
+      href: "/analytics/orders",
+      icon: <ShoppingCart className="w-5 h-5" />,
+    },
+    {
+      label: "Transaction Analytics",
+      href: "/analytics/transactions",
+      icon: <Activity className="w-5 h-5" />,
+    },
+    /* 
+    {
+      label: "Business Analytics",
+      href: "/analytics/business",
+      icon: <TrendingUp className="w-5 h-5" />,
+    },*/
+  ];
+
   const accountItems: NavItem[] = [
     {
       label: "Logout",
@@ -69,7 +106,6 @@ export const BackofficeNavigation: React.FC = () => {
       icon: <LogOut className="w-5 h-5" />,
     },
   ];
-  console.log(router.query.moduleId);
 
   return (
     <nav className="h-full overflow-y-auto p-2">
@@ -84,28 +120,55 @@ export const BackofficeNavigation: React.FC = () => {
           <span className="ml-3">Back to Dashboard</span>
         </Link>
 
-        <div className="space-y-2">
-          <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
-            Main
-          </h3>
-          <ul className="space-y-1">
-            {navItems.map((item, index) => (
-              <li key={item.href || index}>
-                <Link
-                  href={item.href || "#"}
-                  className={`flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${
-                    isActive(item.href)
-                      ? "bg-primary text-white shadow-neo border-[2px] border-black"
-                      : "text-gray-900 hover:bg-gray-100"
-                  }`}
-                >
-                  {createElement(item.icon as React.ElementType)}
-                  <span className="ml-3">{item.label}</span>
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </div>
+        {isBackofficePath && (
+          <div className="space-y-2">
+            <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+              Main
+            </h3>
+            <ul className="space-y-1">
+              {navItems.map((item, index) => (
+                <li key={item.href || index}>
+                  <Link
+                    href={item.href || "#"}
+                    className={`flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${
+                      isActive(item.href)
+                        ? "bg-primary text-white shadow-neo border-[2px] border-black"
+                        : "text-gray-900 hover:bg-gray-100"
+                    }`}
+                  >
+                    {createElement(item.icon as React.ElementType)}
+                    <span className="ml-3">{item.label}</span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {isAnalyticsPath && (
+          <div className="space-y-2">
+            <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+              Analytics
+            </h3>
+            <ul className="space-y-1">
+              {analyticsItems.map((item) => (
+                <li key={item.href}>
+                  <Link
+                    href={item.href}
+                    className={`flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${
+                      isActive(item.href)
+                        ? "bg-primary text-white shadow-neo border-[2px] border-black"
+                        : "text-gray-900 hover:bg-gray-100"
+                    }`}
+                  >
+                    {item.icon}
+                    <span className="ml-3">{item.label}</span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
 
         <div className="space-y-2">
           <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">

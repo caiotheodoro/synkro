@@ -1158,18 +1158,37 @@ export const useAnalytics = () => {
       return validateChartData(response);
     } catch (err) {
       console.error("Using mock data for stock-movements:", err);
+
+      // Process data to ensure it's in the correct format for stacked bar chart
+      const mockData = [
+        { category: "Electronics", inbound: 320, outbound: 280 },
+        { category: "Clothing", inbound: 240, outbound: 220 },
+        { category: "Home Goods", inbound: 180, outbound: 170 },
+        { category: "Books", inbound: 120, outbound: 90 },
+      ];
+
+      // Transform the data to match the expected format for stacked bar charts
+      const transformedData: any[] = [];
+      mockData.forEach((item) => {
+        transformedData.push({
+          category: item.category,
+          type: "Inbound",
+          value: item.inbound,
+        });
+        transformedData.push({
+          category: item.category,
+          type: "Outbound",
+          value: item.outbound,
+        });
+      });
+
       return validateChartData({
-        data: [
-          { category: "Electronics", inbound: 320, outbound: 280 },
-          { category: "Clothing", inbound: 240, outbound: 220 },
-          { category: "Home Goods", inbound: 180, outbound: 170 },
-          { category: "Books", inbound: 120, outbound: 90 },
-        ],
+        data: transformedData,
         metadata: {
           type: "stacked-bar",
           xAxis: "category",
           yAxis: "value",
-          groupBy: "direction",
+          groupBy: "type",
         },
       });
     } finally {

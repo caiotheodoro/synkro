@@ -44,7 +44,7 @@ const DashboardNav = () => {
     },
     {
       label: "Analytics",
-      href: "/analytics",
+      href: "/analytics/overview",
       icon: <BarChart3 className="w-5 h-5" />,
       subItems: [
         {

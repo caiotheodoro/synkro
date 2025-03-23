@@ -54,18 +54,7 @@ const analyticsOptions: AnalyticsOption[] = [
       "Data Flow",
     ],
   },
-  /*  {
-    title: "Performance Analytics",
-    description: "Track system performance, health, and resource utilization",
-    href: "/analytics/performance",
-    icon: <Gauge className="w-8 h-8" />,
-    metrics: [
-      "Real-time Metrics",
-      "Performance Trends",
-      "System Health",
-      "Resource Usage",
-    ],
-  },*/
+  /*
   {
     title: "Business Analytics",
     description: "Gain insights into financial performance and forecasts",
@@ -77,7 +66,7 @@ const analyticsOptions: AnalyticsOption[] = [
       "Data Hierarchy",
       "Predictive Analytics",
     ],
-  },
+  },*/
 ];
 
 const AnalyticsIndex: React.FC = () => {

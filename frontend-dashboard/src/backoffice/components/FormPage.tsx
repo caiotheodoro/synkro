@@ -92,6 +92,9 @@ export const FormPage: React.FC<FormPageProps> = ({
     );
   }
 
+  // Get the module name for query invalidation
+  const moduleName = module.config.title.toLowerCase();
+
   return (
     <div>
       <BackofficeHeader
@@ -113,6 +116,7 @@ export const FormPage: React.FC<FormPageProps> = ({
           onSubmit={handleSubmit}
           onCancel={handleCancel}
           isLoading={isSaving}
+          queryInvalidations={[moduleName, `${moduleName}-detail`]}
         />
       </div>
     </div>

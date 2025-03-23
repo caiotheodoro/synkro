@@ -15,8 +15,7 @@ export class AuthService {
     private readonly jwtService: JwtService,
     private readonly userService: UserService,
   ) {
-    // Set up periodic cleanup of invalidated tokens
-    setInterval(() => this.cleanupInvalidatedTokens(), 3600000); // Run every hour
+    setInterval(() => this.cleanupInvalidatedTokens(), 3600000);
   }
 
   async login(email: string, password: string): Promise<AuthResponse> {
@@ -68,13 +67,11 @@ export class AuthService {
 
   async validateToken(token: string): Promise<TokenValidationResponse> {
     try {
-      // Check if token is empty or not a string
       if (!token || typeof token !== 'string') {
         this.logger.warn('Token is empty or not a string');
         return { isValid: false };
       }
 
-      // First check if token is in the invalidated tokens set without verifying it
       if (this.isTokenInvalidated(token)) {
         this.logger.warn(
           `Token has been invalidated: ${token.substring(0, 10)}...`,
@@ -82,7 +79,6 @@ export class AuthService {
         return { isValid: false };
       }
 
-      // Basic format validation before verification
       if (!this.isValidTokenFormat(token)) {
         this.logger.warn('Token has invalid format');
         return { isValid: false };
@@ -115,14 +111,11 @@ export class AuthService {
     }
   }
 
-  // Check if a token is in the invalidated tokens set without verifying it
   isTokenInvalidated(token: string): boolean {
     return this.invalidatedTokens.has(token);
   }
 
-  // Basic format validation for JWT tokens
   private isValidTokenFormat(token: string): boolean {
-    // JWT tokens should have 3 parts separated by dots
     const parts = token.split('.');
     if (parts.length !== 3) {
       return false;
@@ -142,13 +135,11 @@ export class AuthService {
 
   invalidateToken(token: string): boolean {
     try {
-      // Check if token is empty or not a string
       if (!token || typeof token !== 'string') {
         this.logger.warn('Cannot invalidate empty or non-string token');
         return false;
       }
 
-      // First check if token is already invalidated
       if (this.invalidatedTokens.has(token)) {
         this.logger.log(
           `Token already invalidated: ${token.substring(0, 10)}...`,
@@ -156,17 +147,13 @@ export class AuthService {
         return true;
       }
 
-      // Add to invalidated tokens set without verifying
       this.invalidatedTokens.add(token);
 
-      // Log the current size of the invalidated tokens set
       this.logger.log(
         `Token invalidated. Invalidated tokens count: ${this.invalidatedTokens.size}`,
       );
 
-      // Try to verify the token to get the user ID for logging
       try {
-        // Only verify if the token has a valid format
         if (this.isValidTokenFormat(token)) {
           const payload = this.jwtService.verify(token);
           if (payload?.sub) {
