@@ -1,15 +1,54 @@
 import React, { useMemo } from "react";
-import { Routes, Route, Link } from "react-router-dom";
+import { Routes, Route } from "react-router-dom";
 import { BackofficeDirector } from "@/backoffice/core/organisms/BackofficeDirector";
-import { ListPage } from "@/backoffice/ui/templates/ListPage";
 import { FormPage } from "@/backoffice/ui/templates/FormPage";
 import { Sidebar } from "@/backoffice/ui/organisms/Sidebar";
 import { BackofficeModule } from "@/backoffice/core/molecules/BackofficeModule";
+import {
+  NavItem,
+  FormFieldConfig,
+  BackofficeFormFieldConfig,
+} from "@/backoffice/core/types";
+import { ListPage } from "@/backoffice/components";
+
+const convertToFormFieldConfig = (
+  fields: BackofficeFormFieldConfig[]
+): FormFieldConfig[] => {
+  return fields.map((field) => {
+    const { type, ...rest } = field;
+
+    let mappedType: FormFieldConfig["type"] = type as any;
+
+    if (
+      [
+        "color",
+        "multiselect",
+        "checkbox",
+        "radio",
+        "datetime",
+        "tel",
+        "url",
+      ].includes(type)
+    ) {
+      if (type === "multiselect" || type === "checkbox" || type === "radio") {
+        mappedType = "select";
+      } else if (type === "datetime") {
+        mappedType = "date";
+      } else if (type === "color" || type === "tel" || type === "url") {
+        mappedType = "text";
+      }
+    }
+
+    return {
+      ...rest,
+      type: mappedType,
+    } as FormFieldConfig;
+  });
+};
 
 const BackofficeApp: React.FC = () => {
-  const apiBaseUrl = process.env.REACT_APP_API_URL || "http://localhost:3001";
+  const apiBaseUrl = process.env.REACT_APP_API_URL ?? "http://localhost:3001";
 
-  // Create backoffice director and modules
   const backofficeModules = useMemo(() => {
     const director = new BackofficeDirector(apiBaseUrl);
     const builder = director.createBuilder();
@@ -24,14 +63,12 @@ const BackofficeApp: React.FC = () => {
     ];
   }, [apiBaseUrl]);
 
-  // Generate navigation items from modules
   const navItems = useMemo(() => {
     return backofficeModules
       .filter((module) => module.navItem)
-      .map((module) => module.navItem);
+      .map((module) => module.navItem) as NavItem[];
   }, [backofficeModules]);
 
-  // Generate routes from modules
   const renderModuleRoutes = (module: BackofficeModule) => {
     const { basePath, title } = module.config;
     const listPath = basePath;
@@ -41,17 +78,7 @@ const BackofficeApp: React.FC = () => {
     return (
       <React.Fragment key={basePath}>
         {module.listConfig && (
-          <Route
-            path={listPath}
-            element={
-              <ListPage
-                title={title}
-                apiEndpoint={module.apiEndpoint}
-                columns={module.listConfig.columns}
-                searchFields={module.listConfig.searchFields}
-              />
-            }
-          />
+          <Route path={listPath} element={<ListPage module={module} />} />
         )}
 
         {module.formConfig && (
@@ -62,7 +89,9 @@ const BackofficeApp: React.FC = () => {
                 <FormPage
                   title={`New ${title}`}
                   apiEndpoint={module.apiEndpoint}
-                  fields={module.formConfig.fields}
+                  fields={convertToFormFieldConfig(
+                    module.formConfig.fields as BackofficeFormFieldConfig[]
+                  )}
                   sections={module.formConfig.sections}
                   isNew
                 />
@@ -75,7 +104,9 @@ const BackofficeApp: React.FC = () => {
                 <FormPage
                   title={`Edit ${title}`}
                   apiEndpoint={module.apiEndpoint}
-                  fields={module.formConfig.fields}
+                  fields={convertToFormFieldConfig(
+                    module.formConfig.fields as BackofficeFormFieldConfig[]
+                  )}
                   sections={module.formConfig.sections}
                 />
               }
@@ -88,7 +119,7 @@ const BackofficeApp: React.FC = () => {
 
   return (
     <div className="flex h-screen">
-      <Sidebar navItems={navItems} />
+      <Sidebar navItems={navItems ?? []} />
 
       <div className="flex-1 p-8 overflow-auto">
         <Routes>

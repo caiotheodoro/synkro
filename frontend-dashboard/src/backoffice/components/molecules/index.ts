@@ -5,3 +5,4 @@ export * from "./NumberField";
 export * from "./SelectField";
 export * from "./TextareaField";
 export * from "./TextField";
+export * from "./StatsCard";

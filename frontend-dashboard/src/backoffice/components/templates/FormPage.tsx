@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/router";
-import { DynamicForm } from "./DynamicForm";
-import { BackofficeModule } from "../core/BackofficeRegistry";
+import { DynamicForm } from "../organisms/DynamicForm";
+import { BackofficeModule } from "../../core/BackofficeRegistry";
 import { BackofficeHeader } from "./BackofficeHeader";
 
 interface FormPageProps {

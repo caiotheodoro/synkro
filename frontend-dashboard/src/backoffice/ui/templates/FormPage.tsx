@@ -3,10 +3,9 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "react-query";
 import { ChevronLeftIcon } from "lucide-react";
 import { ApiService } from "@/services/api.service";
-import { Button } from "@/components/ui/button";
-import { Spinner } from "@/components/ui/spinner";
-import { DynamicForm } from "@/components/forms/DynamicForm";
-import { FieldConfig } from "@/components/forms/types";
+import { FormFieldConfig, BackofficeFormConfig } from "@/backoffice/core/types";
+import { Button } from "@/components/ui/Button";
+import { DynamicForm } from "@/backoffice/components";
 
 interface FormSection {
   title: string;
@@ -16,7 +15,7 @@ interface FormSection {
 interface FormPageProps {
   title: string;
   apiEndpoint: string;
-  fields: FieldConfig[];
+  fields: FormFieldConfig[];
   sections?: FormSection[];
   isNew?: boolean;
 }
@@ -49,7 +48,7 @@ export const FormPage: React.FC<FormPageProps> = ({
     async () => {
       if (isNew || !id) return null;
       const response = await apiService.get(`${apiEndpoint}/${id}`);
-      return response.data;
+      return (response as any)?.data;
     },
     {
       enabled: !isNew && !!id,
@@ -98,7 +97,9 @@ export const FormPage: React.FC<FormPageProps> = ({
   if (!isNew && isLoading) {
     return (
       <div className="flex justify-center items-center h-64">
-        <Spinner className="h-8 w-8" />
+        <div className="flex justify-center items-center h-64">
+          <div className="animate-spin h-8 w-8 border-4 border-blue-500 rounded-full border-t-transparent"></div>
+        </div>
       </div>
     );
   }
@@ -115,7 +116,7 @@ export const FormPage: React.FC<FormPageProps> = ({
     <div className="space-y-6">
       <div className="flex items-center gap-4">
         <Button
-          variant="ghost"
+          variant="outline"
           size="sm"
           className="rounded-full"
           onClick={handleCancel}
@@ -135,13 +136,19 @@ export const FormPage: React.FC<FormPageProps> = ({
             )}
 
             <DynamicForm
-              fields={section.fields}
-              initialData={itemData}
-              onSubmit={
-                index === fieldsBySection.length - 1 ? handleSubmit : undefined
+              config={
+                {
+                  fields: section.fields,
+                  submitLabel: isNew ? "Create" : "Update",
+                } as any
               }
-              submitLabel={isNew ? "Create" : "Update"}
-              showSubmitButton={index === fieldsBySection.length - 1}
+              initialValues={itemData}
+              onSubmit={(formData) => {
+                if (index === fieldsBySection.length - 1) {
+                  handleSubmit(formData);
+                }
+              }}
+              isLoading={isLoading}
               queryInvalidations={[apiEndpoint]}
             />
           </div>

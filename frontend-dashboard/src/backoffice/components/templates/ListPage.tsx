@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/router";
-import { BackofficeModule } from "../core/BackofficeRegistry";
+import { BackofficeModule } from "../../core/BackofficeRegistry";
 import { DataTable, Column, TableAction } from "@/components/ui/DataTable";
 import { Button } from "@/components/ui/Button";
 import { Plus, Eye, Pencil, Trash2 } from "lucide-react";

@@ -11,7 +11,6 @@ import {
   Tag,
   List,
 } from "lucide-react";
-import { StatsCard } from "../components/StatsCard";
 import { ApiService } from "@/services/api.service";
 import { AutocompleteSelect } from "@/components/ui/AutocompleteSelect";
 import {
@@ -24,6 +23,7 @@ import {
   AttributesDisplay,
   AttributesBadges,
 } from "@/components/atoms/AttributesDisplay";
+import { StatsCard } from "../components";
 
 interface ApiResponse<T> {
   data: T[];

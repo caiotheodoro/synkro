@@ -1,14 +1,14 @@
 import React, { useEffect } from "react";
-import { BackofficeFormConfig } from "../core/types";
-import { TextField } from "./molecules/TextField";
-import { TextareaField } from "./molecules/TextareaField";
-import { SelectField } from "./molecules/SelectField";
-import { CheckboxField } from "./molecules/CheckboxField";
-import { NumberField } from "./molecules/NumberField";
-import { CustomField } from "./molecules/CustomField";
-import { FormSection } from "./organisms/FormSection";
-import { FormActions } from "./organisms/FormActions";
-import { useFormActions } from "../hooks/useFormActions";
+import { BackofficeFormConfig } from "../../core/types";
+import { TextField } from "../molecules/TextField";
+import { TextareaField } from "../molecules/TextareaField";
+import { SelectField } from "../molecules/SelectField";
+import { CheckboxField } from "../molecules/CheckboxField";
+import { NumberField } from "../molecules/NumberField";
+import { CustomField } from "../molecules/CustomField";
+import { FormSection } from "./FormSection";
+import { FormActions } from "./FormActions";
+import { useFormActions } from "../../hooks/useFormActions";
 
 interface DynamicFormProps {
   config: BackofficeFormConfig;

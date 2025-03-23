@@ -5,7 +5,7 @@ import {
   BackofficeRegistryProvider,
   useBackofficeRegistry,
 } from "@/backoffice/core/BackofficeRegistry";
-import { FormPage } from "@/backoffice/components/FormPage";
+import { FormPage } from "@/backoffice/components";
 
 const ModuleCreateContainer = () => {
   const router = useRouter();

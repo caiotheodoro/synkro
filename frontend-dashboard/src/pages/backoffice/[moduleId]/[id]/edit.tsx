@@ -5,9 +5,8 @@ import {
   BackofficeRegistryProvider,
   useBackofficeRegistry,
 } from "@/backoffice/core/BackofficeRegistry";
-import { FormPage } from "@/backoffice/components/FormPage";
+import { FormPage } from "@/backoffice/components";
 
-// Edit component to be used inside the registry provider
 const ModuleEditContainer = () => {
   const router = useRouter();
   const { moduleId, id } = router.query;

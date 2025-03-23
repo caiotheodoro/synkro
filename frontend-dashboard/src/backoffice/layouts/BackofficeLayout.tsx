@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { Menu, X } from "lucide-react";
-import { BackofficeNavigation } from "@/backoffice/components/BackofficeNavigation";
 import UserProfile from "@/components/user/UserProfile";
 import { authService } from "@/services/auth.service";
+import { BackofficeNavigation } from "../components";
 
 interface BackofficeLayoutProps {
   children: React.ReactNode;

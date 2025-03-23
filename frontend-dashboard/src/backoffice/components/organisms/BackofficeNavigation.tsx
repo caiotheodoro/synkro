@@ -1,7 +1,7 @@
 import React, { createElement } from "react";
 import Link from "next/link";
 import { useRouter } from "next/router";
-import { useBackofficeRegistry } from "../core/BackofficeRegistry";
+import { useBackofficeRegistry } from "@/backoffice/core/BackofficeRegistry";
 import {
   LayoutDashboard,
   Package,
@@ -13,8 +13,6 @@ import {
   LogOut,
   ArrowLeft,
   Activity,
-  Gauge,
-  TrendingUp,
 } from "lucide-react";
 import { authService } from "@/services/auth.service";
 
