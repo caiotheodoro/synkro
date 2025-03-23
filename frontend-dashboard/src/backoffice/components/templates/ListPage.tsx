@@ -35,10 +35,8 @@ export const ListPage: React.FC<ListPageProps> = ({ module }) => {
 
   const debouncedSearchTerm = useDebounce(searchTerm, 500);
 
-  // Query key based on module and search/filter params
   const queryKey = [module.config.title, debouncedSearchTerm, filters];
 
-  // Set up React Query for data fetching
   const {
     data = [],
     isLoading,
