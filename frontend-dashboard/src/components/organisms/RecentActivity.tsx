@@ -1,7 +1,6 @@
 import React from "react";
 import { useRecentActivities, ActivityItem } from "@/api/hooks/useDashboard";
 
-// Map of activity types to colors
 const activityTypeColorMap = {
   order: "bg-blue-500",
   shipment: "bg-green-500",
@@ -9,7 +8,6 @@ const activityTypeColorMap = {
   system: "bg-purple-500",
 };
 
-// Map of severity to colors
 const severityColorMap = {
   info: "text-blue-600",
   warning: "text-amber-600",
@@ -18,7 +16,7 @@ const severityColorMap = {
 };
 
 const RecentActivity = () => {
-  const { data, isLoading, error } = useRecentActivities(5); // Fetch 5 most recent activities
+  const { data, isLoading, error } = useRecentActivities(5);
 
   if (isLoading) {
     return (
@@ -43,7 +41,6 @@ const RecentActivity = () => {
     );
   }
 
-  // If no data yet or empty activities list, show some placeholder activities
   const activities =
     data && data.length > 0
       ? data
@@ -52,21 +49,21 @@ const RecentActivity = () => {
             id: "1",
             type: "order",
             message: "New order received",
-            timestamp: new Date(Date.now() - 10 * 60 * 1000).toISOString(), // 10 minutes ago
+            timestamp: new Date(Date.now() - 10 * 60 * 1000).toISOString(),
             severity: "info",
           },
           {
             id: "2",
             type: "shipment",
             message: "Shipment #3321 delivered",
-            timestamp: new Date(Date.now() - 60 * 60 * 1000).toISOString(), // 1 hour ago
+            timestamp: new Date(Date.now() - 60 * 60 * 1000).toISOString(),
             severity: "success",
           },
           {
             id: "3",
             type: "inventory",
             message: "Low stock alert: SKU-12345",
-            timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(), // 2 hours ago
+            timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
             severity: "warning",
           },
         ] as ActivityItem[]);
@@ -106,14 +103,12 @@ const RecentActivity = () => {
   );
 };
 
-// Helper function to format timestamps in a human-readable way without requiring date-fns
 const formatRelativeTime = (timestamp: string) => {
   try {
     const date = new Date(timestamp);
     const now = new Date();
     const diffMs = now.getTime() - date.getTime();
 
-    // Convert to appropriate units
     const diffSec = Math.floor(diffMs / 1000);
     const diffMin = Math.floor(diffSec / 60);
     const diffHour = Math.floor(diffMin / 60);
@@ -128,7 +123,6 @@ const formatRelativeTime = (timestamp: string) => {
     } else if (diffDay < 30) {
       return `${diffDay} day${diffDay !== 1 ? "s" : ""} ago`;
     } else {
-      // For older timestamps, show the actual date
       return date.toLocaleDateString();
     }
   } catch (e) {

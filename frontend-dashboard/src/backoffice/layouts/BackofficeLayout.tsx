@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import UserProfile from "@/components/user/UserProfile";
+import UserProfile from "@/components/molecules/UserProfile";
 import { BackofficeNavigation } from "../components";
 import { auth } from "@/services/auth-instance.service";
 

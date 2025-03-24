@@ -1,12 +1,10 @@
 import React, { useState } from "react";
-import { DynamicForm } from "../backoffice/components/DynamicForm";
-import { BackofficeFormConfig } from "../backoffice/core/types";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { ApiService } from "../services/api.service";
+import { ApiService } from "@/services/api.service";
+import { BackofficeFormConfig } from "@/backoffice/core/builders/BackofficeBuilder";
+import { DynamicForm } from "@/backoffice/components";
 
-// Define base URL from env or use default
 const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
-// Create API service instance
 const apiService = new ApiService({ baseUrl });
 
 interface InventoryItemFormProps {
@@ -23,7 +21,6 @@ const InventoryItemForm: React.FC<InventoryItemFormProps> = ({
   const [error, setError] = useState<string | null>(null);
   const queryClient = useQueryClient();
 
-  // Create mutation for saving data
   const mutation = useMutation({
     mutationFn: (data: Record<string, any>) => {
       return initialData?.id
@@ -31,7 +28,6 @@ const InventoryItemForm: React.FC<InventoryItemFormProps> = ({
         : apiService.post("/api/inventory", data);
     },
     onSuccess: () => {
-      // This is handled by the DynamicForm component's queryInvalidations prop
       onSuccess?.();
     },
     onError: (err: any) => {
@@ -43,7 +39,6 @@ const InventoryItemForm: React.FC<InventoryItemFormProps> = ({
     },
   });
 
-  // Form configuration
   const formConfig: BackofficeFormConfig = {
     fields: [
       {

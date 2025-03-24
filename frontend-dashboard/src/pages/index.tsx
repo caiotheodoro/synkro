@@ -1,6 +1,6 @@
 import Head from "next/head";
 import DashboardLayout from "@/components/layouts/DashboardLayout";
-import Dashboard from "@/components/dashboard/Dashboard";
+import Dashboard from "@/components/molecules/Dashboard";
 
 export default function Home() {
   return (

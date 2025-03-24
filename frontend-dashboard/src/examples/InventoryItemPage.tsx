@@ -4,9 +4,7 @@ import InventoryItemForm from "./InventoryItemForm";
 import { useQuery } from "@tanstack/react-query";
 import { ApiService } from "../services/api.service";
 
-// Define base URL from env or use default
-const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
-// Create API service instance
+const baseUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3000";
 const apiService = new ApiService({ baseUrl });
 
 interface InventoryItemPageProps {
@@ -17,7 +15,6 @@ const InventoryItemPage: React.FC<InventoryItemPageProps> = ({ id }) => {
   const router = useRouter();
   const isEditMode = !!id;
 
-  // Fetch item data if in edit mode
   const { data: itemData, isLoading } = useQuery<Record<string, any>>({
     queryKey: ["inventory", id],
     queryFn: () => apiService.get(`/api/inventory/${id}`),
@@ -26,7 +23,6 @@ const InventoryItemPage: React.FC<InventoryItemPageProps> = ({ id }) => {
   });
 
   const handleSuccess = () => {
-    // Navigate back to inventory list
     router.push("/inventory");
   };
 

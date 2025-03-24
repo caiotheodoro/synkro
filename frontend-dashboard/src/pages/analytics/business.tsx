@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import AnalyticsLayout from "./layout";
-import { D3Chart } from "@/components/charts/D3Chart";
+import { D3Chart } from "@/components/builders/D3Chart";
 import { useAnalytics } from "@/hooks";
 
 interface ChartData {

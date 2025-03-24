@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import DashboardNav from "@/components/navigation/DashboardNav";
-import UserProfile from "@/components/user/UserProfile";
+import DashboardNav from "@/components/layouts/DashboardNav";
+import UserProfile from "@/components/molecules/UserProfile";
 import { auth } from "@/services/auth-instance.service";
 
 interface DashboardLayoutProps {

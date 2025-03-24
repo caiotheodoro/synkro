@@ -1,7 +1,7 @@
 import React from "react";
 import AnalyticsLayout from "../layout";
 import { useAnalytics } from "@/hooks/useAnalytics";
-import { ChartBuilder } from "@/components/charts/builder";
+import { ChartBuilder } from "@/components/builders";
 
 const PerformanceAnalytics: React.FC = () => {
   const analytics = useAnalytics();
@@ -20,7 +20,7 @@ const PerformanceAnalytics: React.FC = () => {
               title="Real-time Metrics"
               subtitle="Current system performance"
               dataSource={analytics.getRealTimeMetrics}
-              refreshInterval={10000} // Refresh every 10 seconds
+              refreshInterval={10000}
               height={350}
             />
 

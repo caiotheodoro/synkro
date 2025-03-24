@@ -2,7 +2,7 @@ import React from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import InventoryOverview from "./InventoryOverview";
 import OrderStatus from "./OrderStatus";
-import RecentActivity from "./RecentActivity";
+import RecentActivity from "../organisms/RecentActivity";
 
 const queryClient = new QueryClient({
   defaultOptions: {
