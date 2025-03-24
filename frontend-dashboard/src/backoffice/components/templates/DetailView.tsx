@@ -1,5 +1,5 @@
 import React from "react";
-import { BackofficeDetailConfig } from "../../core/BackofficeBuilder";
+import { BackofficeDetailConfig } from "@/backoffice/core/builders/BackofficeBuilder";
 
 interface DetailViewProps {
   data: Record<string, any>;
@@ -82,7 +82,7 @@ export const DetailView: React.FC<DetailViewProps> = ({
         </div>
 
         <div className="flex space-x-2">
-          {config.actions?.map((action, index) => (
+          {config.actions?.map((action: any, index: number) => (
             <button
               key={index}
               onClick={() => action.action(data)}

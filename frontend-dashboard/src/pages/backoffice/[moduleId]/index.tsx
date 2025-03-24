@@ -4,10 +4,9 @@ import { BackofficeLayout } from "@/backoffice/layouts/BackofficeLayout";
 import {
   BackofficeRegistryProvider,
   useBackofficeRegistry,
-} from "@/backoffice/core/BackofficeRegistry";
+} from "@/backoffice/core/builders/BackofficeRegistry";
 import { ListPage } from "@/backoffice/components";
 
-// List component to be used inside the registry provider
 const ModuleListContainer = () => {
   const router = useRouter();
   const { moduleId } = router.query;
@@ -42,7 +41,6 @@ const ModuleListContainer = () => {
   return <ListPage module={moduleInstance} />;
 };
 
-// Main page component
 const ModuleListPage = () => {
   const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:5050";
 

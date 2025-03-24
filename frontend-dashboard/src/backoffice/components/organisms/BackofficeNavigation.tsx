@@ -1,7 +1,6 @@
 import React, { createElement } from "react";
 import Link from "next/link";
 import { useRouter } from "next/router";
-import { useBackofficeRegistry } from "@/backoffice/core/BackofficeRegistry";
 import {
   LayoutDashboard,
   Package,
@@ -14,7 +13,8 @@ import {
   ArrowLeft,
   Activity,
 } from "lucide-react";
-import { authService } from "@/services/auth.service";
+import { auth } from "@/services/auth-instance.service";
+import { useBackofficeRegistry } from "@/backoffice/core/builders/BackofficeRegistry";
 
 interface NavItem {
   label: string;
@@ -49,7 +49,7 @@ export const BackofficeNavigation: React.FC = () => {
 
   const handleLogout = (e: React.MouseEvent<HTMLAnchorElement>) => {
     e.preventDefault();
-    authService.logout();
+    auth.logout();
   };
 
   const isActive = (href: string) => {
@@ -89,12 +89,6 @@ export const BackofficeNavigation: React.FC = () => {
       href: "/analytics/transactions",
       icon: <Activity className="w-5 h-5" />,
     },
-    /* 
-    {
-      label: "Business Analytics",
-      href: "/analytics/business",
-      icon: <TrendingUp className="w-5 h-5" />,
-    },*/
   ];
 
   const accountItems: NavItem[] = [

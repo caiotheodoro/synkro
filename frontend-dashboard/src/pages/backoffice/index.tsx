@@ -1,17 +1,19 @@
-import React from 'react';
-import { useRouter } from 'next/router';
-import { BackofficeLayout } from '@/backoffice/layouts/BackofficeLayout';
-import { BackofficeRegistryProvider, useBackofficeRegistry } from '@/backoffice/core/BackofficeRegistry';
+import React from "react";
+import { useRouter } from "next/router";
+import { BackofficeLayout } from "@/backoffice/layouts/BackofficeLayout";
+import {
+  BackofficeRegistryProvider,
+  useBackofficeRegistry,
+} from "@/backoffice/core/builders/BackofficeRegistry";
 
-// Dashboard component to be used inside the registry provider
 const BackofficeDashboard = () => {
   const router = useRouter();
   const { modules } = useBackofficeRegistry();
-  
+
   return (
     <div>
       <h1 className="text-2xl font-bold mb-6">Dashboard</h1>
-      
+
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {Object.entries(modules).map(([key, module]) => (
           <div
@@ -20,7 +22,9 @@ const BackofficeDashboard = () => {
             onClick={() => router.push(`/backoffice/${key}`)}
           >
             <h2 className="text-xl font-bold mb-2">{module.config.title}</h2>
-            <p className="text-neutral-600">Manage your {module.config.title.toLowerCase()}</p>
+            <p className="text-neutral-600">
+              Manage your {module.config.title.toLowerCase()}
+            </p>
           </div>
         ))}
       </div>
@@ -31,8 +35,8 @@ const BackofficeDashboard = () => {
 // Main page component
 const BackofficeIndexPage = () => {
   // Use environment variable but remove the trailing /api if present
-  const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5050';
-  
+  const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5050";
+
   return (
     <BackofficeRegistryProvider apiBaseUrl={apiBaseUrl}>
       <BackofficeLayout>
@@ -42,4 +46,4 @@ const BackofficeIndexPage = () => {
   );
 };
 
-export default BackofficeIndexPage; 
+export default BackofficeIndexPage;

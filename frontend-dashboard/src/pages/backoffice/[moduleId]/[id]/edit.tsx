@@ -4,7 +4,7 @@ import { BackofficeLayout } from "@/backoffice/layouts/BackofficeLayout";
 import {
   BackofficeRegistryProvider,
   useBackofficeRegistry,
-} from "@/backoffice/core/BackofficeRegistry";
+} from "@/backoffice/core/builders/BackofficeRegistry";
 import { FormPage } from "@/backoffice/components";
 
 const ModuleEditContainer = () => {

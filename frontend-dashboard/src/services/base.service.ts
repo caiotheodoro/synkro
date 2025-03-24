@@ -1,36 +1,30 @@
-import { auth } from "./auth-instance.service";
+import {
+  IApiOptions,
+  IRequestConfig,
+  IApiResponse,
+} from "../models/interfaces/api.interface";
 
-interface ApiOptions {
-  baseUrl: string;
-  headers?: Record<string, string>;
-  timeout?: number;
-}
+export abstract class BaseService {
+  protected baseUrl: string;
+  protected defaultHeaders: Record<string, string>;
+  protected defaultTimeout: number;
 
-interface RequestConfig extends RequestInit {
-  timeout?: number;
-  params?: Record<string, string>;
-}
-
-export class ApiService {
-  private readonly baseUrl: string;
-  private readonly defaultHeaders: Record<string, string>;
-  private readonly defaultTimeout: number;
-
-  constructor(options: ApiOptions) {
+  constructor(options: IApiOptions) {
     this.baseUrl = options.baseUrl;
     this.defaultHeaders = options.headers || {};
-    this.defaultTimeout = options.timeout ?? 30000;
+    this.defaultTimeout = options.timeout || 30000;
   }
 
-  private createUrl(endpoint: string, params?: Record<string, string>): string {
+  protected createUrl(
+    endpoint: string,
+    params?: Record<string, string>
+  ): string {
     const normalizedEndpoint = endpoint.startsWith("/")
       ? endpoint
       : `/${endpoint}`;
-
     const normalizedBaseUrl = this.baseUrl.endsWith("/")
       ? this.baseUrl.slice(0, -1)
       : this.baseUrl;
-
     const url = new URL(`${normalizedBaseUrl}${normalizedEndpoint}`);
 
     if (params) {
@@ -42,39 +36,11 @@ export class ApiService {
     return url.toString();
   }
 
-  private async applyAuthInterceptor(
-    config: RequestConfig
-  ): Promise<RequestConfig> {
-    const token = auth.getToken();
-
-    if (token) {
-      config.headers = {
-        ...config.headers,
-        Authorization: `Bearer ${token}`,
-      };
-    }
-
-    return config;
-  }
-
-  private async applyResponseInterceptor(
-    response: Response
-  ): Promise<Response> {
-    if (response.status === 401) {
-      auth.clearAuth();
-      window.location.href = "/login";
-      throw new Error("Unauthorized");
-    }
-
-    return response;
-  }
-
-  private async fetchWithTimeout(
+  protected async fetchWithTimeout(
     url: string,
-    config: RequestConfig
+    config: IRequestConfig
   ): Promise<Response> {
-    const timeout = config.timeout ?? this.defaultTimeout ?? 30000;
-
+    const timeout = config.timeout || this.defaultTimeout;
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), timeout);
 
@@ -83,40 +49,37 @@ export class ApiService {
         ...config,
         signal: controller.signal,
       });
-
-      return await this.applyResponseInterceptor(response);
+      return response;
     } finally {
       clearTimeout(timeoutId);
     }
   }
 
-  public async request<T>(
+  protected async request<T>(
     method: string,
     endpoint: string,
-    config: RequestConfig = {}
-  ): Promise<T> {
-    const mergedConfig: RequestConfig = {
+    config: IRequestConfig = {}
+  ): Promise<IApiResponse<T>> {
+    const mergedConfig: IRequestConfig = {
       method,
       headers: {
         "Content-Type": "application/json",
         ...this.defaultHeaders,
         ...config.headers,
       },
-      timeout: config.timeout ?? (this.defaultTimeout || 30000),
+      timeout: config.timeout || this.defaultTimeout,
       ...config,
     };
 
-    const configWithAuth = await this.applyAuthInterceptor(mergedConfig);
     const url = this.createUrl(endpoint, config.params);
 
-    // Add debug logging in development
     if (process.env.NODE_ENV === "development") {
       console.log(`API Request: ${method} ${url}`);
-      console.log("Request config:", configWithAuth);
+      console.log("Request config:", mergedConfig);
     }
 
     try {
-      const response = await this.fetchWithTimeout(url, configWithAuth);
+      const response = await this.fetchWithTimeout(url, mergedConfig);
 
       if (process.env.NODE_ENV === "development") {
         console.log(`API Response: ${response.status} ${response.statusText}`);
@@ -124,68 +87,74 @@ export class ApiService {
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        console.error("API Error:", errorData);
         throw new Error(
           errorData.message || `Request failed with status ${response.status}`
         );
       }
 
       const contentType = response.headers.get("content-type");
-      if (contentType?.includes("application/json")) {
-        return await response.json();
-      } else {
-        return (await response.text()) as unknown as T;
-      }
+      const data = contentType?.includes("application/json")
+        ? await response.json()
+        : await response.text();
+
+      return {
+        data,
+        status: response.status,
+        statusText: response.statusText,
+        headers: response.headers,
+      };
     } catch (error) {
       if (error instanceof Error) {
         if (error.name === "AbortError") {
-          console.error(
-            `Request timeout after ${configWithAuth.timeout}ms for ${url}`
-          );
-          throw new Error(`Request timeout after ${configWithAuth.timeout}ms`);
+          throw new Error(`Request timeout after ${mergedConfig.timeout}ms`);
         }
-
         console.error(`API Request failed for ${url}:`, error);
       }
       throw error;
     }
   }
 
-  public get<T>(endpoint: string, config: RequestConfig = {}): Promise<T> {
+  protected get<T>(
+    endpoint: string,
+    config: IRequestConfig = {}
+  ): Promise<IApiResponse<T>> {
     return this.request<T>("GET", endpoint, config);
   }
 
-  public post<T>(
+  protected post<T>(
     endpoint: string,
     data?: unknown,
-    config: RequestConfig = {}
-  ): Promise<T> {
+    config: IRequestConfig = {}
+  ): Promise<IApiResponse<T>> {
     return this.request<T>("POST", endpoint, {
       ...config,
       body: data ? JSON.stringify(data) : undefined,
     });
   }
 
-  public put<T>(
+  protected put<T>(
     endpoint: string,
     data?: unknown,
-    config: RequestConfig = {}
-  ): Promise<T> {
+    config: IRequestConfig = {}
+  ): Promise<IApiResponse<T>> {
     return this.request<T>("PUT", endpoint, {
       ...config,
       body: data ? JSON.stringify(data) : undefined,
     });
   }
 
-  public delete<T>(endpoint: string, config: RequestConfig = {}): Promise<T> {
+  protected delete<T>(
+    endpoint: string,
+    config: IRequestConfig = {}
+  ): Promise<IApiResponse<T>> {
     return this.request<T>("DELETE", endpoint, config);
   }
 
-  public patch<T>(
+  protected patch<T>(
     endpoint: string,
     data?: unknown,
-    config: RequestConfig = {}
-  ): Promise<T> {
+    config: IRequestConfig = {}
+  ): Promise<IApiResponse<T>> {
     return this.request<T>("PATCH", endpoint, {
       ...config,
       body: data ? JSON.stringify(data) : undefined,

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/router";
 import { DynamicForm } from "../organisms/DynamicForm";
-import { BackofficeModule } from "../../core/BackofficeRegistry";
+import { BackofficeModule } from "@/backoffice/core/builders/BackofficeRegistry";
 import { BackofficeHeader } from "./BackofficeHeader";
 
 interface FormPageProps {
@@ -92,7 +92,6 @@ export const FormPage: React.FC<FormPageProps> = ({
     );
   }
 
-  // Get the module name for query invalidation
   const moduleName = module.config.title.toLowerCase();
 
   return (

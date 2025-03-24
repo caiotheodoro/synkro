@@ -1,7 +1,7 @@
 import React from "react";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/Button";
-import { BackofficeModule } from "../../core/BackofficeRegistry";
+import { BackofficeModule } from "@/backoffice/core/builders/BackofficeRegistry";
 
 interface BackofficeHeaderProps {
   title: string;

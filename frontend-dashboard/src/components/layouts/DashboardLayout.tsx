@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import DashboardNav from "@/components/navigation/DashboardNav";
 import UserProfile from "@/components/user/UserProfile";
-import { authService } from "@/services/auth.service";
+import { auth } from "@/services/auth-instance.service";
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -14,7 +14,7 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   useEffect(() => {
-    const userData = authService.getUser();
+    const userData = auth.getUser();
     if (userData) {
       setUser(userData);
     }

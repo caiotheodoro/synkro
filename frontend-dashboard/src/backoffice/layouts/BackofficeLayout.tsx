@@ -1,8 +1,7 @@
 import React, { useEffect, useState } from "react";
-import { Menu, X } from "lucide-react";
 import UserProfile from "@/components/user/UserProfile";
-import { authService } from "@/services/auth.service";
 import { BackofficeNavigation } from "../components";
+import { auth } from "@/services/auth-instance.service";
 
 interface BackofficeLayoutProps {
   children: React.ReactNode;
@@ -15,7 +14,7 @@ export const BackofficeLayout: React.FC<BackofficeLayoutProps> = ({
   const [user, setUser] = useState<any>(null);
 
   useEffect(() => {
-    const userData = authService.getUser();
+    const userData = auth.getUser();
     if (userData) {
       setUser(userData);
     }

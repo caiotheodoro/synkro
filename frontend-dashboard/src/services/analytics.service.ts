@@ -1,120 +1,196 @@
-import { ApiService } from "./api.service";
+import { BaseService } from "./base.service";
+import {
+  IChartData,
+  IAnalyticsConfig,
+} from "../models/interfaces/analytics.interface";
+import { ANALYTICS_CONFIG } from "../utils/constants";
+import { formatChartData } from "../utils/helpers";
 
-const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
-const apiService = new ApiService({ baseUrl });
+export class AnalyticsService extends BaseService {
+  private readonly config: IAnalyticsConfig;
 
-interface ChartData {
-  data: any[];
-  metadata: {
-    type: string;
-    xAxis?: string;
-    yAxis?: string | string[];
-    dimension?: string;
-    metric?: string;
-    metrics?: string[];
-    nodes?: string;
-    value?: string;
-    groupBy?: string;
-  };
-}
+  constructor() {
+    super({ baseUrl: ANALYTICS_CONFIG.baseUrl });
+    this.config = ANALYTICS_CONFIG;
+  }
 
-export const analyticsService = {
   // Inventory Analytics
-  getStockLevelTrends: () =>
-    apiService.get<ChartData>("/api/analytics/inventory/stock-trends"),
+  public async getStockLevelTrends(): Promise<IChartData> {
+    const response = await this.get<IChartData>(
+      this.config.endpoints.inventory.stockTrends
+    );
+    return formatChartData(response.data.data, response.data.metadata);
+  }
 
-  getInventoryDistribution: () =>
-    apiService.get<ChartData>("/api/analytics/inventory/distribution"),
+  public async getInventoryDistribution(): Promise<IChartData> {
+    const response = await this.get<IChartData>(
+      this.config.endpoints.inventory.distribution
+    );
+    return formatChartData(response.data.data, response.data.metadata);
+  }
 
-  getWarehouseDistribution: () =>
-    apiService
-      .get<ChartData>("/api/analytics/inventory/warehouse-distribution")
-      .then((response) => {
-        // Fix field names if they're in snake_case
-        if (response && response.metadata) {
-          // Use type assertion to access potential snake_case properties
-          const meta = response.metadata as any;
+  public async getWarehouseDistribution(): Promise<IChartData> {
+    const response = await this.get<IChartData>(
+      this.config.endpoints.inventory.warehouseDistribution
+    );
+    return formatChartData(response.data.data, response.data.metadata);
+  }
 
-          // Map snake_case to camelCase for consistency
-          if (meta.x_axis && !meta.xAxis) {
-            response.metadata.xAxis = meta.x_axis;
-          }
-          if (meta.y_axis && !meta.yAxis) {
-            response.metadata.yAxis = meta.y_axis;
-          }
-          if (meta.group_by && !meta.groupBy) {
-            response.metadata.groupBy = meta.group_by;
-          }
-        }
-        return response;
-      }),
-
-  getReorderPoints: () =>
-    apiService.get<ChartData>("/api/analytics/inventory/reorder-points"),
+  public async getReorderPoints(): Promise<IChartData> {
+    const response = await this.get<IChartData>(
+      this.config.endpoints.inventory.reorderPoints
+    );
+    return formatChartData(response.data.data, response.data.metadata);
+  }
 
   // Order Analytics
-  getOrderFlow: () => apiService.get<ChartData>("/api/analytics/orders/flow"),
+  public async getOrderFlow(): Promise<IChartData> {
+    const response = await this.get<IChartData>(
+      this.config.endpoints.orders.flow
+    );
+    return formatChartData(response.data.data, response.data.metadata);
+  }
 
-  getOrderPipeline: () =>
-    apiService.get<ChartData>("/api/analytics/orders/pipeline"),
+  public async getOrderPipeline(): Promise<IChartData> {
+    const response = await this.get<IChartData>(
+      this.config.endpoints.orders.pipeline
+    );
+    return formatChartData(response.data.data, response.data.metadata);
+  }
 
-  getOrderLifecycle: () =>
-    apiService.get<ChartData>("/api/analytics/orders/lifecycle"),
+  public async getOrderLifecycle(): Promise<IChartData> {
+    const response = await this.get<IChartData>(
+      this.config.endpoints.orders.lifecycle
+    );
+    return formatChartData(response.data.data, response.data.metadata);
+  }
 
-  getOrderVolumeTrends: () =>
-    apiService.get<ChartData>("/api/analytics/orders/volume-trends"),
+  public async getOrderVolumeTrends(): Promise<IChartData> {
+    const response = await this.get<IChartData>(
+      this.config.endpoints.orders.volumeTrends
+    );
+    return formatChartData(response.data.data, response.data.metadata);
+  }
 
-  getOrderValueDistribution: () =>
-    apiService.get<ChartData>("/api/analytics/orders/value-distribution"),
+  public async getOrderValueDistribution(): Promise<IChartData> {
+    const response = await this.get<IChartData>(
+      this.config.endpoints.orders.valueDistribution
+    );
+    return formatChartData(response.data.data, response.data.metadata);
+  }
 
-  getOrderPeakTimes: () =>
-    apiService.get<ChartData>("/api/analytics/orders/peak-times"),
+  public async getOrderPeakTimes(): Promise<IChartData> {
+    const response = await this.get<IChartData>(
+      this.config.endpoints.orders.peakTimes
+    );
+    return formatChartData(response.data.data, response.data.metadata);
+  }
 
   // Transaction Analytics
-  getTransactionVolume: () =>
-    apiService.get<ChartData>("/api/analytics/transactions/volume"),
+  public async getTransactionVolume(): Promise<IChartData> {
+    const response = await this.get<IChartData>(
+      this.config.endpoints.transactions.volume
+    );
+    return formatChartData(response.data.data, response.data.metadata);
+  }
 
-  getStockMovements: () =>
-    apiService.get<ChartData>("/api/analytics/transactions/stock-movements"),
+  public async getStockMovements(): Promise<IChartData> {
+    const response = await this.get<IChartData>(
+      this.config.endpoints.transactions.stockMovements
+    );
+    return formatChartData(response.data.data, response.data.metadata);
+  }
 
-  getTransactionMetrics: () =>
-    apiService.get<ChartData>("/api/analytics/transactions/metrics"),
+  public async getTransactionMetrics(): Promise<IChartData> {
+    const response = await this.get<IChartData>(
+      this.config.endpoints.transactions.metrics
+    );
+    return formatChartData(response.data.data, response.data.metadata);
+  }
 
-  getTransactionPatterns: () =>
-    apiService.get<ChartData>("/api/analytics/transactions/patterns"),
+  public async getTransactionPatterns(): Promise<IChartData> {
+    const response = await this.get<IChartData>(
+      this.config.endpoints.transactions.patterns
+    );
+    return formatChartData(response.data.data, response.data.metadata);
+  }
 
-  getTransactionClusters: () =>
-    apiService.get<ChartData>("/api/analytics/transactions/clusters"),
+  public async getTransactionClusters(): Promise<IChartData> {
+    const response = await this.get<IChartData>(
+      this.config.endpoints.transactions.clusters
+    );
+    return formatChartData(response.data.data, response.data.metadata);
+  }
 
-  getTransactionFlow: () =>
-    apiService.get<ChartData>("/api/analytics/transactions/flow"),
+  public async getTransactionFlow(): Promise<IChartData> {
+    const response = await this.get<IChartData>(
+      this.config.endpoints.transactions.flow
+    );
+    return formatChartData(response.data.data, response.data.metadata);
+  }
 
   // Performance Analytics
-  getRealTimeMetrics: () =>
-    apiService.get<ChartData>("/api/analytics/performance/metrics"),
+  public async getRealTimeMetrics(): Promise<IChartData> {
+    const response = await this.get<IChartData>(
+      this.config.endpoints.performance.metrics
+    );
+    return formatChartData(response.data.data, response.data.metadata);
+  }
 
-  getPerformanceTrends: () =>
-    apiService.get<ChartData>("/api/analytics/performance/trends"),
+  public async getPerformanceTrends(): Promise<IChartData> {
+    const response = await this.get<IChartData>(
+      this.config.endpoints.performance.trends
+    );
+    return formatChartData(response.data.data, response.data.metadata);
+  }
 
-  getSystemHealth: () =>
-    apiService.get<ChartData>("/api/analytics/performance/health"),
+  public async getSystemHealth(): Promise<IChartData> {
+    const response = await this.get<IChartData>(
+      this.config.endpoints.performance.health
+    );
+    return formatChartData(response.data.data, response.data.metadata);
+  }
 
-  getResourceUtilization: () =>
-    apiService.get<ChartData>("/api/analytics/performance/resources"),
+  public async getResourceUtilization(): Promise<IChartData> {
+    const response = await this.get<IChartData>(
+      this.config.endpoints.performance.resources
+    );
+    return formatChartData(response.data.data, response.data.metadata);
+  }
 
   // Business Analytics
-  getFinancialAnalytics: () =>
-    apiService.get<ChartData>("/api/analytics/business/financial"),
+  public async getFinancialAnalytics(): Promise<IChartData> {
+    const response = await this.get<IChartData>(
+      this.config.endpoints.business.financial
+    );
+    return formatChartData(response.data.data, response.data.metadata);
+  }
 
-  getRevenueAnalysis: () =>
-    apiService.get<ChartData>("/api/analytics/business/revenue"),
+  public async getRevenueAnalysis(): Promise<IChartData> {
+    const response = await this.get<IChartData>(
+      this.config.endpoints.business.revenue
+    );
+    return formatChartData(response.data.data, response.data.metadata);
+  }
 
-  getHierarchicalData: () =>
-    apiService.get<ChartData>("/api/analytics/business/hierarchical"),
+  public async getHierarchicalData(): Promise<IChartData> {
+    const response = await this.get<IChartData>(
+      this.config.endpoints.business.hierarchical
+    );
+    return formatChartData(response.data.data, response.data.metadata);
+  }
 
-  getForecastData: () =>
-    apiService.get<ChartData>("/api/analytics/business/forecast"),
+  public async getForecastData(): Promise<IChartData> {
+    const response = await this.get<IChartData>(
+      this.config.endpoints.business.forecast
+    );
+    return formatChartData(response.data.data, response.data.metadata);
+  }
 
-  getTrendPredictions: () =>
-    apiService.get<ChartData>("/api/analytics/business/trends"),
-};
+  public async getTrendPredictions(): Promise<IChartData> {
+    const response = await this.get<IChartData>(
+      this.config.endpoints.business.trends
+    );
+    return formatChartData(response.data.data, response.data.metadata);
+  }
+}

@@ -3,7 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "react-query";
 import { ChevronLeftIcon } from "lucide-react";
 import { ApiService } from "@/services/api.service";
-import { FormFieldConfig, BackofficeFormConfig } from "@/backoffice/core/types";
+import { FormFieldConfig } from "@/backoffice/core/builders/types";
 import { Button } from "@/components/ui/Button";
 import { DynamicForm } from "@/backoffice/components";
 

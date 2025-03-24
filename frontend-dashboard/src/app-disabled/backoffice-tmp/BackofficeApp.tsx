@@ -4,12 +4,13 @@ import { BackofficeDirector } from "@/backoffice/core/organisms/BackofficeDirect
 import { FormPage } from "@/backoffice/ui/templates/FormPage";
 import { Sidebar } from "@/backoffice/ui/organisms/Sidebar";
 import { BackofficeModule } from "@/backoffice/core/molecules/BackofficeModule";
-import {
-  NavItem,
-  FormFieldConfig,
-  BackofficeFormFieldConfig,
-} from "@/backoffice/core/types";
+
 import { ListPage } from "@/backoffice/components";
+import {
+  BackofficeFormFieldConfig,
+  FormFieldConfig,
+} from "@/backoffice/core/builders/types";
+import { NavItem } from "@/backoffice/core/atoms/types";
 
 const convertToFormFieldConfig = (
   fields: BackofficeFormFieldConfig[]

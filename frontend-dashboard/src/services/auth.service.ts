@@ -1,36 +1,35 @@
-interface User {
-  id: string;
-  name?: string;
-  email?: string;
-  avatar?: string;
-  role?: string;
-}
+import { BaseService } from "./base.service";
+import {
+  IUser,
+  IAuthConfig,
+  IAuthResponse,
+  ITokenValidationResponse,
+} from "../models/interfaces/auth.interface";
+import { AUTH_CONFIG } from "../utils/constants";
+import { isServer, isTokenExpired, broadcastAuthEvent } from "../utils/helpers";
 
-class AuthService {
-  private readonly tokenKey =
-    process.env.NEXT_PUBLIC_AUTH_TOKEN_KEY ?? "synkro_token";
-  private readonly userKey =
-    process.env.NEXT_PUBLIC_AUTH_USER_KEY ?? "synkro_user";
+export class AuthService extends BaseService {
   private authCheckInterval: NodeJS.Timeout | null = null;
+  private readonly config: IAuthConfig;
 
   constructor() {
-    if (typeof window !== "undefined") {
-      this.startAuthCheck();
+    super({ baseUrl: AUTH_CONFIG.authServiceUrl });
+    this.config = AUTH_CONFIG;
 
+    if (!isServer) {
+      this.startAuthCheck();
       this.setupMessageListener();
     }
   }
 
-  setupMessageListener(): void {
-    if (typeof window === "undefined") return;
-
+  private setupMessageListener(): void {
     window.addEventListener("message", this.handleAuthMessage.bind(this));
   }
 
-  handleAuthMessage(event: MessageEvent): void {
+  private handleAuthMessage(event: MessageEvent): void {
     const trustedOrigins = [
-      process.env.NEXT_PUBLIC_AUTH_SERVICE_URL ?? "http://localhost:3000",
-      process.env.NEXT_PUBLIC_AUTH_INTERFACE_URL ?? "http://localhost:5173",
+      this.config.authServiceUrl,
+      this.config.authInterfaceUrl,
     ];
 
     const originUrl = new URL(event.origin);
@@ -43,9 +42,7 @@ class AuthService {
       }
     });
 
-    if (!isTrusted) {
-      return;
-    }
+    if (!isTrusted) return;
 
     if (
       event.data.type === "AUTH_SUCCESS" ||
@@ -53,7 +50,6 @@ class AuthService {
     ) {
       if (event.data.access_token && event.data.user) {
         this.setAuth(event.data.access_token, event.data.user);
-
         window.location.reload();
       } else if (
         event.data.type === "AUTH_STATUS_AUTHENTICATED" &&
@@ -70,61 +66,46 @@ class AuthService {
     }
   }
 
-  redirectToLogin(): void {
-    if (typeof window === "undefined") return;
+  public redirectToLogin(): void {
+    if (isServer) return;
 
-    const authInterfaceUrl =
-      process.env.NEXT_PUBLIC_AUTH_INTERFACE_URL ?? "http://localhost:5173";
     const returnUrl = encodeURIComponent(window.location.href);
-    window.location.href = `${authInterfaceUrl}/login?returnUrl=${returnUrl}&theme=neobrutal`;
+    window.location.href = `${this.config.authInterfaceUrl}/login?returnUrl=${returnUrl}&theme=neobrutal`;
   }
 
-  startAuthCheck(): void {
-    if (typeof window === "undefined") return;
-
+  private startAuthCheck(): void {
     if (this.authCheckInterval) {
       clearInterval(this.authCheckInterval);
     }
 
     const token = this.getToken();
-    if (!token) {
-      return;
-    }
+    if (!token) return;
 
     setTimeout(() => {
-      this.validateToken().catch((err) => {
-        console.error("Error in initial token validation:", err);
-      });
+      this.validateToken().catch(console.error);
     }, 1000);
 
     this.authCheckInterval = setInterval(() => {
       if (this.getToken()) {
-        this.validateToken().catch((err) => {
-          console.error("Error in periodic token validation:", err);
-        });
+        this.validateToken().catch(console.error);
       } else {
         this.stopAuthCheck();
       }
     }, 120000);
   }
 
-  stopAuthCheck(): void {
+  private stopAuthCheck(): void {
     if (this.authCheckInterval) {
       clearInterval(this.authCheckInterval);
       this.authCheckInterval = null;
     }
   }
 
-  async validateToken(): Promise<boolean> {
-    if (typeof window === "undefined") return false;
+  public async validateToken(): Promise<boolean> {
+    if (isServer) return false;
 
     const token = this.getToken();
-    if (!token) {
-      this.clearAuth();
-      return false;
-    }
-
-    if (this.isTokenExpired()) {
+    if (!token || isTokenExpired(token)) {
       this.clearAuth();
       return false;
     }
@@ -140,37 +121,23 @@ class AuthService {
       now - parseInt(lastValidationTime) < validationCooldown
     ) {
       const cachedResult = localStorage.getItem("token_validation_result");
-      if (cachedResult === "true") {
-        return true;
-      } else if (cachedResult === "false") {
-        return false;
-      }
+      if (cachedResult === "true") return true;
+      if (cachedResult === "false") return false;
     }
 
     try {
-      const authServiceUrl =
-        process.env.NEXT_PUBLIC_AUTH_SERVICE_URL ?? "http://localhost:3000";
-
-      const response = await fetch(
-        `${authServiceUrl}/api/auth/validate-token`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Cache-Control": "no-cache, no-store, must-revalidate",
-            Pragma: "no-cache",
-            Expires: "0",
-          },
-          body: JSON.stringify({ token }),
-        }
+      const response = await this.post<ITokenValidationResponse>(
+        "/api/auth/validate-token",
+        { token }
       );
 
-      const data = await response.json();
-
       localStorage.setItem("last_token_validation_time", now.toString());
-      localStorage.setItem("token_validation_result", data.isValid.toString());
+      localStorage.setItem(
+        "token_validation_result",
+        response.data.isValid.toString()
+      );
 
-      if (!response.ok || !data.isValid) {
+      if (!response.data.isValid) {
         this.clearAuth();
         return false;
       }
@@ -182,31 +149,20 @@ class AuthService {
     }
   }
 
-  isAuthenticated(): boolean {
-    if (typeof window === "undefined") return false;
-
-    const envToken = localStorage.getItem(this.tokenKey);
-    const legacyToken = localStorage.getItem("token");
-
-    return !!(envToken ?? legacyToken);
+  public isAuthenticated(): boolean {
+    if (isServer) return false;
+    return !!this.getToken();
   }
 
-  getToken(): string | null {
-    if (typeof window === "undefined") return null;
-
-    const envToken = localStorage.getItem(this.tokenKey);
-    const legacyToken = localStorage.getItem("token");
-
-    return envToken ?? legacyToken;
+  public getToken(): string | null {
+    if (isServer) return null;
+    return localStorage.getItem(this.config.tokenKey);
   }
 
-  getUser(): User | null {
-    if (typeof window === "undefined") return null;
+  public getUser(): IUser | null {
+    if (isServer) return null;
 
-    const envUserJson = localStorage.getItem(this.userKey);
-    const legacyUserJson = localStorage.getItem("user");
-    const userJson = envUserJson ?? legacyUserJson;
-
+    const userJson = localStorage.getItem(this.config.userKey);
     if (!userJson) return null;
 
     try {
@@ -217,152 +173,33 @@ class AuthService {
     }
   }
 
-  isTokenExpired(): boolean {
-    const token = this.getToken();
-    if (!token) return true;
+  public setAuth(token: string, user: IUser): void {
+    if (isServer) return;
 
+    localStorage.setItem(this.config.tokenKey, token);
+    localStorage.setItem(this.config.userKey, JSON.stringify(user));
+    broadcastAuthEvent("AUTH_SUCCESS", { token, user });
+  }
+
+  public clearAuth(): void {
+    if (isServer) return;
+
+    localStorage.removeItem(this.config.tokenKey);
+    localStorage.removeItem(this.config.userKey);
+    localStorage.removeItem("last_token_validation_time");
+    localStorage.removeItem("token_validation_result");
+
+    broadcastAuthEvent("AUTH_LOGOUT", {});
+  }
+
+  public async logout(): Promise<void> {
     try {
-      const parts = token.split(".");
-      if (parts.length !== 3) return true;
-
-      const payload = JSON.parse(atob(parts[1]));
-
-      if (!payload.exp) return false;
-
-      const now = Math.floor(Date.now() / 1000);
-      return payload.exp < now;
+      await this.post("/api/auth/logout");
     } catch (error) {
-      console.error("Error checking token expiration:", error);
-      return true;
-    }
-  }
-
-  setAuth(token: string, user: User): void {
-    if (typeof window === "undefined") return;
-
-    localStorage.setItem(this.tokenKey, token);
-    localStorage.setItem(this.userKey, JSON.stringify(user));
-
-    localStorage.setItem("token", token);
-    localStorage.setItem("user", JSON.stringify(user));
-
-    this.notifyAuthChange();
-
-    this.broadcastAuthEvent("LOGIN_SUCCESS", { user });
-    this.broadcastAuthEvent("AUTH_STATUS_AUTHENTICATED", { user });
-
-    this.startAuthCheck();
-  }
-
-  clearAuth(): void {
-    if (typeof window === "undefined") return;
-
-    const user = this.getUser();
-    this.broadcastAuthEvent("LOGOUT_SUCCESS", { user });
-    this.broadcastAuthEvent("AUTH_STATUS_UNAUTHENTICATED", { user });
-
-    localStorage.removeItem(this.tokenKey);
-    localStorage.removeItem(this.userKey);
-    localStorage.removeItem("token");
-    localStorage.removeItem("user");
-
-    this.notifyAuthChange();
-  }
-
-  logout(): void {
-    if (typeof window === "undefined") return;
-
-    const token = this.getToken();
-
-    if (token) {
-      const authServiceUrl =
-        process.env.NEXT_PUBLIC_AUTH_SERVICE_URL ?? "http://localhost:3000";
-
-      fetch(`${authServiceUrl}/api/auth/logout`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ token }),
-      })
-        .then((response) => response.json())
-        .catch((err) => console.error("Error calling logout API:", err));
-    }
-
-    const authInterfaceUrl =
-      process.env.NEXT_PUBLIC_AUTH_INTERFACE_URL ?? "http://localhost:5173";
-    const logoutFrame = document.createElement("iframe");
-    logoutFrame.style.display = "none";
-    logoutFrame.src = `${authInterfaceUrl}/logout`;
-    document.body.appendChild(logoutFrame);
-
-    setTimeout(() => {
-      document.body.removeChild(logoutFrame);
-
+      console.error("Error during logout:", error);
+    } finally {
       this.clearAuth();
-
-      this.stopAuthCheck();
-
-      window.location.href =
-        process.env.NEXT_PUBLIC_LANDING_URL ?? "http://localhost:4321";
-    }, 500);
-  }
-
-  private notifyAuthChange(): void {
-    if (typeof window === "undefined") return;
-
-    const event = new CustomEvent("auth-state-changed", {
-      detail: {
-        isAuthenticated: this.isAuthenticated(),
-        user: this.getUser(),
-      },
-    });
-    window.dispatchEvent(event);
-
-    try {
-      localStorage.setItem("auth_state_timestamp", Date.now().toString());
-    } catch (e) {
-      console.error("Error setting auth state timestamp:", e);
-    }
-  }
-
-  private broadcastAuthEvent(type: string, data: any): void {
-    if (typeof window === "undefined") return;
-
-    try {
-      const landingUrl =
-        process.env.NEXT_PUBLIC_LANDING_URL ?? "http://localhost:4321";
-
-      const eventData = { type, ...data };
-
-      if (type === "LOGOUT_SUCCESS" || type === "AUTH_STATUS_UNAUTHENTICATED") {
-        eventData.user = null;
-        eventData.access_token = "";
-      }
-
-      if (window.opener) {
-        window.opener.postMessage(eventData, landingUrl);
-      }
-
-      if (window.parent && window.parent !== window) {
-        window.parent.postMessage(eventData, landingUrl);
-      }
-
-      try {
-        localStorage.setItem(
-          "auth_broadcast_event",
-          JSON.stringify({
-            ...eventData,
-            timestamp: Date.now(),
-          })
-        );
-      } catch (e) {
-        console.error("Error broadcasting auth event via localStorage:", e);
-      }
-    } catch (error) {
-      console.error("Error broadcasting auth event:", error);
+      this.redirectToLogin();
     }
   }
 }
-
-export const authService = new AuthService();

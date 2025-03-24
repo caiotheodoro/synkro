@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { BackofficeListConfig } from "../../core/BackofficeBuilder";
+import { BackofficeListConfig } from "@/backoffice/core/builders/BackofficeBuilder";
 
 interface DataTableProps {
   data: any[];

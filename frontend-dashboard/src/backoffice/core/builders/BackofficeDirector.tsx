@@ -23,7 +23,7 @@ import {
   AttributesDisplay,
   AttributesBadges,
 } from "@/components/atoms/AttributesDisplay";
-import { StatsCard } from "../components";
+import { StatsCard } from "@/backoffice/components";
 
 interface ApiResponse<T> {
   data: T[];

@@ -1,5 +1,5 @@
 import React, { useEffect } from "react";
-import { BackofficeFormConfig } from "../../core/types";
+import { BackofficeFormConfig } from "@/backoffice/core/builders/BackofficeBuilder";
 import { TextField } from "../molecules/TextField";
 import { TextareaField } from "../molecules/TextareaField";
 import { SelectField } from "../molecules/SelectField";
@@ -8,7 +8,7 @@ import { NumberField } from "../molecules/NumberField";
 import { CustomField } from "../molecules/CustomField";
 import { FormSection } from "./FormSection";
 import { FormActions } from "./FormActions";
-import { useFormActions } from "../../hooks/useFormActions";
+import { useFormActions } from "@/backoffice/hooks/useFormActions";
 
 interface DynamicFormProps {
   config: BackofficeFormConfig;
@@ -81,6 +81,15 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
     const error = touched[name] ? errors[name] : undefined;
 
     if (component) {
+      const renderedComponent = component({
+        value,
+        onChange: (val: any) => handleValueChange(name, val),
+      });
+
+      if (!React.isValidElement(renderedComponent)) {
+        return null;
+      }
+
       return (
         <CustomField
           key={name}
@@ -90,10 +99,7 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
           error={error}
           touched={touched[name]}
           helperText={helperText}
-          component={component({
-            value,
-            onChange: (val: any) => handleValueChange(name, val),
-          })}
+          component={renderedComponent}
         />
       );
     }

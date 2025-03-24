@@ -1,9 +1,9 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
-import Link from 'next/link';
-import { User, LogOut, Settings, Bell } from 'lucide-react';
-import { authService } from '@/services/auth.service';
+import { useState, useEffect } from "react";
+import Link from "next/link";
+import { User, LogOut, Settings, Bell } from "lucide-react";
+import { auth } from "@/services/auth-instance.service";
 
 interface UserProfileProps {
   user: {
@@ -21,25 +21,23 @@ const UserProfile = ({ user }: UserProfileProps) => {
   };
 
   const handleLogout = () => {
-    authService.logout();
+    auth.logout();
   };
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       const target = e.target as HTMLElement;
-      if (!target.closest('.user-dropdown')) {
+      if (!target.closest(".user-dropdown")) {
         setIsOpen(false);
       }
     };
 
-    // Add event listener when dropdown is open
     if (isOpen) {
-      document.addEventListener('click', handleClickOutside);
+      document.addEventListener("click", handleClickOutside);
     }
 
-    // Cleanup
     return () => {
-      document.removeEventListener('click', handleClickOutside);
+      document.removeEventListener("click", handleClickOutside);
     };
   }, [isOpen]);
 
@@ -55,7 +53,7 @@ const UserProfile = ({ user }: UserProfileProps) => {
           {user.avatar ? (
             <img
               src={user.avatar}
-              alt={user.name || 'User'}
+              alt={user.name ?? "User"}
               className="w-full h-full object-cover"
             />
           ) : (
@@ -63,7 +61,7 @@ const UserProfile = ({ user }: UserProfileProps) => {
           )}
         </div>
         <span className="font-medium hidden md:block">
-          {user.name || user.email || 'User'}
+          {user.name ?? user.email ?? "User"}
         </span>
       </button>
 
@@ -104,4 +102,4 @@ const UserProfile = ({ user }: UserProfileProps) => {
   );
 };
 
-export default UserProfile; 
+export default UserProfile;
