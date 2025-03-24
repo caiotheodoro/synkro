@@ -89,27 +89,29 @@ export const DataTable: React.FC<DataTableProps> = ({
   const hasActions =
     onEdit || onDelete || (config.actions && config.actions.length > 0);
 
+  const hasBulkActions =
+    config.bulkActions &&
+    config.bulkActions.length > 0 &&
+    selectedItems.length > 0;
   return (
     <div className="overflow-hidden rounded-md border border-neutral-300 shadow-md">
       <div className="bg-white border-b">
         <div className="flex items-center justify-between p-4">
           <h3 className="text-lg font-bold">Results ({data.length})</h3>
 
-          {config.bulkActions &&
-            config.bulkActions.length > 0 &&
-            selectedItems.length > 0 && (
-              <div className="flex space-x-2">
-                {config.bulkActions.map((action, index) => (
-                  <button
-                    key={index}
-                    onClick={() => action.action(selectedItems)}
-                    className="px-4 py-2 text-white bg-orange-500 border-4 border-black rounded-md shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]"
-                  >
-                    {action.label}
-                  </button>
-                ))}
-              </div>
-            )}
+          {hasBulkActions && (
+            <div className="flex space-x-2">
+              {config?.bulkActions?.map((action, index) => (
+                <button
+                  key={index}
+                  onClick={() => action.action(selectedItems)}
+                  className="px-4 py-2 text-white bg-orange-500 border-4 border-black rounded-md shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]"
+                >
+                  {action.label}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
