@@ -7,6 +7,10 @@ const nextConfig = {
   env: {
     NEXT_PRIVATE_LOCAL_WEBPACK: 'true',
   },
+  
+  // Explicitly configure page extensions
+  pageExtensions: ['tsx', 'ts', 'jsx', 'js'],
+  
   webpack(config, options) {
     const { isServer } = options;
     

@@ -4,7 +4,7 @@
   "description": "Synkro Dashboard - Microfrontend",
   "private": true,
   "scripts": {
-    "dev": "next dev -p 3003",
+    "dev": "NODE_OPTIONS='--no-warnings' next dev -p 3003",
     "build": "next build",
     "start": "next start -p 3002",
     "lint": "next lint"
@@ -39,7 +39,7 @@
     "react": "18.2.0",
     "react-dom": "18.2.0",
     "react-query": "^3.39.3",
-    "react-router-dom": "^6.30.0",
+    "react-router-dom": "^6.14.2",
     "shadcn-ui": "0.9.5",
     "tailwind-merge": "^1.14.0",
     "zustand": "^5.0.3"
