@@ -5,7 +5,7 @@ import { DataTable, Column, TableAction } from "@/components/ui/DataTable";
 import { Button } from "@/components/ui/Button";
 import { Plus, Eye, Pencil, Trash2 } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { InventoryStats } from "@/components/InventoryStats";
+import { InventoryStats } from "@/components/molecules/InventoryStats";
 
 const useDebounce = (value: string, delay: number) => {
   const [debouncedValue, setDebouncedValue] = useState(value);

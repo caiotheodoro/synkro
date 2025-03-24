@@ -89,9 +89,7 @@ const BackofficeApp: React.FC = () => {
                 <FormPage
                   title={`New ${title}`}
                   apiEndpoint={module.apiEndpoint}
-                  fields={convertToFormFieldConfig(
-                    module.formConfig.fields as BackofficeFormFieldConfig[]
-                  )}
+                  fields={convertToFormFieldConfig(module.formConfig.fields)}
                   sections={module.formConfig.sections}
                   isNew
                 />
@@ -104,9 +102,7 @@ const BackofficeApp: React.FC = () => {
                 <FormPage
                   title={`Edit ${title}`}
                   apiEndpoint={module.apiEndpoint}
-                  fields={convertToFormFieldConfig(
-                    module.formConfig.fields as BackofficeFormFieldConfig[]
-                  )}
+                  fields={convertToFormFieldConfig(module.formConfig.fields)}
                   sections={module.formConfig.sections}
                 />
               }

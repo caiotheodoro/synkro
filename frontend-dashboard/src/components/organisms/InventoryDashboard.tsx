@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React from "react";
 import { Package, AlertTriangle, TrendingUp, Plus } from "lucide-react";
 
 interface InventoryItem {
@@ -67,7 +67,6 @@ export const InventoryDashboard: React.FC<InventoryDashboardProps> = ({
           </div>
         </div>
 
-        {/* Low Stock Alerts Card */}
         <div className="bg-white border-3 border-black rounded-md shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
           <div className="p-6 flex items-center">
             <div className="rounded-full bg-amber-100 p-3 mr-4">
@@ -80,7 +79,6 @@ export const InventoryDashboard: React.FC<InventoryDashboardProps> = ({
           </div>
         </div>
 
-        {/* Restock Needed Card */}
         <div className="bg-white border-3 border-black rounded-md shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
           <div className="p-6 flex items-center">
             <div className="rounded-full bg-blue-100 p-3 mr-4">
