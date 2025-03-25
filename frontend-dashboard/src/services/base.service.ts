@@ -12,7 +12,7 @@ export abstract class BaseService {
   constructor(options: IApiOptions) {
     this.baseUrl = options.baseUrl;
     this.defaultHeaders = options.headers || {};
-    this.defaultTimeout = options.timeout || 30000;
+    this.defaultTimeout = options.timeout ?? 30000;
   }
 
   protected createUrl(
@@ -40,7 +40,7 @@ export abstract class BaseService {
     url: string,
     config: IRequestConfig
   ): Promise<Response> {
-    const timeout = config.timeout || this.defaultTimeout;
+    const timeout = config.timeout ?? this.defaultTimeout;
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), timeout);
 

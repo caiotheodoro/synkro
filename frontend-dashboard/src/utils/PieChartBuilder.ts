@@ -10,17 +10,17 @@ export interface PieChartConfig {
 }
 
 export class PieChartBuilder {
-  private colorScale: d3.ScaleOrdinal<string, string>;
-  private pie: d3.Pie<any, any>;
-  private arc: d3.Arc<any, any>;
-  private total: number;
-  private chartRadius: number;
+  private readonly colorScale: d3.ScaleOrdinal<string, string>;
+  private readonly pie: d3.Pie<any, any>;
+  private readonly arc: d3.Arc<any, any>;
+  private readonly total: number;
+  private readonly chartRadius: number;
 
   constructor(
-    private data: any[],
-    private nameKey: string,
-    private valueKey: string,
-    private config: PieChartConfig
+    private readonly data: any[],
+    private readonly nameKey: string,
+    private readonly valueKey: string,
+    private readonly config: PieChartConfig
   ) {
     this.chartRadius = Math.min(config.width, config.height) / 2;
     this.colorScale = this.createColorScale();

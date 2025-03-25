@@ -2,7 +2,6 @@ import { BaseService } from "./base.service";
 import {
   IUser,
   IAuthConfig,
-  IAuthResponse,
   ITokenValidationResponse,
 } from "../models/interfaces/auth.interface";
 import { AUTH_CONFIG } from "../utils/constants";
