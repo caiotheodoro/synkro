@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
-import { ChartFactory, ChartData } from "../organisms/ChartFactory";
+import { ChartFactory } from "../organisms/ChartFactory";
+import { ChartData } from "@/utils/chartHelpers";
 
 export interface ChartBuilderProps {
   title?: string;

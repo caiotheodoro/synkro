@@ -1,8 +1,9 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef } from "react";
 import * as d3 from "d3";
 import { Axis } from "../atoms/Axis";
 import { Grid } from "../atoms/Grid";
 import { Tooltip, TooltipContent } from "../atoms/Tooltip";
+import { LineChartBuilder } from "@/utils/LineChartBuilder";
 
 export interface LineChartProps {
   data: any[];
@@ -51,136 +52,72 @@ export const LineChart: React.FC<LineChartProps> = ({
     data: null,
   });
 
-  // Convert yKey to array if it's a string
   const yKeys = Array.isArray(yKey) ? yKey : [yKey];
 
-  // Parse data if necessary (for dates, etc.)
-  const parsedData = data.map((d) => {
-    let item = { ...d };
-    // Convert date strings to Date objects if needed
-    if (typeof d[xKey] === "string" && d[xKey].match(/^\d{4}-\d{2}-\d{2}/)) {
-      item[xKey] = new Date(d[xKey]);
-    }
-    return item;
-  });
-
-  // Create scales
-  const xScale = (() => {
-    const firstValue = parsedData[0]?.[xKey];
-    if (firstValue instanceof Date) {
-      return d3
-        .scaleTime()
-        .domain(d3.extent(parsedData, (d) => d[xKey]) as [Date, Date])
-        .range([0, contentWidth])
-        .nice();
-    }
-    return d3
-      .scalePoint()
-      .domain(parsedData.map((d) => d[xKey]))
-      .range([0, contentWidth])
-      .padding(0.2);
-  })();
-
-  const yScale = d3
-    .scaleLinear()
-    .domain([
-      0,
-      (d3.max(parsedData, (d) =>
-        Math.max(...yKeys.map((key) => Number(d[key] || 0)))
-      ) as number) * 1.1,
-    ])
-    .range([contentHeight, 0])
-    .nice();
-
-  useEffect(() => {
-    if (!svgRef.current) return;
-
-    const svg = d3.select(svgRef.current);
-
-    // Clear previous elements
-    svg.select(".lines-group").selectAll("*").remove();
-
-    // Lines group
-    const linesGroup = svg.select(".lines-group");
-
-    // Create line generators for each yKey
-    yKeys.forEach((key, i) => {
-      const line = d3
-        .line<any>()
-        .x((d) => xScale(d[xKey]) as number)
-        .y((d) => yScale(Number(d[key] || 0)))
-        .curve(curve);
-
-      linesGroup
-        .append("path")
-        .datum(
-          parsedData.filter((d) => d[key] !== undefined && d[key] !== null)
-        )
-        .attr("fill", "none")
-        .attr("stroke", colors[i % colors.length])
-        .attr("stroke-width", 3)
-        .attr("d", line);
-    });
-
-    // Add dots for each point
-    if (showTooltip) {
-      const dotsGroup = svg.select(".dots-group");
-      dotsGroup.selectAll("*").remove();
-
-      yKeys.forEach((key, keyIndex) => {
-        const validData = parsedData.filter(
-          (d) => d[key] !== undefined && d[key] !== null
-        );
-
-        dotsGroup
-          .selectAll(`.dot-${keyIndex}`)
-          .data(validData)
-          .join("circle")
-          .attr("class", `dot-${keyIndex}`)
-          .attr("cx", (d) => xScale(d[xKey]) as number)
-          .attr("cy", (d) => yScale(Number(d[key] || 0)))
-          .attr("r", 4)
-          .attr("fill", colors[keyIndex % colors.length])
-          .attr("stroke", "#fff")
-          .attr("stroke-width", 2)
-          .style("cursor", "pointer")
-          .on("mouseenter", (event, d) => {
-            const [mouseX, mouseY] = d3.pointer(event);
-            setTooltipData({
-              visible: true,
-              x: mouseX + margin.left,
-              y: mouseY + margin.top,
-              data: { ...d, key },
-            });
-          })
-          .on("mouseleave", () => {
-            setTooltipData((prev) => ({ ...prev, visible: false }));
-          });
-      });
-    }
-  }, [
-    parsedData,
-    xKey,
-    yKeys,
-    xScale,
-    yScale,
+  const chartBuilder = new LineChartBuilder(data, xKey, yKeys, {
+    width,
+    height,
+    margin,
     colors,
     curve,
-    showTooltip,
-    margin,
-  ]);
+  });
 
-  // Format values for display
+  const { xScale, yScale } = chartBuilder.getScales();
+
+  const handleDotHover = (event: MouseEvent, d: any, key: string) => {
+    const [mouseX, mouseY] = d3.pointer(event);
+    setTooltipData({
+      visible: true,
+      x: mouseX + margin.left,
+      y: mouseY + margin.top,
+      data: { ...d, key },
+    });
+  };
+
+  const handleDotLeave = () => {
+    setTooltipData((prev) => ({ ...prev, visible: false }));
+  };
+
+  const renderLines = () => {
+    return yKeys.map((key, i) => {
+      const validData = chartBuilder.getValidDataForKey(key);
+      const line = chartBuilder.createLineGenerator(key);
+
+      return (
+        <g key={key}>
+          <path
+            d={line(validData) ?? ""}
+            fill="none"
+            stroke={colors[i % colors.length]}
+            strokeWidth={3}
+          />
+          {showTooltip &&
+            validData.map((d) => (
+              <circle
+                key={`${d[xKey]}-${key}`}
+                cx={xScale(d[xKey]) as number}
+                cy={yScale(Number(d[key] || 0))}
+                r={4}
+                fill={colors[i % colors.length]}
+                stroke="#fff"
+                strokeWidth={2}
+                style={{ cursor: "pointer" }}
+                onMouseEnter={(e) => handleDotHover(e.nativeEvent, d, key)}
+                onMouseLeave={handleDotLeave}
+              />
+            ))}
+        </g>
+      );
+    });
+  };
+
   const formatX = (value: any) => {
     if (xFormat) return xFormat(value);
     if (value instanceof Date) return value.toLocaleDateString();
     return String(value);
   };
 
-  const formatY = (value: any) => {
-    if (yFormat) return yFormat(value);
-    return String(value);
-  };
+  const formatY = (value: any) => yFormat?.(value) ?? String(value);
 
   return (
     <div className={`relative line-chart ${className}`}>
@@ -212,8 +149,7 @@ export const LineChart: React.FC<LineChartProps> = ({
 
           <Axis scale={yScale} orient="left" tickFormat={yFormat} />
 
-          <g className="lines-group"></g>
-          <g className="dots-group"></g>
+          {renderLines()}
         </g>
       </svg>
 
