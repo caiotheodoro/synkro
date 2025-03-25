@@ -1,8 +1,12 @@
-import React, { useRef, useState, useEffect } from "react";
+import React, { useRef, useState } from "react";
 import * as d3 from "d3";
 import { Axis } from "../atoms/Axis";
 import { Grid } from "../atoms/Grid";
 import { Tooltip, TooltipContent } from "../atoms/Tooltip";
+import { Bar } from "../atoms/Bar";
+import { BarGroup } from "./BarGroup";
+import { StackedBarGroup } from "./StackedBarGroup";
+import { BarChartBuilder } from "@/utils/BarChartBuilder";
 
 export interface BarChartProps {
   data: any[];
@@ -57,7 +61,6 @@ export const BarChart: React.FC<BarChartProps> = ({
     data: null,
   });
 
-  // Validate that stacked and grouped aren't both true
   if (stacked && grouped) {
     console.warn(
       "Both stacked and grouped are set to true; defaulting to stacked"
@@ -65,255 +68,104 @@ export const BarChart: React.FC<BarChartProps> = ({
     grouped = false;
   }
 
-  // Convert yKey to array if it's a string
   const yKeys = Array.isArray(yKey) ? yKey : [yKey];
 
-  // Create scales based on orientation
-  const mainScale = d3
-    .scaleBand()
-    .domain(data.map((d) => String(d[xKey])))
-    .range(horizontal ? [0, contentHeight] : [0, contentWidth])
-    .padding(barPadding);
-
-  // For grouped bars
-  const groupScale = grouped
-    ? d3
-        .scaleBand()
-        .domain(yKeys)
-        .range([0, mainScale.bandwidth()])
-        .padding(0.05)
-    : null;
-
-  // Value scale for the bars
-  const valueScale = d3
-    .scaleLinear()
-    .domain([
-      0,
-      stacked
-        ? (d3.max(data, (d) =>
-            yKeys.reduce((sum, key) => sum + Number(d[key] || 0), 0)
-          ) as number) * 1.1
-        : (d3.max(data, (d) =>
-            d3.max(yKeys, (key) => Number(d[key] || 0))
-          ) as number) * 1.1,
-    ])
-    .range(horizontal ? [0, contentWidth] : [contentHeight, 0])
-    .nice();
-
-  useEffect(() => {
-    if (!svgRef.current) return;
-
-    const svg = d3.select(svgRef.current);
-
-    // Clear previous elements
-    svg.select(".bars-group").selectAll("*").remove();
-
-    const barsGroup = svg.select(".bars-group");
-
-    if (stacked) {
-      // Draw stacked bars
-      const stackGenerator = d3.stack().keys(yKeys);
-      const stackedData = stackGenerator(
-        data.map((d) => {
-          const item: { [key: string]: any } = { [xKey]: d[xKey] };
-          yKeys.forEach((key) => {
-            item[key] = Number(d[key] || 0);
-          });
-          return item;
-        })
-      );
-
-      const stackGroups = barsGroup
-        .selectAll("g")
-        .data(stackedData)
-        .enter()
-        .append("g")
-        .attr("fill", (d, i) => colors[i % colors.length]);
-
-      if (horizontal) {
-        stackGroups
-          .selectAll("rect")
-          .data((d) => d)
-          .join("rect")
-          .attr("y", (d) => mainScale(String(d.data[xKey])) as number)
-          .attr("x", (d) => valueScale(d[0]))
-          .attr("height", mainScale.bandwidth())
-          .attr("width", (d) =>
-            Math.max(0, valueScale(d[1]) - valueScale(d[0]))
-          )
-          .attr("rx", 3)
-          .attr("ry", 3)
-          .style("cursor", "pointer");
-      } else {
-        stackGroups
-          .selectAll("rect")
-          .data((d) => d)
-          .join("rect")
-          .attr("x", (d) => mainScale(String(d.data[xKey])) as number)
-          .attr("y", (d) => valueScale(d[1]))
-          .attr("width", mainScale.bandwidth())
-          .attr("height", (d) =>
-            Math.max(0, valueScale(d[0]) - valueScale(d[1]))
-          )
-          .attr("rx", 3)
-          .attr("ry", 3)
-          .style("cursor", "pointer");
-      }
-
-      if (showTooltip) {
-        stackGroups
-          .selectAll("rect")
-          .on("mouseenter", (event, d: any) => {
-            const [mouseX, mouseY] = d3.pointer(event);
-            const stackKey = d3
-              .select((event.target as Element).parentNode as Element)
-              .datum() as any;
-            setTooltipData({
-              visible: true,
-              x: mouseX + margin.left,
-              y: mouseY + margin.top,
-              data: {
-                ...d.data,
-                key: stackKey.key,
-                value: d.data[stackKey.key],
-              },
-            });
-          })
-          .on("mouseleave", () => {
-            setTooltipData((prev) => ({ ...prev, visible: false }));
-          });
-      }
-    } else if (grouped) {
-      // Draw grouped bars
-      data.forEach((d) => {
-        const xPos = mainScale(String(d[xKey])) as number;
-
-        yKeys.forEach((key, i) => {
-          const value = Number(d[key] || 0);
-          const barGroup = barsGroup.append("g");
-
-          if (horizontal) {
-            barGroup
-              .append("rect")
-              .attr("y", xPos + (groupScale?.bandwidth() as number) * i)
-              .attr("x", valueScale(0))
-              .attr("height", groupScale?.bandwidth() as number)
-              .attr("width", valueScale(value) - valueScale(0))
-              .attr("fill", colors[i % colors.length])
-              .attr("rx", 3)
-              .attr("ry", 3)
-              .style("cursor", "pointer");
-          } else {
-            barGroup
-              .append("rect")
-              .attr("x", xPos + (groupScale?.bandwidth() as number) * i)
-              .attr("y", valueScale(value))
-              .attr("width", groupScale?.bandwidth() as number)
-              .attr("height", valueScale(0) - valueScale(value))
-              .attr("fill", colors[i % colors.length])
-              .attr("rx", 3)
-              .attr("ry", 3)
-              .style("cursor", "pointer");
-          }
-
-          if (showTooltip) {
-            barGroup
-              .selectAll("rect")
-              .on("mouseenter", (event) => {
-                const [mouseX, mouseY] = d3.pointer(event);
-                setTooltipData({
-                  visible: true,
-                  x: mouseX + margin.left,
-                  y: mouseY + margin.top,
-                  data: {
-                    ...d,
-                    key,
-                    value,
-                  },
-                });
-              })
-              .on("mouseleave", () => {
-                setTooltipData((prev) => ({ ...prev, visible: false }));
-              });
-          }
-        });
-      });
-    } else {
-      // Draw simple bars
-      data.forEach((d) => {
-        const value = Number(d[yKeys[0]] || 0);
-        const barGroup = barsGroup.append("g");
-
-        if (horizontal) {
-          barGroup
-            .append("rect")
-            .attr("y", mainScale(String(d[xKey])) as number)
-            .attr("x", valueScale(0))
-            .attr("height", mainScale.bandwidth())
-            .attr("width", valueScale(value) - valueScale(0))
-            .attr("fill", colors[0])
-            .attr("rx", 3)
-            .attr("ry", 3)
-            .style("cursor", "pointer");
-        } else {
-          barGroup
-            .append("rect")
-            .attr("x", mainScale(String(d[xKey])) as number)
-            .attr("y", valueScale(value))
-            .attr("width", mainScale.bandwidth())
-            .attr("height", valueScale(0) - valueScale(value))
-            .attr("fill", colors[0])
-            .attr("rx", 3)
-            .attr("ry", 3)
-            .style("cursor", "pointer");
-        }
-
-        if (showTooltip) {
-          barGroup
-            .selectAll("rect")
-            .on("mouseenter", (event) => {
-              const [mouseX, mouseY] = d3.pointer(event);
-              setTooltipData({
-                visible: true,
-                x: mouseX + margin.left,
-                y: mouseY + margin.top,
-                data: {
-                  ...d,
-                  key: yKeys[0],
-                  value,
-                },
-              });
-            })
-            .on("mouseleave", () => {
-              setTooltipData((prev) => ({ ...prev, visible: false }));
-            });
-        }
-      });
-    }
-  }, [
-    data,
-    xKey,
-    yKeys,
-    mainScale,
-    valueScale,
-    groupScale,
-    colors,
-    stacked,
-    grouped,
-    horizontal,
-    showTooltip,
+  const chartBuilder = new BarChartBuilder(data, xKey, yKeys, {
+    width,
+    height,
     margin,
-  ]);
+    colors,
+    barPadding,
+    horizontal,
+  });
 
-  // Format values for display
-  const formatX = (value: any) => {
-    if (xFormat) return xFormat(value);
-    return String(value);
+  if (stacked) {
+    chartBuilder.setupStacked();
+  } else if (grouped) {
+    chartBuilder.setupGrouped();
+  } else {
+    chartBuilder.setupSimple();
+  }
+
+  const { mainScale, valueScale, groupScale } = chartBuilder.getScales();
+
+  const handleBarHover = (event: React.MouseEvent, data: any, key: string) => {
+    const [mouseX, mouseY] = d3.pointer(event);
+    setTooltipData({
+      visible: true,
+      x: mouseX + margin.left,
+      y: mouseY + margin.top,
+      data: { ...data, key, value: data[key] },
+    });
   };
 
-  const formatY = (value: any) => {
-    if (yFormat) return yFormat(value);
-    return String(value);
+  const handleBarLeave = () => {
+    setTooltipData((prev) => ({ ...prev, visible: false }));
+  };
+
+  const formatX = (value: any) => xFormat?.(value) ?? String(value);
+  const formatY = (value: any) => yFormat?.(value) ?? String(value);
+
+  const renderBars = () => {
+    if (stacked) {
+      return chartBuilder
+        .generateStackedData()
+        .map((stackData, i) => (
+          <StackedBarGroup
+            key={stackData.key}
+            stackData={stackData}
+            mainScale={mainScale}
+            valueScale={valueScale}
+            color={colors[i % colors.length]}
+            horizontal={horizontal}
+            onBarHover={handleBarHover}
+            onBarLeave={handleBarLeave}
+          />
+        ));
+    }
+
+    if (grouped) {
+      return data.map((d) => (
+        <BarGroup
+          key={d[xKey]}
+          data={d}
+          xKey={xKey}
+          yKeys={yKeys}
+          mainScale={mainScale}
+          valueScale={valueScale}
+          groupScale={groupScale!}
+          colors={colors}
+          horizontal={horizontal}
+          onBarHover={handleBarHover}
+          onBarLeave={handleBarLeave}
+        />
+      ));
+    }
+
+    return data.map((d) => {
+      const value = Number(d[yKeys[0]] || 0);
+      const barProps = {
+        key: d[xKey],
+        fill: colors[0],
+        onMouseEnter: (e: React.MouseEvent) => handleBarHover(e, d, yKeys[0]),
+        onMouseLeave: handleBarLeave,
+        ...(horizontal
+          ? {
+              y: mainScale(String(d[xKey])) as number,
+              x: valueScale(0),
+              height: mainScale.bandwidth(),
+              width: valueScale(value) - valueScale(0),
+            }
+          : {
+              x: mainScale(String(d[xKey])) as number,
+              y: valueScale(value),
+              width: mainScale.bandwidth(),
+              height: valueScale(0) - valueScale(value),
+            }),
+      };
+
+      return <Bar {...barProps} />;
+    });
   };
 
   return (
@@ -359,7 +211,7 @@ export const BarChart: React.FC<BarChartProps> = ({
             </>
           )}
 
-          <g className="bars-group"></g>
+          <g>{renderBars()}</g>
         </g>
       </svg>
 
