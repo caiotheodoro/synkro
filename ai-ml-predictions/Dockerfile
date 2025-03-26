@@ -1,21 +1,28 @@
-FROM python:3.11-slim
+FROM continuumio/miniconda3:latest
 
 WORKDIR /app
 
-# Install system dependencies
-RUN apt-get update && apt-get install -y \
-    build-essential \
-    && rm -rf /var/lib/apt/lists/*
+# Copy environment file
+COPY environment.yml .
 
-# Copy requirements first to leverage Docker cache
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+# Create conda environment
+RUN conda env create -f environment.yml
+
+# Make RUN commands use the new environment
+SHELL ["conda", "run", "-n", "ai-ml-predictions", "/bin/bash", "-c"]
 
 # Copy application code
-COPY app/ .
+COPY . .
 
-# Expose the port the app runs on
-EXPOSE 8000
+# Set environment variables
+ENV PYTHONUNBUFFERED=1 \
+    PORT=3004
 
-# Command to run the application
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"] 
+# Expose ports
+EXPOSE 3004 8084
+
+# Run the application
+CMD ["conda", "run", "--no-capture-output", "-n", "ai-ml-predictions", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "3004"]
+
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD conda run -n ai-ml-predictions curl -f http://localhost:3004/health || exit 1 

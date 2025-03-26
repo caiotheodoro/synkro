@@ -1,9 +1,53 @@
-fastapi==0.109.2
-uvicorn==0.27.1
-tensorflow==2.18.0
-pandas==2.2.0
-numpy==1.26.3
-scikit-learn==1.4.0
-python-multipart==0.0.9
-pydantic==2.6.1
-prometheus-client==0.19.0 
+# Build Dependencies
+setuptools>=69.0.0
+wheel>=0.42.0
+Cython>=3.0.8
+
+# Core Dependencies
+fastapi==0.109.0
+uvicorn==0.27.0
+python-dotenv==1.0.0
+pydantic==2.5.3
+pydantic-settings==2.1.0
+
+# Database and Caching
+sqlalchemy==2.0.25
+psycopg2-binary==2.9.9
+redis==5.0.1
+alembic==1.13.1
+
+# ML Dependencies
+numpy==1.24.4  # Last version with Python 3.12 wheels
+pandas==1.5.3  # Compatible with numpy 1.24.4
+scikit-learn==1.3.2
+lightgbm==4.1.0
+xgboost==2.0.3
+--find-links https://download.pytorch.org/whl/cpu
+torch==2.1.2+cpu
+mlflow==2.9.2
+
+# Feature Store (temporarily commented out due to compatibility issues)
+# feast==0.34.1  # Will be added back once dependencies are resolved
+
+# Monitoring and Logging
+prometheus-client==0.19.0
+python-json-logger==2.0.7
+opentelemetry-api==1.21.0
+opentelemetry-sdk==1.21.0
+
+# Testing
+pytest==7.4.4
+pytest-cov==4.1.0
+pytest-asyncio==0.23.3
+httpx==0.26.0
+
+# Security
+python-jose==3.3.0
+passlib==1.7.4
+bcrypt==4.1.2
+
+# Development
+black==23.12.1
+isort==5.13.2
+flake8==7.0.0
+mypy==1.8.0 

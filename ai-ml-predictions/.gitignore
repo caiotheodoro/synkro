@@ -4,3 +4,7 @@ __pycache__
 *.pyd
 *.pyw
 *.pyz
+ls/
+Miniconda3-latest-Linux-x86_64.sh
+venv/
+.env

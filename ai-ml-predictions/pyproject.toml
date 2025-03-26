@@ -1,0 +1,9 @@
+[build-system]
+requires = ["setuptools>=69.0.0", "wheel>=0.42.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ai-ml-predictions"
+version = "1.0.0"
+description = "AI/ML Predictions Service for Synkro"
+requires-python = ">=3.12" 
