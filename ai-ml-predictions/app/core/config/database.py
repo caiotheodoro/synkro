@@ -1,30 +1,56 @@
-from typing import Generator
+from typing import AsyncGenerator
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
+from sqlalchemy.ext.asyncio import async_sessionmaker
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.pool import AsyncAdaptedQueuePool
 from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker, declarative_base
-from sqlalchemy.pool import QueuePool
 
 from app.core.config.settings import settings
 
-engine = create_engine(
-    str(settings.SQLALCHEMY_DATABASE_URI),
-    poolclass=QueuePool,
-    pool_size=5,
-    max_overflow=10,
-    pool_timeout=30,
-    pool_recycle=1800,
+# Convert the URL to string and replace the driver for async operations
+db_url = str(settings.SQLALCHEMY_DATABASE_URI).replace('postgresql://', 'postgresql+asyncpg://')
+sync_db_url = str(settings.SQLALCHEMY_DATABASE_URI)
+
+# Async engine for normal operations
+async_engine = create_async_engine(
+    db_url,
     echo=settings.DEBUG,
+    future=True,
+    pool_pre_ping=True,
+    poolclass=AsyncAdaptedQueuePool,
 )
 
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+# Sync engine for metadata operations
+sync_engine = create_engine(
+    sync_db_url,
+    echo=settings.DEBUG,
+    future=True,
+    pool_pre_ping=True,
+)
+
+AsyncSessionLocal = async_sessionmaker(
+    async_engine,
+    class_=AsyncSession,
+    expire_on_commit=False,
+)
+
 Base = declarative_base()
 
-def get_db() -> Generator:
+async def get_db() -> AsyncGenerator[AsyncSession, None]:
     """
     Database dependency to be used in FastAPI dependency injection.
-    Yields a database session and ensures it's closed after use.
+    Yields an async database session and ensures it's closed after use.
     """
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close() 
+    async with AsyncSessionLocal() as session:
+        try:
+            yield session
+        finally:
+            await session.close()
+
+async def init_db() -> None:
+    """
+    Initialize the database tables.
+    This should be called during application startup.
+    """
+    async with async_engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all) 

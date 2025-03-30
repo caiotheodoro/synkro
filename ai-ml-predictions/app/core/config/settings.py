@@ -1,5 +1,6 @@
 from typing import Any, Dict, Optional
-from pydantic import BaseSettings, PostgresDsn, RedisDsn, validator
+from pydantic import PostgresDsn, RedisDsn, validator
+from pydantic_settings import BaseSettings
 import os
 
 class Settings(BaseSettings):
@@ -23,36 +24,65 @@ class Settings(BaseSettings):
     POSTGRES_DB: str
     SQLALCHEMY_DATABASE_URI: Optional[PostgresDsn] = None
 
+    # Logistics Database Settings
+    LOGISTICS_DB_HOST: str
+    LOGISTICS_DB_PORT: str
+    LOGISTICS_DB_USER: str
+    LOGISTICS_DB_PASSWORD: str
+    LOGISTICS_DB_NAME: str
+    LOGISTICS_DB_URI: Optional[PostgresDsn] = None
+
     @validator("SQLALCHEMY_DATABASE_URI", pre=True)
     def assemble_db_connection(cls, v: Optional[str], values: Dict[str, Any]) -> Any:
         if isinstance(v, str):
             return v
-        return PostgresDsn.build(
-            scheme="postgresql",
-            user=values.get("POSTGRES_USER"),
-            password=values.get("POSTGRES_PASSWORD"),
-            host=values.get("POSTGRES_HOST"),
-            port=values.get("POSTGRES_PORT"),  # PostgresDsn.build will handle the conversion
-            path=f"/{values.get('POSTGRES_DB') or ''}"
-        )
+        
+        user = values.get("POSTGRES_USER")
+        password = values.get("POSTGRES_PASSWORD")
+        host = values.get("POSTGRES_HOST")
+        port = values.get("POSTGRES_PORT")
+        db = values.get("POSTGRES_DB")
+        
+        return f"postgresql://{user}:{password}@{host}:{port}/{db}"
+
+    @validator("LOGISTICS_DB_URI", pre=True)
+    def assemble_logistics_db_connection(cls, v: Optional[str], values: Dict[str, Any]) -> Any:
+        if isinstance(v, str):
+            return v
+        
+        user = values.get("LOGISTICS_DB_USER")
+        password = values.get("LOGISTICS_DB_PASSWORD")
+        host = values.get("LOGISTICS_DB_HOST")
+        port = values.get("LOGISTICS_DB_PORT")
+        db = values.get("LOGISTICS_DB_NAME")
+        
+        return f"postgresql://{user}:{password}@{host}:{port}/{db}"
 
     # Redis Settings
     REDIS_HOST: str
-    REDIS_PORT: str  # Change to str since env vars are always strings
+    REDIS_PORT: int  # Change to int since RedisDsn.build expects an integer
     REDIS_PASSWORD: Optional[str] = None
     REDIS_URI: Optional[RedisDsn] = None
+
+    @validator("REDIS_PORT", pre=True)
+    def parse_redis_port(cls, v: Any) -> int:
+        try:
+            return int(v)
+        except (TypeError, ValueError):
+            return 6379  # Default Redis port
 
     @validator("REDIS_URI", pre=True)
     def assemble_redis_connection(cls, v: Optional[str], values: Dict[str, Any]) -> Any:
         if isinstance(v, str):
             return v
-        return RedisDsn.build(
-            scheme="redis",
-            host=values.get("REDIS_HOST"),
-            port=values.get("REDIS_PORT"),  # RedisDsn.build will handle the conversion
-            password=values.get("REDIS_PASSWORD"),
-            path=""
-        )
+        
+        host = values.get("REDIS_HOST")
+        port = values.get("REDIS_PORT", 6379)
+        password = values.get("REDIS_PASSWORD")
+        
+        if password:
+            return f"redis://:{password}@{host}:{port}"
+        return f"redis://{host}:{port}"
 
     # MLflow Settings
     MLFLOW_TRACKING_URI: str

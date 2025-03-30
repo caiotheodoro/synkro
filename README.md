@@ -36,6 +36,8 @@ graph TB
     ELK{{ELK Stack Logging}}
     
     %% Client Flows
+
+    
     Client --> FE_Landing
     Client --> FE_Auth
     Client --> FE_Dashboard

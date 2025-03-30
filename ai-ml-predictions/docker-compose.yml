@@ -6,8 +6,8 @@ services:
       context: .
       dockerfile: Dockerfile
     ports:
-      - "3004:3004" # Changed from 3003
-      - "8084:8084" # Changed from 8000 for Prometheus metrics
+      - "3004:3004"
+      - "8084:8084"
     environment:
       # AI/ML Service Configuration
       - API_V1_STR=/api/v1
@@ -15,26 +15,26 @@ services:
       - VERSION=1.0.0
       - DEBUG=false
       - HOST=0.0.0.0
-      - PORT=3004 # Changed from 3003
+      - PORT=3004
       - WORKERS=4
       - RELOAD=false
       # AI/ML Database
       - POSTGRES_HOST=postgres_ml
-      - POSTGRES_PORT=5434 # Changed from 5432
-      - POSTGRES_USER=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_USER=logistics
       - POSTGRES_PASSWORD=postgres
       - POSTGRES_DB=ai_ml_predictions
       # Logistics Database (Read-only access)
       - LOGISTICS_DB_HOST=postgres_logistics
-      - LOGISTICS_DB_PORT=5435 # Changed from 5433
-      - LOGISTICS_DB_USER=postgres
-      - LOGISTICS_DB_PASSWORD=postgres
-      - LOGISTICS_DB_NAME=logistics
+      - LOGISTICS_DB_PORT=5432
+      - LOGISTICS_DB_USER=logistics
+      - LOGISTICS_DB_PASSWORD=logistics_password
+      - LOGISTICS_DB_NAME=logistics_engine
       # Redis Configuration
       - REDIS_HOST=redis
-      - REDIS_PORT=6380 # Changed from 6379
+      - REDIS_PORT=6380
       # MLflow Configuration
-      - MLFLOW_TRACKING_URI=http://mlflow:5001 # Changed from 5000
+      - MLFLOW_TRACKING_URI=http://mlflow:5001
       - MLFLOW_EXPERIMENT_NAME=production
       # Service URLs
       - LOGISTICS_ENGINE_URL=http://logistics-engine:5050
@@ -52,13 +52,11 @@ services:
       - BATCH_SIZE=32
       # Monitoring
       - ENABLE_METRICS=true
-      - METRICS_PORT=8084 # Changed from 8000
+      - METRICS_PORT=8084
       - LOG_LEVEL=INFO
     depends_on:
-      - postgres_ml
-      - postgres_logistics
-      - redis
-      - mlflow
+      postgres_ml:
+        condition: service_healthy
     networks:
       - ai-ml-network
     volumes:
@@ -66,41 +64,41 @@ services:
       - ./models:/app/models
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3004/health"] # Changed from 3003
+      test: ["CMD", "curl", "-f", "http://localhost:3004/health"]
       interval: 30s
       timeout: 10s
       retries: 3
 
   postgres_ml:
-    image: postgres:14-alpine
-    ports:
-      - "5434:5432" # Changed from 5432:5432
+    image: postgres:16-alpine
+    container_name: ai-ml-predictions-postgres
     environment:
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgres
-      - POSTGRES_DB=ai_ml_predictions
+      POSTGRES_USER: logistics
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: ai_ml_predictions
+    ports:
+      - "5434:5432"
     volumes:
       - postgres_ml_data:/var/lib/postgresql/data
-    networks:
-      - ai-ml-network
-    restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
-      interval: 10s
+      test: ["CMD-SHELL", "pg_isready -U logistics -d ai_ml_predictions"]
+      interval: 5s
       timeout: 5s
       retries: 5
+    restart: unless-stopped
+    networks:
+      - ai-ml-network
 
   postgres_logistics:
     image: postgres:14-alpine
     ports:
-      - "5435:5432" # Changed from 5433:5432
+      - "5435:5432"
     environment:
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=postgres
       - POSTGRES_DB=logistics
     volumes:
       - postgres_logistics_data:/var/lib/postgresql/data
-      # Mount logistics schema initialization scripts if available
       - ./logistics-init:/docker-entrypoint-initdb.d
     networks:
       - ai-ml-network
@@ -114,7 +112,7 @@ services:
   redis:
     image: redis:7-alpine
     ports:
-      - "6380:6379" # Changed from 6379:6379
+      - "6380:6379"
     command: redis-server --appendonly yes
     volumes:
       - redis_data:/data
@@ -130,10 +128,10 @@ services:
   mlflow:
     image: ghcr.io/mlflow/mlflow:v2.9.2
     ports:
-      - "5001:5001" # Changed from 5000:5000
-    command: mlflow server --host 0.0.0.0 --port 5001 # Changed from 5000
+      - "5001:5001"
+    command: mlflow server --host 0.0.0.0 --port 5001
     environment:
-      - MLFLOW_S3_ENDPOINT_URL=http://minio:9002 # Changed from 9000
+      - MLFLOW_S3_ENDPOINT_URL=http://minio:9002
       - AWS_ACCESS_KEY_ID=minioadmin
       - AWS_SECRET_ACCESS_KEY=minioadmin
     depends_on:
@@ -144,7 +142,7 @@ services:
       - ai-ml-network
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:5001/health"] # Changed from 5000
+      test: ["CMD", "curl", "-f", "http://localhost:5001/health"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -152,29 +150,31 @@ services:
   minio:
     image: minio/minio:latest
     ports:
-      - "9002:9002" # Changed from 9000:9000
-      - "9003:9003" # Changed from 9001:9001
+      - "9002:9002"
+      - "9003:9003"
     environment:
       - MINIO_ROOT_USER=minioadmin
       - MINIO_ROOT_PASSWORD=minioadmin
-    command: server /data --console-address ":9003" --address ":9002" # Changed ports
+    command: server /data --console-address ":9003" --address ":9002"
     volumes:
       - minio_data:/data
     networks:
       - ai-ml-network
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9002/minio/health/live"] # Changed from 9000
+      test: ["CMD", "curl", "-f", "http://localhost:9002/minio/health/live"]
       interval: 30s
       timeout: 20s
       retries: 3
 
 networks:
   ai-ml-network:
+    name: ai-ml-network
     driver: bridge
 
 volumes:
   postgres_ml_data:
+    name: ai-ml-predictions-postgres-data
   postgres_logistics_data:
   redis_data:
   mlflow_data:
