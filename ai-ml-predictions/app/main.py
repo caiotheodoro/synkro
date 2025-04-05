@@ -6,6 +6,7 @@ from app.core.logging.logger import logger
 from app.controllers.prediction_controller import router as prediction_router
 from app.jobs.prediction_job import setup_prediction_job
 from app.core.config.database import init_db
+import sys
 
 def create_app() -> FastAPI:
     app = FastAPI(
@@ -30,11 +31,21 @@ def create_app() -> FastAPI:
 
     @app.on_event("startup")
     async def startup_event():
-        logger.info("Starting AI/ML Predictions Service")
-        await init_db()
-        
-        scheduler = setup_prediction_job()
-        scheduler.start()
+        try:
+            logger.info("Starting AI/ML Predictions Service")
+            
+            logger.info("Initializing database...")
+            await init_db()
+            logger.info("Database initialization completed successfully")
+            
+            logger.info("Starting prediction scheduler...")
+            scheduler = setup_prediction_job()
+            scheduler.start()
+            logger.info("Prediction scheduler started successfully")
+            
+        except Exception as e:
+            logger.error(f"Failed to start the service: {str(e)}")
+            sys.exit(1)
 
     @app.get("/health", tags=["Health"])
     async def health_check():

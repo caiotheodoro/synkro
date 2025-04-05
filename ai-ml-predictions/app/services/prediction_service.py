@@ -1,62 +1,76 @@
 from datetime import datetime
-from typing import Dict, List, Optional
-from sqlalchemy.orm import Session
-from app.models.database_model import PredictionRecord, DataChangeTracker
-from app.utils.ml_utils import make_prediction, calculate_data_hash
+from typing import Dict, List, Optional, Tuple
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
+from app.models.database_model import PredictionRecord, PredictionType, PredictionStatus
+import numpy as np
 import uuid
+import logging
+import json
+
+logger = logging.getLogger(__name__)
 
 class PredictionService:
-    def __init__(self, db: Session):
+    def __init__(self, db: AsyncSession):
         self.db = db
 
-    def create_prediction(self, item_id: str, data: Dict[str, List[float]]) -> PredictionRecord:
-        data_hash = calculate_data_hash(data)
-        predicted_demand, confidence = make_prediction(data)
+    def _calculate_simple_prediction(self, data: Dict[str, List[float]]) -> Tuple[float, float]:
+        try:
+            quantities = np.array(data.get('quantity', [0]))
+            if len(quantities) == 0:
+                return 0.0, 0.0
 
-        prediction = PredictionRecord(
-            id=str(uuid.uuid4()),
-            item_id=item_id,
-            predicted_demand=predicted_demand,
-            confidence_score=confidence,
-            data_hash=data_hash,
-            input_data=data,
-            timestamp=datetime.utcnow()
-        )
+            # Simple moving average prediction
+            prediction = float(np.mean(quantities))
+            
+            # Simple confidence calculation based on standard deviation
+            std_dev = float(np.std(quantities)) if len(quantities) > 1 else 0.0
+            confidence = max(0.0, min(1.0, 1.0 - (std_dev / (prediction + 1e-6))))
+            
+            return prediction, confidence
+        except Exception as e:
+            logger.error(f"Error calculating prediction: {str(e)}")
+            return 0.0, 0.0
 
-        self.db.add(prediction)
-        self.db.commit()
-        self.db.refresh(prediction)
+    async def create_prediction(self, item_id: str, data: Dict[str, List[float]]) -> PredictionRecord:
+        """Create a new prediction for an item."""
+        try:
+            predicted_demand, confidence = self._calculate_simple_prediction(data)
 
-        self._update_change_tracker(item_id, data_hash)
-        return prediction
-
-    def _update_change_tracker(self, item_id: str, data_hash: str):
-        tracker = self.db.query(DataChangeTracker).filter_by(item_id=item_id).first()
-        
-        if not tracker:
-            tracker = DataChangeTracker(
+            prediction = PredictionRecord(
+                id=str(uuid.uuid4()),
                 item_id=item_id,
-                last_hash=data_hash,
-                last_checked=datetime.utcnow()
+                warehouse_id="default",
+                prediction_type=PredictionType.DEMAND,
+                status=PredictionStatus.COMPLETED,
+                predicted_demand=predicted_demand,
+                confidence_score=confidence,
+                input_data=data,
+                data_hash=str(hash(json.dumps(data, sort_keys=True))),
+                model_version="1.0.0",
+                timestamp=datetime.utcnow()
             )
-            self.db.add(tracker)
-        else:
-            tracker.last_hash = data_hash
-            tracker.last_checked = datetime.utcnow()
-        
-        self.db.commit()
 
-    def check_data_changed(self, item_id: str, data: Dict[str, List[float]]) -> bool:
-        current_hash = calculate_data_hash(data)
-        tracker = self.db.query(DataChangeTracker).filter_by(item_id=item_id).first()
-        
-        if not tracker:
-            return True
-        
-        return tracker.last_hash != current_hash
+            self.db.add(prediction)
+            await self.db.commit()
+            await self.db.refresh(prediction)
 
-    def get_latest_prediction(self, item_id: str) -> Optional[PredictionRecord]:
-        return self.db.query(PredictionRecord)\
-            .filter_by(item_id=item_id)\
-            .order_by(PredictionRecord.timestamp.desc())\
-            .first() 
+            return prediction
+            
+        except Exception as e:
+            logger.error(f"Error creating prediction for item {item_id}: {str(e)}")
+            await self.db.rollback()
+            raise
+
+    async def get_latest_prediction(self, item_id: str) -> Optional[PredictionRecord]:
+        """Get the most recent prediction for an item."""
+        try:
+            stmt = select(PredictionRecord)\
+                .filter_by(item_id=item_id)\
+                .order_by(PredictionRecord.timestamp.desc())
+            result = await self.db.execute(stmt)
+            return result.scalar_one_or_none()
+            
+        except Exception as e:
+            logger.error(f"Error fetching prediction for item {item_id}: {str(e)}")
+            raise 

@@ -2,103 +2,65 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.services.prediction_service import PredictionService
-from app.core.config.database import AsyncSessionLocal
+from app.core.config.database import LogisticsAsyncSession, PredictionsAsyncSession
 from app.core.logging.logger import logger
 from typing import Dict, List
 import asyncio
 from sqlalchemy import text
+from decimal import Decimal
 
-async def fetch_inventory_data(item_id: str, db: AsyncSession) -> Dict[str, List[float]]:
+async def fetch_inventory_data(db: AsyncSession, item_id: str) -> Dict[str, List[float]]:
     try:
         historical_query = text("""
-            SELECT quantity, reserved, available, extract(epoch from last_updated) as timestamp
+            SELECT 
+                CAST(quantity AS FLOAT) as quantity,
+                CAST(reserved AS FLOAT) as reserved,
+                CAST(available AS FLOAT) as available,
+                CAST(EXTRACT(epoch FROM last_updated) AS BIGINT) as timestamp
             FROM inventory_levels
             WHERE item_id = :item_id
             ORDER BY last_updated DESC
             LIMIT 30
         """)
         
-        transaction_query = text("""
-            SELECT quantity, type, extract(epoch from timestamp) as timestamp
-            FROM inventory_transactions
-            WHERE item_id = :item_id
-            ORDER BY timestamp DESC
-            LIMIT 30
-        """)
-        
         historical_result = await db.execute(historical_query, {"item_id": item_id})
-        transaction_result = await db.execute(transaction_query, {"item_id": item_id})
-        
         historical_data = historical_result.fetchall()
-        transaction_data = transaction_result.fetchall()
         
-        historical_demand = []
         stock_levels = []
-        seasonality = []
         
         for row in historical_data:
-            stock_levels.append(float(row.quantity))
-            seasonality_factor = calculate_seasonality(row.timestamp)
-            seasonality.append(seasonality_factor)
+            quantity = float(row.quantity) if isinstance(row.quantity, Decimal) else row.quantity
+            stock_levels.append(quantity)
         
-        for row in transaction_data:
-            if row.type == 'remove':
-                historical_demand.append(float(row.quantity))
-            
-        if not historical_demand:
-            historical_demand = [0.0]
         if not stock_levels:
             stock_levels = [0.0]
-        if not seasonality:
-            seasonality = [1.0]
         
         return {
-            "historical_demand": historical_demand,
-            "stock_levels": stock_levels,
-            "seasonality": seasonality
+            "quantity": stock_levels,
+            "timestamp": [row.timestamp for row in historical_data] if historical_data else [0]
         }
-    
+
     except Exception as e:
         logger.error(f"Error fetching inventory data: {str(e)}")
         return {
-            "historical_demand": [0.0],
-            "stock_levels": [0.0],
-            "seasonality": [1.0]
+            "quantity": [0.0],
+            "timestamp": [0]
         }
 
-def calculate_seasonality(timestamp: float) -> float:
-    from datetime import datetime
-    dt = datetime.fromtimestamp(timestamp)
-    month = dt.month
-    
-    seasonal_factors = {
-        12: 1.2,  # December (holiday season)
-        11: 1.1,  # November (pre-holiday)
-        1: 0.8,   # January (post-holiday)
-        2: 0.8,   # February (winter)
-        7: 1.1,   # July (summer peak)
-        8: 1.1,   # August (summer peak)
-    }
-    
-    return seasonal_factors.get(month, 1.0)
-
-async def process_item_prediction(item_id: str, db: AsyncSession):
+async def process_item_prediction(logistics_db: AsyncSession, predictions_db: AsyncSession, item_id: str):
     try:
-        service = PredictionService(db)
-        data = await fetch_inventory_data(item_id, db)
-        
-        if service.check_data_changed(item_id, data):
-            prediction = service.create_prediction(item_id, data)
-            logger.info(f"Updated prediction for item {item_id}: {prediction.predicted_demand}")
-        else:
-            logger.info(f"No data changes detected for item {item_id}, skipping prediction")
+        service = PredictionService(predictions_db)
+        data = await fetch_inventory_data(logistics_db, item_id)
+        prediction = await service.create_prediction(item_id, data)
+        logger.info(f"Updated prediction for item {item_id}: {prediction.predicted_demand}")
     
     except Exception as e:
         logger.error(f"Error processing prediction for item {item_id}: {str(e)}")
 
 async def run_predictions():
     try:
-        async with AsyncSessionLocal() as db:
+        async with LogisticsAsyncSession() as logistics_db:
+            # Get active items in a single query
             query = text("""
                 SELECT id 
                 FROM inventory_items 
@@ -106,15 +68,25 @@ async def run_predictions():
                 OR updated_at >= NOW() - INTERVAL '30 days'
             """)
             
-            result = await db.execute(query)
+            result = await logistics_db.execute(query)
             item_ids = [str(row.id) for row in result.fetchall()]
             
             if not item_ids:
                 logger.warning("No active inventory items found for prediction")
                 return
-            
-            tasks = [process_item_prediction(item_id, db) for item_id in item_ids]
-            await asyncio.gather(*tasks)
+
+            # Process predictions in batches to avoid overwhelming the database
+            batch_size = 5
+            async with PredictionsAsyncSession() as predictions_db:
+                for i in range(0, len(item_ids), batch_size):
+                    batch = item_ids[i:i + batch_size]
+                    tasks = [
+                        process_item_prediction(logistics_db, predictions_db, item_id)
+                        for item_id in batch
+                    ]
+                    await asyncio.gather(*tasks)
+                    # Small delay between batches to reduce database load
+                    await asyncio.sleep(0.1)
     
     except Exception as e:
         logger.error(f"Error in prediction job: {str(e)}")
