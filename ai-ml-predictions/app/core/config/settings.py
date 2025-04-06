@@ -1,4 +1,4 @@
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, List
 from pydantic import PostgresDsn, RedisDsn, validator
 from pydantic_settings import BaseSettings
 import os
@@ -13,7 +13,7 @@ class Settings(BaseSettings):
 
     # Server Settings
     HOST: str = "0.0.0.0"
-    PORT: int = 3004
+    PORT: int = 8000
     WORKERS: int = 4
     RELOAD: bool = True
 
@@ -35,11 +35,13 @@ class Settings(BaseSettings):
     DB_POOL_SIZE: int = 5
     DB_MAX_OVERFLOW: int = 10
     DB_ECHO: bool = False
+    DB_POOL_TIMEOUT: int = 30
 
     # Redis Settings
     REDIS_HOST: str = "localhost"
     REDIS_PORT: int = 6379
     REDIS_PASSWORD: Optional[str] = None
+    REDIS_URL: str
 
     # MLflow Settings
     MLFLOW_TRACKING_URI: str = "http://localhost:5000"
@@ -53,10 +55,13 @@ class Settings(BaseSettings):
     SECRET_KEY: str = "your-secret-key-here"
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
+    ALLOWED_ORIGINS: List[str] = ["*"]
+    API_KEY: str
 
     # Cache Settings
     PREDICTION_CACHE_TTL: int = 3600
     FEATURE_CACHE_TTL: int = 1800
+    CACHE_TTL: int = 300
 
     # Model Settings
     DEFAULT_MODEL_VERSION: str = "latest"
@@ -78,7 +83,19 @@ class Settings(BaseSettings):
     CORS_CREDENTIALS: bool = True
     CORS_METHODS: list = ["*"]
     CORS_HEADERS: list = ["*"]
-    API_KEY: Optional[str] = None
+
+    # Model Registry
+    MODEL_REGISTRY_PATH: str = "models"
+    MODEL_REGISTRY_CACHE_TTL: int = 3600
+
+    # Feature Store
+    FEATURE_STORE_URL: str
+    FEATURE_STORE_TIMEOUT: int = 30
+    FEATURE_STORE_MAX_RETRIES: int = 3
+
+    # Job Scheduler
+    SCHEDULER_TIMEZONE: str = "UTC"
+    PREDICTION_JOB_INTERVAL: int = 3600
 
     @property
     def LOGISTICS_DB_URI(self) -> str:

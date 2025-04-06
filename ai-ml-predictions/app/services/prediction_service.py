@@ -10,8 +10,104 @@ import uuid
 import logging
 import json
 from sqlalchemy.exc import SQLAlchemyError
+from abc import ABC, abstractmethod
+from fastapi import Depends
+from app.core.config.settings import settings
+from app.models.prediction import PredictionModel
+from app.schemas.prediction import PredictionCreate, PredictionResponse
+from app.core.exceptions import ModelNotFoundError, PredictionError
+from app.services.model_registry.registry import ModelRegistry
+from app.services.feature_store.store import FeatureStore
 
 logger = logging.getLogger(__name__)
+
+class PredictionServiceInterface(ABC):
+    @abstractmethod
+    async def create_prediction(self, data: PredictionCreate) -> PredictionResponse:
+        pass
+
+    @abstractmethod
+    async def get_prediction(self, prediction_id: str) -> Optional[PredictionResponse]:
+        pass
+
+    @abstractmethod
+    async def list_predictions(self, skip: int = 0, limit: int = 100) -> List[PredictionResponse]:
+        pass
+
+class PredictionService(PredictionServiceInterface):
+    def __init__(
+        self,
+        model_registry: ModelRegistry,
+        feature_store: FeatureStore
+    ):
+        self.model_registry = model_registry
+        self.feature_store = feature_store
+
+    async def create_prediction(self, data: PredictionCreate) -> PredictionResponse:
+        try:
+            model = await self.model_registry.get_model(data.model_name)
+            if not model:
+                raise ModelNotFoundError(f"Model {data.model_name} not found")
+
+            features = await self.feature_store.get_features(data.input_data)
+            prediction_result = await model.predict(features)
+
+            prediction = await PredictionModel.create(
+                model_name=data.model_name,
+                input_data=data.input_data,
+                prediction_result=prediction_result
+            )
+
+            return PredictionResponse(
+                id=str(prediction.id),
+                model_name=prediction.model_name,
+                input_data=prediction.input_data,
+                prediction_result=prediction.prediction_result,
+                created_at=prediction.created_at
+            )
+        except Exception as e:
+            logger.error(f"Error creating prediction: {str(e)}")
+            raise PredictionError(f"Failed to create prediction: {str(e)}")
+
+    async def get_prediction(self, prediction_id: str) -> Optional[PredictionResponse]:
+        try:
+            prediction = await PredictionModel.get(prediction_id)
+            if not prediction:
+                return None
+
+            return PredictionResponse(
+                id=str(prediction.id),
+                model_name=prediction.model_name,
+                input_data=prediction.input_data,
+                prediction_result=prediction.prediction_result,
+                created_at=prediction.created_at
+            )
+        except Exception as e:
+            logger.error(f"Error getting prediction: {str(e)}")
+            raise PredictionError(f"Failed to get prediction: {str(e)}")
+
+    async def list_predictions(self, skip: int = 0, limit: int = 100) -> List[PredictionResponse]:
+        try:
+            predictions = await PredictionModel.list(skip=skip, limit=limit)
+            return [
+                PredictionResponse(
+                    id=str(prediction.id),
+                    model_name=prediction.model_name,
+                    input_data=prediction.input_data,
+                    prediction_result=prediction.prediction_result,
+                    created_at=prediction.created_at
+                )
+                for prediction in predictions
+            ]
+        except Exception as e:
+            logger.error(f"Error listing predictions: {str(e)}")
+            raise PredictionError(f"Failed to list predictions: {str(e)}")
+
+def get_prediction_service(
+    model_registry: ModelRegistry = Depends(),
+    feature_store: FeatureStore = Depends()
+) -> PredictionService:
+    return PredictionService(model_registry, feature_store)
 
 class PredictionService:
     def __init__(self, db: AsyncSession):
