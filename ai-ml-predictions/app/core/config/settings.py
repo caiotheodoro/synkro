@@ -41,7 +41,16 @@ class Settings(BaseSettings):
     REDIS_HOST: str = "localhost"
     REDIS_PORT: int = 6379
     REDIS_PASSWORD: Optional[str] = None
-    REDIS_URL: str
+    REDIS_DB: int = 0
+    REDIS_URL: Optional[str] = None
+    ENABLE_CACHE: bool = True
+    CACHE_TTL: int = 300  # 5 minutes
+    CACHE_MAX_RETRIES: int = 3
+    CACHE_RETRY_DELAY: int = 1  # seconds
+
+    # Cache TTL Settings
+    PREDICTION_CACHE_TTL: int = 3600  # 1 hour
+    FEATURE_CACHE_TTL: int = 1800  # 30 minutes
 
     # MLflow Settings
     MLFLOW_TRACKING_URI: str = "http://localhost:5000"
@@ -51,17 +60,19 @@ class Settings(BaseSettings):
     LOGISTICS_ENGINE_URL: str = "http://localhost:5050"
     INVENTORY_SYNC_URL: str = "http://localhost:5051"
 
+    # Feature Store Settings
+    ENABLE_FEATURE_STORE: bool = True
+    FEATURE_STORE_URL: Optional[str] = None
+    FEATURE_STORE_TIMEOUT: int = 30
+    FEATURE_STORE_MAX_RETRIES: int = 3
+    FEATURE_STORE_RETRY_DELAY: int = 1
+
     # Security Settings
     SECRET_KEY: str = "your-secret-key-here"
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     ALLOWED_ORIGINS: List[str] = ["*"]
-    API_KEY: str
-
-    # Cache Settings
-    PREDICTION_CACHE_TTL: int = 3600
-    FEATURE_CACHE_TTL: int = 1800
-    CACHE_TTL: int = 300
+    API_KEY: Optional[str] = None
 
     # Model Settings
     DEFAULT_MODEL_VERSION: str = "latest"
@@ -85,13 +96,8 @@ class Settings(BaseSettings):
     CORS_HEADERS: list = ["*"]
 
     # Model Registry
-    MODEL_REGISTRY_PATH: str = "models"
+    MODEL_REGISTRY_PATH: str = "/app/models"
     MODEL_REGISTRY_CACHE_TTL: int = 3600
-
-    # Feature Store
-    FEATURE_STORE_URL: str
-    FEATURE_STORE_TIMEOUT: int = 30
-    FEATURE_STORE_MAX_RETRIES: int = 3
 
     # Job Scheduler
     SCHEDULER_TIMEZONE: str = "UTC"
@@ -104,6 +110,15 @@ class Settings(BaseSettings):
     @property
     def PREDICTIONS_DB_URI(self) -> str:
         return f"postgresql://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}@{self.POSTGRES_HOST}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
+
+    @property
+    def redis_url(self) -> str:
+        """Build Redis URL with proper format."""
+        if self.REDIS_URL:
+            return self.REDIS_URL
+        
+        auth = f":{self.REDIS_PASSWORD}@" if self.REDIS_PASSWORD else ""
+        return f"redis://{auth}{self.REDIS_HOST}:{self.REDIS_PORT}/{self.REDIS_DB}"
 
     class Config:
         env_file = ".env"

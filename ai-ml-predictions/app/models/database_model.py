@@ -44,15 +44,15 @@ class PredictionMetrics(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     prediction_id = Column(UUID(as_uuid=True), ForeignKey('predictions.id', ondelete='CASCADE'), nullable=False)
-    mape = Column(Float)  # Mean Absolute Percentage Error
-    rmse = Column(Float)  # Root Mean Square Error
-    mae = Column(Float)   # Mean Absolute Error
-    r2_score = Column(Float)  # R-squared score
-    actual_value = Column(Float)  # Actual value when available
-    prediction_error = Column(Float)  # Difference between predicted and actual
-    is_accurate = Column(Boolean)  # Whether prediction was within acceptable range
+    mape = Column(Float)  
+    rmse = Column(Float)  
+    mae = Column(Float)   
+    r2_score = Column(Float)  
+    actual_value = Column(Float)  
+    prediction_error = Column(Float)  
+    is_accurate = Column(Boolean)  
     timestamp = Column(DateTime(timezone=True), nullable=False, default=func.now())
-    metrics_metadata = Column(JSONB)  # Additional metrics data
+    metrics_metadata = Column(JSONB)  
     prediction = relationship("PredictionRecord", back_populates="metrics")
 
 class DataChangeTracker(Base):

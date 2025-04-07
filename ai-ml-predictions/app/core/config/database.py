@@ -1,7 +1,6 @@
 from typing import AsyncGenerator
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
-from sqlalchemy.ext.asyncio import async_sessionmaker
-from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
+from sqlalchemy.orm import declarative_base
 from sqlalchemy.pool import AsyncAdaptedQueuePool
 from sqlalchemy import create_engine, text
 from app.models.database_model import Base, PredictionType, PredictionStatus
@@ -10,13 +9,16 @@ from app.core.logging.logger import logger
 import os
 import asyncio
 
-# Build database URLs
+# Build database URLs with asyncpg driver
 predictions_db_url = str(settings.PREDICTIONS_DB_URI).replace('postgresql://', 'postgresql+asyncpg://')
 predictions_sync_url = str(settings.PREDICTIONS_DB_URI)
 
-# Logistics Database URLs
+# Logistics Database URLs with asyncpg driver
 logistics_db_url = str(settings.LOGISTICS_DB_URI).replace('postgresql://', 'postgresql+asyncpg://')
 logistics_sync_url = str(settings.LOGISTICS_DB_URI)
+
+# Create base class for declarative models
+Base = declarative_base()
 
 # AI/ML Predictions Database engines
 predictions_async_engine = create_async_engine(
@@ -24,9 +26,9 @@ predictions_async_engine = create_async_engine(
     echo=settings.DB_ECHO,
     future=True,
     pool_pre_ping=True,
-    poolclass=AsyncAdaptedQueuePool,
     pool_size=settings.DB_POOL_SIZE,
-    max_overflow=settings.DB_MAX_OVERFLOW
+    max_overflow=settings.DB_MAX_OVERFLOW,
+    pool_timeout=settings.DB_POOL_TIMEOUT
 )
 
 predictions_sync_engine = create_engine(
@@ -44,9 +46,9 @@ logistics_async_engine = create_async_engine(
     echo=settings.DB_ECHO,
     future=True,
     pool_pre_ping=True,
-    poolclass=AsyncAdaptedQueuePool,
     pool_size=settings.DB_POOL_SIZE,
-    max_overflow=settings.DB_MAX_OVERFLOW
+    max_overflow=settings.DB_MAX_OVERFLOW,
+    pool_timeout=settings.DB_POOL_TIMEOUT
 )
 
 logistics_sync_engine = create_engine(
@@ -62,13 +64,17 @@ logistics_sync_engine = create_engine(
 PredictionsAsyncSession = async_sessionmaker(
     predictions_async_engine,
     expire_on_commit=False,
-    class_=AsyncSession
+    class_=AsyncSession,
+    autocommit=False,
+    autoflush=False
 )
 
 LogisticsAsyncSession = async_sessionmaker(
     logistics_async_engine,
     expire_on_commit=False,
-    class_=AsyncSession
+    class_=AsyncSession,
+    autocommit=False,
+    autoflush=False
 )
 
 async def get_predictions_db() -> AsyncGenerator[AsyncSession, None]:
@@ -79,6 +85,10 @@ async def get_predictions_db() -> AsyncGenerator[AsyncSession, None]:
     async with PredictionsAsyncSession() as session:
         try:
             yield session
+            await session.commit()
+        except Exception:
+            await session.rollback()
+            raise
         finally:
             await session.close()
 
@@ -90,6 +100,10 @@ async def get_logistics_db() -> AsyncGenerator[AsyncSession, None]:
     async with LogisticsAsyncSession() as session:
         try:
             yield session
+            await session.commit()
+        except Exception:
+            await session.rollback()
+            raise
         finally:
             await session.close()
 
@@ -141,14 +155,61 @@ async def init_db():
         if not await verify_database_connection():
             raise Exception("Could not establish database connection")
 
-        logger.info("Creating enum types...")
-        if not create_enum_types():
-            raise Exception("Failed to create enum types")
-
         logger.info("Creating tables...")
-        # Create all tables using SQLAlchemy metadata
-        Base.metadata.create_all(predictions_sync_engine)
-        logger.info("Tables created successfully")
+        # Read the SQL migration file
+        with open('app/migrations/create_tables.sql', 'r') as f:
+            sql = f.read()
+
+        # Split the SQL into individual statements and clean them up
+        statements = []
+        current_statement = []
+        in_function = False
+        in_do_block = False
+
+        for line in sql.splitlines():
+            line = line.strip()
+            if not line or line.startswith('--'):  # Skip empty lines and comments
+                continue
+
+            # Check if we're entering a function definition
+            if 'CREATE OR REPLACE FUNCTION' in line:
+                in_function = True
+            # Check if we're entering a DO block
+            elif line.startswith('DO $$'):
+                in_do_block = True
+
+            current_statement.append(line)
+
+            # If we're in a function definition, wait for the LANGUAGE statement
+            if in_function and 'LANGUAGE plpgsql;' in line:
+                statements.append('\n'.join(current_statement))
+                current_statement = []
+                in_function = False
+            # If we're in a DO block, wait for the END $$ statement
+            elif in_do_block and line.startswith('END $$'):
+                statements.append('\n'.join(current_statement))
+                current_statement = []
+                in_do_block = False
+            # For regular statements, split on semicolon
+            elif not in_function and not in_do_block and line.endswith(';'):
+                statements.append('\n'.join(current_statement))
+                current_statement = []
+
+        # Add any remaining statement
+        if current_statement:
+            statements.append('\n'.join(current_statement))
+
+        # Execute each statement separately
+        async with predictions_async_engine.begin() as conn:
+            for stmt in statements:
+                if stmt:  # Skip empty statements
+                    try:
+                        await conn.execute(text(stmt))
+                        logger.info(f"Successfully executed: {stmt[:50]}...")  # Log first 50 chars
+                    except Exception as e:
+                        logger.error(f"Error executing statement: {stmt}")
+                        logger.error(f"Error details: {str(e)}")
+                        raise
 
         # Verify tables were created
         async with PredictionsAsyncSession() as session:
@@ -166,4 +227,21 @@ async def init_db():
 
     except Exception as e:
         logger.error(f"Error during database initialization: {str(e)}")
-        raise 
+        raise
+
+async def get_db() -> AsyncGenerator[AsyncSession, None]:
+    """Dependency for getting async database session."""
+    async with PredictionsAsyncSession() as session:
+        try:
+            yield session
+            await session.commit()
+        except Exception:
+            await session.rollback()
+            raise
+        finally:
+            await session.close()
+
+async def cleanup_db():
+    """Cleanup database connections."""
+    await predictions_async_engine.dispose()
+    await logistics_async_engine.dispose() 

@@ -1,81 +1,87 @@
+from typing import List, Optional, Dict, Any
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
-from typing import Optional
-from app.schemas.prediction_schema import PredictionRequest, PredictionResponse
-from app.services.prediction_service import PredictionService
-from app.core.config.database import get_predictions_db
-from app.jobs.prediction_job import process_item_prediction, run_predictions
-import logging
+from app.core.config.database import get_db
+from app.schemas.prediction import PredictionCreate, PredictionResponse, PredictionList
+from app.services.prediction_service import PredictionService, get_prediction_service
 
-logger = logging.getLogger(__name__)
+router = APIRouter(prefix="/predictions", tags=["Predictions"])
 
-router = APIRouter()
-
-@router.post("/predict/{item_id}", response_model=PredictionResponse)
-async def predict_demand(
-    item_id: str,
-    request: PredictionRequest,
-    db: AsyncSession = Depends(get_predictions_db)
+@router.get("/models", response_model=List[str])
+async def list_models(
+    service: PredictionService = Depends(get_prediction_service)
 ):
+    """List all available models."""
     try:
-        service = PredictionService(db)
-        prediction = await service.create_prediction(item_id, request.data)
-        
-        return PredictionResponse(
-            predicted_demand=prediction.predicted_demand,
-            timestamp=prediction.timestamp,
-            confidence_score=prediction.confidence_score
-        )
+        return service.model_registry.get_all_models()
     except Exception as e:
-        logger.error(f"Error creating prediction for item {item_id}: {str(e)}")
-        raise HTTPException(
-            status_code=500,
-            detail="Failed to create prediction"
-        )
+        raise HTTPException(status_code=500, detail=str(e))
 
-@router.get("/prediction/{item_id}", response_model=PredictionResponse)
+@router.post("/{model_name}/predict", response_model=Dict[str, Any])
+async def predict_with_model(
+    model_name: str,
+    features: Dict[str, Any],
+    service: PredictionService = Depends(get_prediction_service)
+):
+    """Make a prediction using a specific model."""
+    try:
+        model = service.model_registry.get_model(model_name)
+        if not model:
+            raise HTTPException(status_code=404, detail=f"Model {model_name} not found")
+        
+        result = model.predict(features)
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/", response_model=PredictionResponse)
+async def create_prediction(
+    data: PredictionCreate,
+    db: AsyncSession = Depends(get_db),
+    service: PredictionService = Depends(get_prediction_service)
+):
+    """Create a new prediction."""
+    try:
+        return await service.create_prediction(data)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/", response_model=PredictionList)
+async def list_predictions(
+    skip: int = 0,
+    limit: int = 100,
+    db: AsyncSession = Depends(get_db),
+    service: PredictionService = Depends(get_prediction_service)
+):
+    """List predictions with pagination."""
+    try:
+        return await service.list_predictions(skip=skip, limit=limit)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/{prediction_id}", response_model=Optional[PredictionResponse])
 async def get_prediction(
-    item_id: str,
-    db: AsyncSession = Depends(get_predictions_db)
+    prediction_id: int,
+    db: AsyncSession = Depends(get_db),
+    service: PredictionService = Depends(get_prediction_service)
 ):
+    """Get a prediction by ID."""
     try:
-        service = PredictionService(db)
-        prediction = await service.get_latest_prediction(item_id)
-        
+        prediction = await service.get_prediction(prediction_id)
         if not prediction:
-            raise HTTPException(
-                status_code=404,
-                detail=f"No prediction found for item {item_id}"
-            )
-        
-        return PredictionResponse(
-            predicted_demand=prediction.predicted_demand,
-            timestamp=prediction.timestamp,
-            confidence_score=prediction.confidence_score
-        )
-    except HTTPException:
-        raise
+            raise HTTPException(status_code=404, detail="Prediction not found")
+        return prediction
     except Exception as e:
-        logger.error(f"Error fetching prediction for item {item_id}: {str(e)}")
-        raise HTTPException(
-            status_code=500,
-            detail="Failed to fetch prediction"
-        )
+        raise HTTPException(status_code=500, detail=str(e))
 
-@router.post("/trigger")
-async def trigger_predictions(
-    item_id: Optional[str] = None,
-    db: AsyncSession = Depends(get_predictions_db)
+@router.post("/batch", response_model=List[PredictionResponse])
+async def batch_predict(
+    batch_data: List[PredictionCreate],
+    db: AsyncSession = Depends(get_db),
+    service: PredictionService = Depends(get_prediction_service)
 ):
-    """
-    Trigger predictions manually for all items or a specific item
-    """
+    """Create multiple predictions in batch."""
     try:
-        if item_id:
-            await process_item_prediction(item_id)
-            return {"message": f"Prediction triggered for item {item_id}"}
-        else:
-            await run_predictions()
-            return {"message": "Predictions triggered for all items"}
+        return await service.batch_predict(batch_data)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e)) 
