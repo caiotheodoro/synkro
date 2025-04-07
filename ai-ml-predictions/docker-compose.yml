@@ -21,18 +21,18 @@ services:
       # AI/ML Database
       - POSTGRES_HOST=postgres_ml
       - POSTGRES_PORT=5432
-      - POSTGRES_USER=logistics
+      - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=postgres
       - POSTGRES_DB=ai_ml_predictions
       # Logistics Database (Read-only access)
       - LOGISTICS_DB_HOST=postgres_logistics
       - LOGISTICS_DB_PORT=5432
-      - LOGISTICS_DB_USER=logistics
-      - LOGISTICS_DB_PASSWORD=logistics_password
-      - LOGISTICS_DB_NAME=logistics_engine
+      - LOGISTICS_DB_USER=postgres
+      - LOGISTICS_DB_PASSWORD=postgres
+      - LOGISTICS_DB_NAME=logistics
       # Redis Configuration
       - REDIS_HOST=redis
-      - REDIS_PORT=6380
+      - REDIS_PORT=6379
       # MLflow Configuration
       - MLFLOW_TRACKING_URI=http://mlflow:5001
       - MLFLOW_EXPERIMENT_NAME=production
@@ -50,6 +50,7 @@ services:
       - DEFAULT_MODEL_VERSION=latest
       - MODEL_CONFIDENCE_THRESHOLD=0.8
       - BATCH_SIZE=32
+      - MODEL_REGISTRY_PATH=/app/models
       # Monitoring
       - ENABLE_METRICS=true
       - METRICS_PORT=8084
@@ -73,15 +74,15 @@ services:
     image: postgres:16-alpine
     container_name: ai-ml-predictions-postgres
     environment:
-      POSTGRES_USER: logistics
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: ai_ml_predictions
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=ai_ml_predictions
     ports:
       - "5434:5432"
     volumes:
       - postgres_ml_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U logistics -d ai_ml_predictions"]
+      test: ["CMD-SHELL", "pg_isready -U postgres -d ai_ml_predictions"]
       interval: 5s
       timeout: 5s
       retries: 5
