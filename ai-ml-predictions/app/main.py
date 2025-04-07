@@ -7,10 +7,13 @@ from app.core.logging.logger import logger
 from app.core.exceptions import BaseError
 from app.controllers.prediction_controller import router as prediction_router
 from app.jobs.prediction_job import setup_prediction_job
-from app.core.config.database import init_db
+from app.core.config.database import init_db, cleanup_db
 from app.services.model_registry.registry import ModelRegistry
 from app.services.feature_store.store import FeatureStore
+from app.services.cache.redis_cache import RedisCache
+from redis.exceptions import ConnectionError as RedisConnectionError
 import sys
+import traceback
 
 def create_app() -> FastAPI:
     app = FastAPI(
@@ -49,48 +52,101 @@ def create_app() -> FastAPI:
         try:
             logger.info("Starting AI/ML Predictions Service")
             
-            logger.info("Initializing database...")
-            await init_db()
-            logger.info("Database initialization completed successfully")
+            try:
+                logger.info("Initializing database...")
+                await init_db()
+                logger.info("Database initialization completed successfully")
+            except Exception as e:
+                logger.error(f"Failed to initialize database: {str(e)}")
+                logger.error(f"Traceback: {traceback.format_exc()}")
+                sys.exit(1)
             
-            logger.info("Initializing model registry...")
-            app.state.model_registry = ModelRegistry()
-            await app.state.model_registry.initialize()
-            logger.info("Model registry initialized successfully")
+            try:
+                logger.info("Initializing Redis cache...")
+                app.state.cache = RedisCache()
+                await app.state.cache.initialize()
+                logger.info("Redis cache initialized successfully")
+            except Exception as e:
+                logger.warning(f"Redis cache initialization failed: {str(e)}. Continuing without cache.")
+                app.state.cache = None
             
-            logger.info("Initializing feature store...")
-            app.state.feature_store = FeatureStore()
-            await app.state.feature_store.initialize()
-            logger.info("Feature store initialized successfully")
+            try:
+                logger.info("Initializing model registry...")
+                app.state.model_registry = ModelRegistry()
+                models = app.state.model_registry.get_all_models()
+                if not models:
+                    logger.error("No models were loaded during initialization")
+                    sys.exit(1)
+                logger.info(f"Model registry initialized successfully with models: {models}")
+            except Exception as e:
+                logger.error(f"Failed to initialize model registry: {str(e)}")
+                logger.error(f"Traceback: {traceback.format_exc()}")
+                sys.exit(1)
             
-            logger.info("Starting prediction scheduler...")
-            scheduler = setup_prediction_job()
-            scheduler.start()
-            logger.info("Prediction scheduler started successfully")
+            try:
+                logger.info("Initializing feature store...")
+                app.state.feature_store = FeatureStore()
+                await app.state.feature_store.initialize()
+                logger.info("Feature store initialized successfully")
+            except Exception as e:
+                logger.error(f"Failed to initialize feature store: {str(e)}")
+                logger.error(f"Traceback: {traceback.format_exc()}")
+                sys.exit(1)
+            
+            try:
+                logger.info("Starting prediction scheduler...")
+                scheduler = setup_prediction_job()
+                scheduler.start()
+                logger.info("Prediction scheduler started successfully")
+            except Exception as e:
+                logger.warning(f"Failed to start prediction scheduler: {str(e)}. Continuing without scheduler.")
+            
+            logger.info("Application startup completed successfully")
             
         except Exception as e:
             logger.error(f"Failed to start the service: {str(e)}")
+            logger.error(f"Traceback: {traceback.format_exc()}")
             sys.exit(1)
 
     @app.get("/health", tags=["Health"])
     async def health_check():
+        components = {
+            "database": "healthy",
+            "model_registry": "healthy" if app.state.model_registry.is_healthy() else "unhealthy",
+            "feature_store": "healthy" if app.state.feature_store.is_healthy() else "unhealthy",
+        }
+        
+        if hasattr(app.state, "cache") and app.state.cache is not None:
+            components["cache"] = "healthy" if app.state.cache.is_healthy() else "unhealthy"
+        
+        required_components = ["database", "model_registry", "feature_store"]
+        required_healthy = all(components.get(comp) == "healthy" for comp in required_components)
+        
         return {
-            "status": "healthy",
-            "components": {
-                "database": "healthy",
-                "model_registry": "healthy" if app.state.model_registry.is_healthy() else "unhealthy",
-                "feature_store": "healthy" if app.state.feature_store.is_healthy() else "unhealthy"
-            }
+            "status": "healthy" if required_healthy else "degraded",
+            "components": components
         }
 
     @app.on_event("shutdown")
     async def shutdown_event():
         try:
             logger.info("Shutting down AI/ML Predictions Service")
-            await app.state.model_registry.cleanup()
-            await app.state.feature_store.cleanup()
+            
+            if hasattr(app.state, "feature_store"):
+                await app.state.feature_store.cleanup()
+            
+            if hasattr(app.state, "model_registry"):
+                await app.state.model_registry.cleanup()
+            
+            if hasattr(app.state, "cache") and app.state.cache is not None:
+                await app.state.cache.cleanup()
+            
+            await cleanup_db()
+            
+            logger.info("Cleanup completed successfully")
         except Exception as e:
             logger.error(f"Error during shutdown: {str(e)}")
+            logger.error(f"Traceback: {traceback.format_exc()}")
 
     app.include_router(prediction_router, prefix=settings.API_V1_STR)
 
