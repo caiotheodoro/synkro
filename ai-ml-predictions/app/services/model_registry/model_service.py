@@ -14,13 +14,10 @@ class ModelService:
         Make demand predictions using the demand forecasting model
         """
         try:
-            # Load model
             model = self._load_model("demand_forecasting", settings.DEFAULT_MODEL_VERSION)
             
-            # Make prediction
             prediction = model.predict(features)
             
-            # Calculate confidence intervals
             confidence_intervals = self._calculate_confidence_intervals(prediction)
             
             return {
