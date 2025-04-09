@@ -9,89 +9,119 @@ Synkro is a comprehensive microservice-based application designed with a modern 
 ```mermaid
 graph TB
     %% Define styles
-    classDef frontend fill:#f9d6ff,stroke:#333,stroke-width:2px
-    classDef backend fill:#b8f9d6,stroke:#333,stroke-width:2px
-    classDef database fill:#f9e0b8,stroke:#333,stroke-width:2px
-    classDef client fill:#e0e0e0,stroke:#333,stroke-width:1px
+    classDef frontend fill:#e0f2fe,stroke:#0284c7,stroke-width:2px,color:#0c4a6e
+    classDef backend fill:#f0fdf4,stroke:#16a34a,stroke-width:2px,color:#14532d
+    classDef database fill:#fef3c7,stroke:#d97706,stroke-width:2px,color:#78350f
+    classDef queue fill:#fae8ff,stroke:#c026d3,stroke-width:2px,color:#701a75
+    classDef monitoring fill:#ffe4e6,stroke:#e11d48,stroke-width:2px,color:#881337
+    classDef cache fill:#e0f7fa,stroke:#0891b2,stroke-width:2px,color:#164e63
     
-    %% Client
-    Client[End User Browser]:::client
-    
-    %% Frontend Services
-    FE_Landing[Frontend Landing<br/>Astro]:::frontend
-    FE_Auth[Frontend Auth<br/>Vue.js]:::frontend
-    FE_Dashboard[Frontend Dashboard<br/>Next.js]:::frontend
+    %% Frontend Layer
+    subgraph Frontend["Frontend Layer"]
+        NextApp["Next.js Dashboard App"]:::frontend
+        
+        subgraph UIComponents["UI Components"]
+            AtomicDesign["Atomic Design System"]:::frontend
+            DashboardUI["Dashboard & Analytics"]:::frontend
+            InventoryUI["Inventory Management"]:::frontend
+            OrderUI["Order Processing"]:::frontend
+        end
+        
+        NextApp --> AtomicDesign
+        AtomicDesign --> DashboardUI & InventoryUI & OrderUI
+    end
     
     %% Backend Services
-    API_Gateway[API Gateway Auth<br/>NestJS]:::backend
-    NotificationService[Notification Service]:::backend
-    InventoryService[Inventory Service]:::backend
-    AIMLService[AI/ML Service]:::backend
-    
-    %% Database
-    PostgreSQL[(PostgreSQL<br/>User Data)]:::database
-    
-    %% Monitoring Systems
-    Prometheus{{Prometheus Metrics}}
-    ELK{{ELK Stack Logging}}
-    
-    %% Client Flows
-
-    
-    Client --> FE_Landing
-    Client --> FE_Auth
-    Client --> FE_Dashboard
-    
-    %% Frontend to API Gateway Auth
-    FE_Landing -- "API Calls" --> API_Gateway
-    FE_Auth -- "Auth API Calls" --> API_Gateway
-    FE_Dashboard -- "Protected API Calls" --> API_Gateway
-    
-    %% API Gateway to Microservices
-    API_Gateway -- "TCP/gRPC" --> NotificationService
-    API_Gateway -- "TCP/gRPC" --> InventoryService
-    API_Gateway -- "TCP/gRPC" --> AIMLService
-    
-    %% Database Connections
-    API_Gateway -- "TypeORM" --> PostgreSQL
-    
-    %% Monitoring Connections
-    API_Gateway -.-> Prometheus
-    API_Gateway -.-> ELK
-    NotificationService -.-> ELK
-    InventoryService -.-> ELK
-    AIMLService -.-> ELK
-    
-    %% Authentication Flow
-    subgraph "Authentication Flow"
-        direction TB
-        Register[User Registration]
-        Login[User Login]
-        Validate[Token Validation]
-        Logout[User Logout]
+    subgraph BackendServices["Backend Services"]
+        subgraph APIGateway["API Gateway & Auth (NestJS)"]
+            Auth["OAuth2/JWT Auth"]:::backend
+            RBAC["RBAC Authorization"]:::backend
+            RateLimit["Rate Limiting"]:::backend
+            APIProxy["Load Balancer"]:::backend
+        end
         
-        Register --> API_Gateway
-        Login --> API_Gateway
-        Validate --> API_Gateway
-        Logout --> API_Gateway
+        subgraph LogisticsEngine["Logistics Engine (Rust)"]
+            OrderProcessor["Order Processing"]:::backend
+            InventoryManager["Inventory Management"]:::backend
+            RouteOptimizer["Route Optimization"]:::backend
+            GRPCClient["gRPC Client (Tonic)"]:::backend
+        end
+        
+        subgraph InventorySync["Inventory Sync Service (Go)"]
+            GRPCServer["gRPC Server :50052"]:::backend
+            StockManager["Stock Management"]:::backend
+            ReservationSystem["Reservation System"]:::backend
+            StreamingService["Real-time Updates"]:::backend
+        end
+        
+        subgraph NotificationService["Notification Service (Node.js)"]
+            NotificationEngine["Notification Engine"]:::backend
+            EventHandler["Event Handler"]:::backend
+            PushNotifications["Push Notifications"]:::backend
+            EmailService["Email Service"]:::backend
+        end
+        
+        subgraph MLService["AI/ML Service (Python)"]
+            Forecasting["Demand Forecasting"]:::backend
+            TimeSeriesAnalysis["Time Series Analysis"]:::backend
+            StockOptimizer["Stock Optimization"]:::backend
+            ModelTraining["Model Training"]:::backend
+        end
     end
     
-    %% Frontend Service Details
-    subgraph "Frontend Services"
-        direction LR
-        FE_Landing
-        FE_Auth
-        FE_Dashboard
+    %% Data Layer
+    subgraph DataLayer["Data Layer"]
+        PostgreSQL[("PostgreSQL\nOrders & Inventory")]:::database
+        Redis[("Redis Cache")]:::cache
+        ElasticSearch[("Elasticsearch\nAnalytics & Search")]:::database
+        RabbitMQ{"RabbitMQ\nEvent Bus"}:::queue
     end
     
-    %% Backend Service Details
-    subgraph "Backend Services"
-        direction TB
-        API_Gateway
-        NotificationService
-        InventoryService
-        AIMLService
+    %% Observability
+    subgraph Observability["Observability Stack"]
+        ELK["ELK Stack"]:::monitoring
+        Prometheus["Prometheus"]:::monitoring
+        Grafana["Grafana"]:::monitoring
+        Jaeger["Jaeger Tracing"]:::monitoring
     end
+    
+    %% Service Communications
+    
+    %% gRPC Communication
+    GRPCClient <-.->|"gRPC Streaming\n- Stock Reservation\n- Inventory Updates\n- Stock Release"|GRPCServer
+    
+    %% Event Bus Communications
+    LogisticsEngine -->|"Order Events"|RabbitMQ
+    InventorySync -->|"Stock Updates"|RabbitMQ
+    NotificationService -->|"Consume Events"|RabbitMQ
+    
+    %% Database Communications
+    InventorySync -->|"CRUD Operations"|PostgreSQL
+    LogisticsEngine -->|"Order Management"|PostgreSQL
+    APIGateway -->|"User & Auth Data"|PostgreSQL
+    
+    %% Cache Communications
+    InventorySync -->|"Cache Stock Levels"|Redis
+    APIGateway -->|"Session & Token Cache"|Redis
+    
+    %% Analytics & Search
+    MLService -->|"Analytics Queries"|ElasticSearch
+    
+    %% Monitoring
+    BackendServices -.->|"Logs"|ELK
+    BackendServices -.->|"Metrics"|Prometheus
+    Prometheus -->|"Visualize"|Grafana
+    BackendServices -.->|"Traces"|Jaeger
+    
+    %% Frontend to Backend
+    Frontend -->|"REST/GraphQL"|APIGateway
+    APIGateway -->|"Route Requests"|LogisticsEngine & InventorySync
+    
+    %% Link Styles
+    linkStyle 0 stroke:#0284c7,stroke-width:2px;
+    linkStyle 1 stroke:#16a34a,stroke-width:2px;
+    linkStyle 2 stroke:#16a34a,stroke-width:2px;
+    linkStyle 3 stroke:#c026d3,stroke-width:2px;
 ```
 
 ## System Components
