@@ -478,6 +478,272 @@ erDiagram
 - Inventory transactions record all stock movements
 - Inventory reservations temporarily hold stock for orders
 
+## Detailed System Communications
+
+### Order Processing Flow
+
+```mermaid
+sequenceDiagram
+    participant C as Client
+    participant FE as Frontend
+    participant AG as API Gateway
+    participant LE as Logistics Engine
+    participant IS as Inventory Sync
+    participant NS as Notification
+    participant RMQ as RabbitMQ
+    participant DB as PostgreSQL
+    participant RC as Redis Cache
+
+    %% Order Creation
+    C->>+FE: Create Order
+    FE->>+AG: POST /api/orders
+    AG->>AG: Validate JWT
+    AG->>+LE: Create Order Request
+    
+    %% Stock Check
+    LE->>+IS: gRPC: CheckAndReserveStock
+    IS->>DB: Check Stock
+    IS->>RC: Reserve Stock
+    IS-->>-LE: Stock Reserved
+    
+    %% Order Processing
+    LE->>DB: Save Order
+    LE->>RMQ: Publish OrderCreated
+    LE-->>-AG: Order Created
+    AG-->>-FE: Order Confirmation
+    FE-->>-C: Success Response
+    
+    %% Async Processing
+    RMQ->>NS: OrderCreated Event
+    NS->>C: WebSocket: Order Status
+    NS->>RMQ: Publish Notification
+    
+    %% Stock Update
+    IS->>RMQ: Publish StockUpdated
+    RMQ->>NS: StockUpdated Event
+    NS->>C: WebSocket: Stock Update
+```
+
+### Inventory Management Flow
+
+```mermaid
+sequenceDiagram
+    participant C as Client
+    participant FE as Frontend
+    participant AG as API Gateway
+    participant IS as Inventory Sync
+    participant LE as Logistics Engine
+    participant ML as ML Service
+    participant ES as Elasticsearch
+    participant DB as PostgreSQL
+    participant RC as Redis Cache
+
+    %% Stock Level Check
+    C->>+FE: View Inventory
+    FE->>+AG: GET /api/inventory
+    AG->>+IS: Get Stock Levels
+    IS->>RC: Check Cache
+    
+    alt Cache Hit
+        RC-->>IS: Return Cached Data
+    else Cache Miss
+        IS->>DB: Query Stock Levels
+        IS->>RC: Update Cache
+        DB-->>IS: Stock Data
+    end
+    
+    IS-->>-AG: Stock Levels
+    AG-->>-FE: Inventory Data
+    FE-->>-C: Display Inventory
+
+    %% ML Predictions
+    ML->>DB: Fetch Historical Data
+    ML->>ES: Process Analytics
+    ML->>IS: Update Predictions
+    
+    %% Real-time Updates
+    IS->>FE: gRPC Stream: Stock Updates
+    FE->>C: Live Updates
+```
+
+### Authentication Flow
+
+```mermaid
+sequenceDiagram
+    participant C as Client
+    participant FE as Frontend
+    participant AG as API Gateway
+    participant DB as PostgreSQL
+    participant RC as Redis Cache
+
+    %% Login Flow
+    C->>+FE: Login Request
+    FE->>+AG: POST /auth/login
+    AG->>DB: Validate Credentials
+    AG->>RC: Store Session
+    AG-->>-FE: JWT Token
+    FE-->>-C: Login Success
+
+    %% Token Validation
+    C->>+FE: Protected Request
+    FE->>+AG: Request + JWT
+    AG->>RC: Validate Session
+    
+    alt Valid Token
+        AG->>AG: Verify Permissions
+        AG-->>FE: Allow Request
+    else Invalid Token
+        AG-->>FE: 401 Unauthorized
+        FE->>C: Redirect to Login
+    end
+```
+
+### Event Processing Flow
+
+```mermaid
+flowchart TB
+    %% Styles
+    classDef publisher fill:#f0fdf4,stroke:#16a34a,stroke-width:2px
+    classDef subscriber fill:#e0f2fe,stroke:#0284c7,stroke-width:2px
+    classDef queue fill:#fae8ff,stroke:#c026d3,stroke-width:2px
+    classDef processor fill:#ffe4e6,stroke:#e11d48,stroke-width:2px
+
+    %% Publishers
+    LE[Logistics Engine]:::publisher
+    IS[Inventory Sync]:::publisher
+    
+    %% Queue
+    subgraph RMQ[RabbitMQ Event Bus]
+        direction TB
+        OE[Order Events]:::queue
+        SE[Stock Events]:::queue
+        NE[Notification Events]:::queue
+    end
+    
+    %% Subscribers
+    NS[Notification Service]:::subscriber
+    ML[ML Service]:::processor
+    
+    %% Event Flows
+    LE -->|"OrderCreated\nOrderUpdated\nOrderCancelled"| OE
+    IS -->|"StockReserved\nStockReleased\nLowStock"| SE
+    
+    OE --> NS & ML
+    SE --> NS & ML
+    
+    NS -->|"Process & Send"| NE
+    ML -->|"Process & Predict"| SE
+```
+
+### Cache Strategy Flow
+
+```mermaid
+flowchart TB
+    %% Styles
+    classDef service fill:#f0fdf4,stroke:#16a34a,stroke-width:2px
+    classDef cache fill:#e0f7fa,stroke:#0891b2,stroke-width:2px
+    classDef db fill:#fef3c7,stroke:#d97706,stroke-width:2px
+    
+    %% Services
+    IS[Inventory Sync]:::service
+    AG[API Gateway]:::service
+    LE[Logistics Engine]:::service
+    
+    %% Cache Layers
+    subgraph Redis[Redis Cache]
+        direction TB
+        SC[Stock Cache]:::cache
+        SC_TTL[["TTL: 5m"]]
+        
+        AC[Auth Cache]:::cache
+        AC_TTL[["TTL: 1h"]]
+        
+        RC[Rate Limit Cache]:::cache
+        RC_TTL[["TTL: 1m"]]
+    end
+    
+    %% Database
+    DB[(PostgreSQL)]:::db
+    
+    %% Cache Flows
+    IS -->|"Read/Write"| SC
+    AG -->|"Read/Write"| AC
+    AG -->|"Rate Limiting"| RC
+    
+    SC -->|"Cache Miss"| DB
+    AC -->|"Cache Miss"| DB
+    
+    %% Invalidation
+    LE -.->|"Invalidate"| SC
+    AG -.->|"Invalidate"| AC
+```
+
+### ML Service Data Flow
+
+```mermaid
+flowchart TB
+    %% Styles
+    classDef source fill:#f0fdf4,stroke:#16a34a,stroke-width:2px
+    classDef process fill:#e0f2fe,stroke:#0284c7,stroke-width:2px
+    classDef storage fill:#fef3c7,stroke:#d97706,stroke-width:2px
+    classDef output fill:#ffe4e6,stroke:#e11d48,stroke-width:2px
+    
+    %% Data Sources
+    subgraph Sources[Data Sources]
+        direction TB
+        OH[Order History]:::source
+        SL[Stock Levels]:::source
+        TD[Transaction Data]:::source
+    end
+    
+    %% Processing
+    subgraph ML[ML Processing]
+        direction TB
+        DP[Data Preprocessing]:::process
+        FA[Feature Analysis]:::process
+        MT[Model Training]:::process
+        MP[Model Prediction]:::process
+    end
+    
+    %% Storage
+    ES[(Elasticsearch)]:::storage
+    
+    %% Outputs
+    subgraph Predictions[Predictions]
+        direction TB
+        DF[Demand Forecast]:::output
+        SO[Stock Optimization]:::output
+        RP[Reorder Points]:::output
+    end
+    
+    %% Flows
+    Sources --> DP
+    DP --> FA
+    FA --> MT
+    MT --> MP
+    MP --> Predictions
+    
+    %% Storage Flows
+    Sources --> ES
+    ML -.-> ES
+    Predictions --> ES
+```
+
+These additional diagrams provide detailed insights into:
+1. Order processing sequence with gRPC and event communication
+2. Inventory management with caching strategy
+3. Authentication and authorization flow
+4. Event processing and message queue patterns
+5. Cache strategy with TTLs and invalidation
+6. ML service data processing and predictions
+
+Each diagram uses consistent color coding and styling to maintain readability and shows the specific interactions between services, including:
+- Synchronous communications (REST, gRPC)
+- Asynchronous events (RabbitMQ)
+- Caching strategies (Redis)
+- Data persistence (PostgreSQL)
+- Analytics and ML processing (Elasticsearch)
+
 ## Conclusion
 
 The Synkro system architecture follows modern microservice principles with a focus on:
