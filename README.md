@@ -2,7 +2,7 @@
 
 ## Overview
 
-Synkro is a comprehensive microservice-based application designed with a modern cloud-native architecture. The system consists of several interconnected services that communicate with each other through well-defined APIs. This document provides a detailed description of the architecture, service interactions, and technical implementation details.
+Synkro is a comprehensive microservice-based application designed with a modern cloud-native architecture. The system consists of several interconnected services that communicate with each other through well-defined APIs and gRPC protocols. This document provides a detailed description of the architecture, service interactions, and technical implementation details.
 
 ## Architecture Diagram
 
@@ -98,39 +98,99 @@ graph TB
 
 The Synkro system is divided into the following key components:
 
-### Frontend Services
+### Frontend Layer
 
-1. **Frontend Auth** (`frontend-auth`)
-   - Vue.js 3-based authentication interface
-   - Responsible for user login, registration, and token validation
-   - Communicates with the API Gateway Auth service
-   - Implements client-side token management
-
-2. **Frontend Landing** (`frontend-landing`)
-   - Astro-powered landing page
-   - Public-facing entry point for the application
-   - Optimized for SEO and performance
-   - Integrates with the authentication flow for user onboarding
-
-3. **Frontend Dashboard** (`frontend-dashboard`)
-   - Next.js application for authenticated users
-   - Main user interface after authentication
-   - Implements Module Federation for sharing components (currently disabled)
-   - Protected by authentication middleware
+1. **Frontend Dashboard** (`frontend-dashboard`)
+   - Next.js application for the main interface
+   - Implements Atomic Design principles
+   - Uses TailwindCSS with Neobrutalism design
+   - Protected routes with authentication
+   - Key interfaces:
+     - Dashboard & Analytics UI
+     - Inventory Management UI
+     - Order Processing UI
 
 ### Backend Services
 
 1. **API Gateway Auth** (`api-gateway-auth`)
    - NestJS application serving as the authentication gateway
-   - Provides JWT-based authentication and authorization
-   - Manages user registration, login, and token validation
-   - Connects to PostgreSQL database for user data storage
-   - Implements token invalidation and management
+   - OAuth2/JWT-based authentication and authorization
+   - RBAC (Role-Based Access Control)
+   - Rate limiting and API security
+   - API proxy and load balancing
+   - Connects to PostgreSQL for user data
 
-2. **Microservices** (referenced in configurations)
-   - Notification Service: Handles notifications and alerts
-   - Inventory Service: Manages inventory-related operations
-   - AI/ML Service: Provides AI/ML capabilities
+2. **Logistics Engine** (`logistics-engine`)
+   - Written in Rust for high performance
+   - Order processing and validation
+   - Inventory state management
+   - Route optimization and delivery planning
+   - gRPC client for inventory communication
+   - Event publishing through RabbitMQ
+
+3. **Inventory Sync Service** (`inventory-sync-service`)
+   - Written in Go for concurrent operations
+   - gRPC server (port 50052)
+   - Stock management and allocation
+   - Reservation and locking system
+   - Real-time stock updates streaming
+   - Event publishing through RabbitMQ
+
+4. **Notification Service** (`notification-service`)
+   - Node.js-based notification system
+   - Event-driven architecture
+   - Notification engine for orchestration
+   - Event queue handler
+   - Multiple notification channels:
+     - Push notifications (FCM/APNS)
+     - Email service (SMTP)
+
+5. **AI/ML Service** (`ai-ml-predictions`)
+   - Python-based prediction service
+   - Demand forecasting models
+   - Time series analysis
+   - Stock level optimization
+   - Model training and validation
+
+### Data Layer
+
+1. **PostgreSQL**
+   - Primary database for orders and inventory
+   - User authentication data
+   - Transactional data storage
+
+2. **Redis**
+   - Caching layer
+   - Session management
+   - Real-time data storage
+
+3. **Elasticsearch**
+   - Analytics and search capabilities
+   - ML service data storage
+   - Log aggregation
+
+4. **RabbitMQ**
+   - Event bus for service communication
+   - Message queue for async operations
+   - Event sourcing backbone
+
+### Observability Stack
+
+1. **ELK Stack**
+   - Centralized logging
+   - Log analysis and visualization
+
+2. **Prometheus**
+   - Metrics collection
+   - Performance monitoring
+
+3. **Grafana**
+   - Metrics visualization
+   - Dashboard creation
+
+4. **Jaeger**
+   - Distributed tracing
+   - Performance analysis
 
 ## Detailed Architecture
 
@@ -164,213 +224,31 @@ The Synkro system is divided into the following key components:
 
 ### Service Communication
 
-1. **Frontend to API Gateway**:
-   - Frontend services communicate with API Gateway using REST APIs
-   - Axios is used for HTTP requests with appropriate headers
-   - Bearer token authentication is implemented on protected endpoints
+#### gRPC Integration
 
-2. **API Gateway to Microservices**:
-   - NestJS Microservices module facilitates inter-service communication
-   - TCP transport is used by default (configurable in env)
-   - Service discovery is facilitated through environment variables
+1. **Logistics Engine to Inventory Sync**
+   - Bidirectional gRPC streaming
+   - Key operations:
+     - Stock reservation
+     - Inventory updates
+     - Stock release
+   - Protocol Buffer definitions
+   - Connection on port 50052
 
-3. **Cross-Service Authentication**:
-   - Auth tokens are validated across services
-   - API Gateway serves as the central authority for authentication
-   - Token validation endpoints are exposed for other services
+#### Event-Driven Communication
 
-## Technical Implementation
+1. **RabbitMQ Events**
+   - Order events from Logistics Engine
+   - Stock updates from Inventory Sync
+   - Notification events consumption
+   - Async communication between services
 
-### Frontend Auth (Vue.js)
+#### REST/GraphQL APIs
 
-- **Technology Stack**:
-  - Vue.js 3
-  - Vue Router for navigation
-  - Pinia for state management
-  - Vite for build tooling
-  - TailwindCSS for styling
-  - TypeScript for type safety
-
-- **Key Components**:
-  - Authentication store for centralized auth state
-  - Auth service for API communication
-  - Protected route guards in router
-  - Local storage token management
-
-### Frontend Landing (Astro)
-
-- **Technology Stack**:
-  - Astro framework
-  - Vue as integration
-  - TailwindCSS for styling
-  - TypeScript for type safety
-
-- **Features**:
-  - Static site generation for performance
-  - Minimal JavaScript for faster loading
-  - SEO optimizations
-  - Seamless redirects to auth interface
-
-### Frontend Dashboard (Next.js)
-
-- **Technology Stack**:
-  - Next.js React framework
-  - Module Federation for microfrontend architecture
-  - Shadcn UI components
-  - TailwindCSS for styling
-  - TypeScript for type safety
-
-- **Features**:
-  - Server-side rendering for performance
-  - Client-side navigation for SPA experience
-  - Module Federation for component sharing
-  - JWT-based authentication integration
-
-### API Gateway Auth (NestJS)
-
-- **Technology Stack**:
-  - NestJS framework
-  - Fastify as HTTP provider
-  - TypeORM for database interaction
-  - PostgreSQL for data storage
-  - JWT for authentication tokens
-  - Winston for logging
-  - Prometheus for monitoring
-
-- **Key Features**:
-  - Role-based access control
-  - Token invalidation on logout
-  - Token expiration management
-  - Password hashing with bcrypt
-  - Rate limiting for security
-  - CSRF protection
-  - Helmet integration for security headers
-
-## Database Schema
-
-### Users Table
-
-- **id**: UUID (Primary Key)
-- **email**: String (Unique)
-- **password**: String (Hashed)
-- **name**: String (Optional)
-- **role**: Enum (USER, ADMIN)
-- **isActive**: Boolean
-- **createdAt**: DateTime
-- **updatedAt**: DateTime
-
-### Roles Table (Many-to-Many with Users)
-
-- **id**: UUID (Primary Key)
-- **name**: String
-- **description**: String
-- **permissions**: JSON
-
-## Environment Configuration
-
-Each service has its own `.env` file with service-specific configurations:
-
-### API Gateway Auth
-
-- Database connection details
-- JWT secrets and expiration times
-- Microservice connection information
-- Rate limiting parameters
-- Logging configuration
-- Monitoring endpoints
-
-### Frontend Services
-
-- API endpoints
-- Authentication token names
-- Cross-service URLs
-- Environment indicators
-
-## Deployment Architecture
-
-The system is designed for Kubernetes deployment:
-
-1. **Containerization**:
-   - Each service has its own Dockerfile
-   - Dependencies are bundled in the container
-   - Configuration through environment variables
-
-2. **Kubernetes Resources**:
-   - Deployments for service instances
-   - Services for internal communication
-   - Ingress for external access
-   - ConfigMaps and Secrets for configuration
-
-3. **Horizontal Scaling**:
-   - Stateless services design
-   - Database as external service
-   - Shared nothing architecture
-
-## Monitoring and Observability
-
-- **Prometheus Integration**:
-  - Metrics exposed by API Gateway
-  - Custom metrics for business operations
-  - Performance monitoring
-
-- **Logging**:
-  - Structured logging with Winston
-  - Log aggregation with ELK stack
-  - Configurable log levels
-
-## Security Considerations
-
-1. **Authentication**:
-   - JWT-based authentication
-   - Token invalidation mechanism
-   - Password hashing with bcrypt
-
-2. **API Security**:
-   - CSRF protection
-   - Rate limiting
-   - Helmet security headers
-
-3. **Data Protection**:
-   - Sensitive data exclusion in responses
-   - Database encryption options
-   - HTTPS throughout
-
-## Future Architecture Extensions
-
-1. **Service Mesh**:
-   - Istio integration for advanced networking
-   - mTLS for service-to-service communication
-   - Advanced traffic management
-
-2. **API Gateway Enhancements**:
-   - GraphQL integration
-   - API versioning
-   - Enhanced caching
-
-3. **Microfrontend Evolution**:
-   - Complete Module Federation implementation
-   - Runtime component sharing
-   - Independent deployment cycles
-
-## Neobrutalism Design System
-
-The frontend implements a neobrutalism design approach:
-
-- Bold, chunky elements with high contrast
-- Deliberate use of solid colors
-- Intentionally "unrefined" UI elements
-- Thick borders and shadows
-- Playful typography
-
-## Atomic Design Implementation
-
-The system uses Atomic Design methodology:
-
-1. **Atoms**: Basic UI elements (buttons, inputs, typography)
-2. **Molecules**: Combinations of atoms (form fields, search bars)
-3. **Organisms**: Complex UI components (navigation bars, forms)
-4. **Templates**: Page layouts without specific content
-5. **Pages**: Specific instances of templates with real data
+1. **Frontend to Backend**
+   - REST/GraphQL communication
+   - Authentication through API Gateway
+   - Protected routes and endpoints
 
 ## Entity Relationships
 
@@ -574,10 +452,14 @@ erDiagram
 
 The Synkro system architecture follows modern microservice principles with a focus on:
 
-- Service independence
-- Clear communication boundaries
-- Scalability and maintainability
-- Security and performance
-- Modern frontend architectures
+- Service independence through gRPC and event-driven communication
+- Clear separation of concerns with specialized services
+- High performance with Rust and Go implementations
+- Scalability through microservices architecture
+- Comprehensive monitoring and observability
+- Security-first approach with OAuth2/JWT
+- Real-time capabilities with gRPC streaming
+- Event-driven architecture using RabbitMQ
+- AI/ML integration for predictive analytics
 
-This architecture enables independent development, testing, and deployment of services while maintaining system cohesion through well-defined interfaces.
+This architecture enables independent development, testing, and deployment of services while maintaining system cohesion through well-defined interfaces and protocols.

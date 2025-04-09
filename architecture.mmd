@@ -1,0 +1,129 @@
+flowchart TB
+    %% Frontend Section
+    subgraph Frontend["Frontend Layer"]
+        NextApp["Next.js Application"]
+        Components["Atomic Design Components"]
+        DashboardUI["Dashboard & Analytics UI"]
+        InventoryUI["Inventory Management UI"]
+        OrdersUI["Order Processing UI"]
+        
+        NextApp --> Components
+        Components --> DashboardUI
+        Components --> InventoryUI
+        Components --> OrdersUI
+    end
+
+    %% Backend Services
+    subgraph BackendServices["Backend Microservices"]
+        subgraph APIGateway["API Gateway & Auth (NestJS)"]
+            AuthService["OAuth2/JWT Auth"]
+            Authorization["RBAC Authorization"]
+            RateLimit["Rate Limiting"]
+            APIProxy["API Proxy & Load Balancer"]
+        end
+        
+        subgraph LogisticsEngine["Logistics Engine (Rust)"]
+            OrderProcessing["Order Processing"]
+            InventoryManagement["Inventory Management"]
+            LogisticsCalculations["Route Optimization"]
+            GRPCClient["Inventory gRPC Client"]
+        end
+        
+        subgraph InventorySync["Inventory Sync Service (Go)"]
+            GRPCServer["gRPC Server :50052"]
+            InventoryOps["Stock Management"]
+            ReservationSystem["Reservation System"]
+            StreamingService["Real-time Updates"]
+        end
+        
+        subgraph NotificationService["Notification Service (Node.js)"]
+            NotificationEngine["Notification Engine"]
+            MessageQueue["Event Queue"]
+            PushNotifications["Push Notifications"]
+            EmailService["Email Service"]
+        end
+        
+        subgraph MLPredictions["AI/ML Service (Python)"]
+            PredictionModels["Demand Forecasting"]
+            DataProcessing["Time Series Analysis"]
+            StockOptimization["Stock Optimization"]
+            ModelTraining["Model Training"]
+        end
+    end
+
+    %% Data Layer
+    subgraph DataLayer["Data Persistence Layer"]
+        PostgreSQL["PostgreSQL\nOrders & Inventory"]
+        Redis["Redis\nCache & Sessions"]
+        ElasticSearch["Elasticsearch\nAnalytics"]
+        RabbitMQ["RabbitMQ\nEvent Bus"]
+    end
+
+    %% Monitoring
+    subgraph Observability["Observability Stack"]
+        ELK["ELK Stack"]
+        Prometheus["Prometheus"]
+        Grafana["Grafana"]
+        Jaeger["Jaeger Tracing"]
+    end
+
+    %% Service Communications
+    GRPCClient <-.->|"gRPC Protocol"|GRPCServer
+    
+    LogisticsEngine -->|"Order Events"|RabbitMQ
+    InventorySync -->|"Stock Updates"|RabbitMQ
+    NotificationService -->|"Event Consumer"|RabbitMQ
+    
+    InventorySync -->|"Persist Data"|PostgreSQL
+    LogisticsEngine -->|"Store Orders"|PostgreSQL
+    APIGateway -->|"Auth Data"|PostgreSQL
+    
+    InventorySync -->|"Cache"|Redis
+    APIGateway -->|"Sessions"|Redis
+    
+    MLPredictions -->|"Analytics"|ElasticSearch
+    
+    BackendServices -->|"Logs"|ELK
+    BackendServices -->|"Metrics"|Prometheus
+    Prometheus -->|"Visualize"|Grafana
+
+    %% Frontend to Backend Communication
+    Frontend -->|"REST/GraphQL"|APIGateway
+    APIGateway -->|"Routes"|LogisticsEngine
+    APIGateway -->|"Routes"|InventorySync
+
+    %% Styling
+    classDef containerStyle fill:#f8fafc,stroke:#64748b,stroke-width:2px
+    classDef frontendContainer fill:#eff6ff,stroke:#3b82f6,stroke-width:2px
+    classDef backendContainer fill:#f0fdf4,stroke:#22c55e,stroke-width:2px
+    classDef dataContainer fill:#fef2f2,stroke:#ef4444,stroke-width:2px
+    classDef observabilityContainer fill:#faf5ff,stroke:#a855f7,stroke-width:2px
+
+    classDef frontendStyle fill:#3b82f6,color:#ffffff,stroke:#2563eb
+    classDef authStyle fill:#8b5cf6,color:#ffffff,stroke:#7c3aed
+    classDef logisticsStyle fill:#ec4899,color:#ffffff,stroke:#db2777
+    classDef inventoryStyle fill:#14b8a6,color:#ffffff,stroke:#0d9488
+    classDef notificationStyle fill:#f59e0b,color:#ffffff,stroke:#d97706
+    classDef mlStyle fill:#84cc16,color:#ffffff,stroke:#65a30d
+    classDef dbStyle fill:#475569,color:#ffffff,stroke:#334155
+    classDef cacheStyle fill:#06b6d4,color:#ffffff,stroke:#0891b2
+    classDef queueStyle fill:#8b5cf6,color:#ffffff,stroke:#7c3aed
+    classDef monitoringStyle fill:#ef4444,color:#ffffff,stroke:#dc2626
+
+    %% Apply Container Styles
+    class Frontend frontendContainer
+    class BackendServices,APIGateway,LogisticsEngine,InventorySync,NotificationService,MLPredictions backendContainer
+    class DataLayer dataContainer
+    class Observability observabilityContainer
+
+    %% Apply Component Styles
+    class NextApp,Components,DashboardUI,InventoryUI,OrdersUI frontendStyle
+    class AuthService,Authorization,RateLimit,APIProxy authStyle
+    class OrderProcessing,InventoryManagement,LogisticsCalculations,GRPCClient logisticsStyle
+    class GRPCServer,InventoryOps,ReservationSystem,StreamingService inventoryStyle
+    class NotificationEngine,MessageQueue,PushNotifications,EmailService notificationStyle
+    class PredictionModels,DataProcessing,StockOptimization,ModelTraining mlStyle
+    class PostgreSQL,ElasticSearch dbStyle
+    class Redis cacheStyle
+    class RabbitMQ queueStyle
+    class ELK,Prometheus,Grafana,Jaeger monitoringStyle

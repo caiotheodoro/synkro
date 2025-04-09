@@ -1,7 +1,5 @@
-from typing import Any, Dict, Optional, List
-from pydantic import PostgresDsn, RedisDsn, validator
+from typing import  Optional, List
 from pydantic_settings import BaseSettings
-import os
 from functools import lru_cache
 
 class Settings(BaseSettings):
@@ -31,13 +29,11 @@ class Settings(BaseSettings):
     LOGISTICS_DB_PASSWORD: str = "logistics_password"
     LOGISTICS_DB_NAME: str = "logistics_engine"
 
-    # Database Pool Settings
     DB_POOL_SIZE: int = 5
     DB_MAX_OVERFLOW: int = 10
     DB_ECHO: bool = False
     DB_POOL_TIMEOUT: int = 30
 
-    # Redis Settings
     REDIS_HOST: str = "localhost"
     REDIS_PORT: int = 6379
     REDIS_PASSWORD: Optional[str] = None
@@ -48,7 +44,6 @@ class Settings(BaseSettings):
     CACHE_MAX_RETRIES: int = 3
     CACHE_RETRY_DELAY: int = 1  # seconds
 
-    # Cache TTL Settings
     PREDICTION_CACHE_TTL: int = 3600  # 1 hour
     FEATURE_CACHE_TTL: int = 1800  # 30 minutes
 
