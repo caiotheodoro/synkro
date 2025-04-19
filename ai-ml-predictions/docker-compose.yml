@@ -76,13 +76,13 @@ services:
     environment:
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=postgres
-      - POSTGRES_DB=ai_ml_predictions
+      - POSTGRES_DB=predictions
     ports:
-      - "5434:5432"
+      - "5432:5432"
     volumes:
       - postgres_ml_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d ai_ml_predictions"]
+      test: ["CMD-SHELL", "pg_isready -U postgres -d predictions"]
       interval: 5s
       timeout: 5s
       retries: 5

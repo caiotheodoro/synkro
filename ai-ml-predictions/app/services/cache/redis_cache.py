@@ -5,6 +5,7 @@ import json
 import logging
 from app.core.config.settings import settings
 from tenacity import retry, stop_after_attempt, wait_exponential
+from fastapi import Depends
 
 logger = logging.getLogger(__name__)
 
@@ -128,4 +129,15 @@ class RedisCache:
                 await self._check_health()
         except Exception as e:
             logger.error(f"Failed to ensure Redis connection: {str(e)}")
-            self._is_healthy = False 
+            self._is_healthy = False
+
+# Global instance for dependency injection
+_redis_cache: Optional[RedisCache] = None
+
+async def get_redis_cache() -> RedisCache:
+    """Get or create a Redis cache instance."""
+    global _redis_cache
+    if _redis_cache is None:
+        _redis_cache = RedisCache()
+        await _redis_cache.initialize()
+    return _redis_cache 

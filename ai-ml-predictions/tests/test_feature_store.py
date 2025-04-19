@@ -10,108 +10,172 @@ async def feature_store(test_db):
 @pytest.fixture
 async def sample_data(test_db):
     # Insert test data
-    item_id = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
+    item_id = "test-item-1"
+    warehouse_id = "warehouse-1"
     now = datetime.utcnow()
     
     # Insert inventory levels
     await test_db.execute(
         text("""
-            INSERT INTO inventory_levels (item_id, warehouse_id, quantity, reserved, available, last_updated)
+            INSERT INTO inventory_levels 
+            (item_id, warehouse_id, quantity, reserved, available, last_updated)
             VALUES 
-                (:item_id, '11111111-1111-1111-1111-111111111111', 100, 20, 80, :timestamp1),
-                (:item_id, '11111111-1111-1111-1111-111111111111', 90, 15, 75, :timestamp2)
+            (:item_id, :warehouse_id, 100, 20, 80, :timestamp1),
+            (:item_id, :warehouse_id, 90, 15, 75, :timestamp2),
+            (:item_id, :warehouse_id, 80, 10, 70, :timestamp3)
         """),
         {
             "item_id": item_id,
-            "timestamp1": now - timedelta(days=1),
-            "timestamp2": now - timedelta(days=2)
+            "warehouse_id": warehouse_id,
+            "timestamp1": now - timedelta(days=2),
+            "timestamp2": now - timedelta(days=1),
+            "timestamp3": now
         }
     )
     
     # Insert transactions
     await test_db.execute(
         text("""
-            INSERT INTO inventory_transactions (id, item_id, warehouse_id, quantity, type, timestamp)
+            INSERT INTO transactions 
+            (item_id, warehouse_id, quantity, type, status, created_at)
             VALUES 
-                (gen_random_uuid(), :item_id, '11111111-1111-1111-1111-111111111111', 10, 'RECEIVING', :timestamp1),
-                (gen_random_uuid(), :item_id, '11111111-1111-1111-1111-111111111111', -5, 'SHIPPING', :timestamp2)
+            (:item_id, :warehouse_id, 10, 'INBOUND', 'COMPLETED', :timestamp1),
+            (:item_id, :warehouse_id, 15, 'OUTBOUND', 'COMPLETED', :timestamp2),
+            (:item_id, :warehouse_id, 12, 'INBOUND', 'COMPLETED', :timestamp3)
         """),
         {
             "item_id": item_id,
-            "timestamp1": now - timedelta(days=1),
-            "timestamp2": now - timedelta(days=2)
+            "warehouse_id": warehouse_id,
+            "timestamp1": now - timedelta(days=2),
+            "timestamp2": now - timedelta(days=1),
+            "timestamp3": now
         }
     )
     
-    # Insert orders and order items
+    # Insert orders
     await test_db.execute(
         text("""
-            WITH new_order AS (
-                INSERT INTO orders (id, customer_id, status, created_at)
-                VALUES 
-                    (gen_random_uuid(), 'dddddddd-dddd-dddd-dddd-ddddddddddda', 'delivered', :timestamp1)
-                RETURNING id
-            )
-            INSERT INTO order_items (id, order_id, product_id, quantity)
-            SELECT gen_random_uuid(), id, :item_id, 5
-            FROM new_order
+            INSERT INTO orders 
+            (item_id, warehouse_id, quantity, status, created_at)
+            VALUES 
+            (:item_id, :warehouse_id, 8, 'COMPLETED', :timestamp1),
+            (:item_id, :warehouse_id, 12, 'COMPLETED', :timestamp2),
+            (:item_id, :warehouse_id, 10, 'COMPLETED', :timestamp3)
         """),
         {
             "item_id": item_id,
-            "timestamp1": now - timedelta(days=1)
+            "warehouse_id": warehouse_id,
+            "timestamp1": now - timedelta(days=2),
+            "timestamp2": now - timedelta(days=1),
+            "timestamp3": now
         }
     )
     
     # Insert reservations
     await test_db.execute(
         text("""
-            INSERT INTO inventory_reservations (id, order_id, product_id, quantity, status, created_at, expires_at)
+            INSERT INTO reservations 
+            (item_id, warehouse_id, quantity, status, created_at)
             VALUES 
-                (gen_random_uuid(), 'order1', :item_id, 3, 'active', :timestamp1, :expires_at)
+            (:item_id, :warehouse_id, 5, 'ACTIVE', :timestamp1),
+            (:item_id, :warehouse_id, 8, 'ACTIVE', :timestamp2),
+            (:item_id, :warehouse_id, 6, 'ACTIVE', :timestamp3)
         """),
         {
             "item_id": item_id,
-            "timestamp1": now - timedelta(days=1),
-            "expires_at": now + timedelta(days=7)
+            "warehouse_id": warehouse_id,
+            "timestamp1": now - timedelta(days=2),
+            "timestamp2": now - timedelta(days=1),
+            "timestamp3": now
         }
     )
     
     await test_db.commit()
-    return item_id
+    return {"item_id": item_id, "warehouse_id": warehouse_id, "timestamp": now}
 
 @pytest.mark.asyncio
-async def test_get_features_with_data(feature_store, sample_data):
-    features = await feature_store.get_features(sample_data)
+async def test_get_features_basic(feature_store, sample_data):
+    features = await feature_store.get_features(sample_data["item_id"])
     
+    assert features is not None
     assert "inventory_levels" in features
-    assert "reserved_levels" in features
-    assert "available_levels" in features
-    assert "transaction_quantities" in features
-    assert "order_quantities" in features
-    assert "active_reservations" in features
-    assert "timestamps" in features
+    assert "transaction_patterns" in features
+    assert "order_demand" in features
+    assert "reservation_patterns" in features
     
-    assert len(features["inventory_levels"]) == 2
-    assert features["inventory_levels"][0] == 100.0
-    assert features["inventory_levels"][1] == 90.0
-    
-    assert len(features["transaction_quantities"]) == 2
-    assert 10.0 in features["transaction_quantities"]
-    assert -5.0 in features["transaction_quantities"]
-    
-    assert len(features["order_quantities"]) == 1
-    assert features["order_quantities"][0] == 5.0
-    
-    assert len(features["active_reservations"]) == 1
-    assert features["active_reservations"][0] == 3.0
+    assert len(features["inventory_levels"]) == 3
+    assert len(features["transaction_patterns"]) == 3
+    assert len(features["order_demand"]) == 3
+    assert len(features["reservation_patterns"]) == 3
 
 @pytest.mark.asyncio
-async def test_get_features_no_data(feature_store):
-    features = await feature_store.get_features("nonexistent-id")
+async def test_get_features_nonexistent_item(feature_store):
+    features = await feature_store.get_features("nonexistent-item")
     
-    assert "inventory_levels" in features
+    assert features is not None
+    assert len(features["inventory_levels"]) == 0
+    assert len(features["transaction_patterns"]) == 0
+    assert len(features["order_demand"]) == 0
+    assert len(features["reservation_patterns"]) == 0
+
+@pytest.mark.asyncio
+async def test_get_features_custom_days(feature_store, sample_data):
+    features = await feature_store.get_features(sample_data["item_id"], days=1)
+    
+    assert features is not None
     assert len(features["inventory_levels"]) == 1
-    assert features["inventory_levels"][0] == 0.0
+    assert len(features["transaction_patterns"]) == 1
+    assert len(features["order_demand"]) == 1
+    assert len(features["reservation_patterns"]) == 1
+
+@pytest.mark.asyncio
+async def test_get_features_multiple_warehouses(feature_store, test_db, sample_data):
+    # Add data for a second warehouse
+    warehouse_id_2 = "warehouse-2"
+    now = datetime.utcnow()
     
-    assert all(len(features[key]) == 1 for key in features)
-    assert all(features[key][0] == 0.0 for key in features if key != "timestamps") 
+    await test_db.execute(
+        text("""
+            INSERT INTO inventory_levels 
+            (item_id, warehouse_id, quantity, reserved, available, last_updated)
+            VALUES 
+            (:item_id, :warehouse_id, 150, 30, 120, :timestamp)
+        """),
+        {
+            "item_id": sample_data["item_id"],
+            "warehouse_id": warehouse_id_2,
+            "timestamp": now
+        }
+    )
+    await test_db.commit()
+    
+    features = await feature_store.get_features(sample_data["item_id"])
+    
+    assert features is not None
+    assert len(features["inventory_levels"]) == 4  # 3 from original warehouse + 1 from new warehouse
+
+@pytest.mark.asyncio
+async def test_get_features_date_boundaries(feature_store, test_db, sample_data):
+    # Add data from 200 days ago
+    old_timestamp = datetime.utcnow() - timedelta(days=200)
+    
+    await test_db.execute(
+        text("""
+            INSERT INTO inventory_levels 
+            (item_id, warehouse_id, quantity, reserved, available, last_updated)
+            VALUES 
+            (:item_id, :warehouse_id, 200, 40, 160, :timestamp)
+        """),
+        {
+            "item_id": sample_data["item_id"],
+            "warehouse_id": sample_data["warehouse_id"],
+            "timestamp": old_timestamp
+        }
+    )
+    await test_db.commit()
+    
+    # Get features with default 180 days
+    features = await feature_store.get_features(sample_data["item_id"])
+    
+    assert features is not None
+    assert len(features["inventory_levels"]) == 3  # Should not include the 200-day old record

@@ -16,12 +16,12 @@ from contextlib import asynccontextmanager
 Base = declarative_base()
 
 # Build database URLs with asyncpg driver
-predictions_db_url = settings.PREDICTIONS_DATABASE_URL.replace('postgresql://', 'postgresql+asyncpg://')
-predictions_sync_url = str(settings.PREDICTIONS_DB_URI)
+predictions_db_url = settings.PREDICTIONS_DB_URI.replace('postgresql://', 'postgresql+asyncpg://')
+predictions_sync_url = settings.PREDICTIONS_DB_URI
 
 # Logistics Database URLs with asyncpg driver
-logistics_db_url = settings.LOGISTICS_DATABASE_URL.replace('postgresql://', 'postgresql+asyncpg://')
-logistics_sync_url = str(settings.LOGISTICS_DB_URI)
+logistics_db_url = settings.LOGISTICS_DB_URI.replace('postgresql://', 'postgresql+asyncpg://')
+logistics_sync_url = settings.LOGISTICS_DB_URI
 
 # Create engines for both databases
 predictions_engine = create_async_engine(
@@ -126,9 +126,17 @@ async def init_db():
     try:
         logger.info("Verifying database connection...")
         if not await verify_database_connection():
-            raise Exception("Could not establish database connection")
+            logger.warning("Database connection failed, attempting to create database...")
+            from scripts.init_db import init_postgres_db
+            if not init_postgres_db():
+                raise Exception("Could not create database")
+            if not await verify_database_connection():
+                raise Exception("Could not establish database connection after creation")
 
         logger.info("Creating tables...")
+        # Create enum types first
+        create_enum_types()
+
         # Read the SQL migration file
         with open('app/migrations/create_tables.sql', 'r') as f:
             sql = f.read()
@@ -181,8 +189,9 @@ async def get_logistics_db() -> AsyncGenerator[AsyncSession, None]:
         finally:
             await session.close()
 
+# Context managers for manual session management
 @asynccontextmanager
-async def get_db():
+async def get_db_context():
     """Get a database session for the predictions database."""
     async with PredictionsAsyncSession() as session:
         try:
@@ -195,7 +204,7 @@ async def get_db():
             await session.close()
 
 @asynccontextmanager
-async def get_logistics_db():
+async def get_logistics_db_context():
     """Get a database session for the logistics database."""
     async with LogisticsAsyncSession() as session:
         try:
@@ -205,13 +214,4 @@ async def get_logistics_db():
             await session.rollback()
             raise
         finally:
-            await session.close()
-
-# Dependency functions for FastAPI
-async def get_predictions_db():
-    async with get_db() as session:
-        yield session
-
-async def get_logistics_db_session():
-    async with get_logistics_db() as session:
-        yield session 
+            await session.close() 

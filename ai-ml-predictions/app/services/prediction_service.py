@@ -1,13 +1,13 @@
 from datetime import datetime
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Annotated
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from app.models.database_model import PredictionRecord
 from app.core.exceptions import ModelNotFoundError, PredictionError
 from app.services.model_registry.registry import ModelRegistry
-from app.services.feature_store.logistics_store import LogisticsFeatureStore
-from app.services.cache.redis_cache import RedisCache
-from app.core.config.database import get_predictions_db, get_logistics_db_session
+from app.services.feature_store.logistics_store import LogisticsFeatureStore, get_logistics_feature_store
+from app.services.cache.redis_cache import RedisCache, get_redis_cache
+from app.core.config.database import get_predictions_db, get_logistics_db
 from fastapi import Depends
 import logging
 import uuid
@@ -179,13 +179,14 @@ class PredictionService:
             logger.error(f"Error in batch prediction: {str(e)}")
             raise PredictionError(f"Failed to process batch predictions: {str(e)}")
 
-async def get_prediction_service(
-    predictions_db: AsyncSession = Depends(get_predictions_db),
-    logistics_db: AsyncSession = Depends(get_logistics_db_session),
-    model_registry: ModelRegistry = Depends(),
-    feature_store: LogisticsFeatureStore = Depends(),
-    cache: RedisCache = Depends()
+def get_prediction_service(
+    predictions_db: Annotated[AsyncSession, Depends(get_predictions_db)],
+    logistics_db: Annotated[AsyncSession, Depends(get_logistics_db)],
+    model_registry: Annotated[ModelRegistry, Depends()],
+    feature_store: Annotated[LogisticsFeatureStore, Depends(get_logistics_feature_store)],
+    cache: Annotated[RedisCache, Depends(get_redis_cache)]
 ) -> PredictionService:
+    """Get an instance of the prediction service with all dependencies."""
     return PredictionService(
         predictions_db=predictions_db,
         logistics_db=logistics_db,

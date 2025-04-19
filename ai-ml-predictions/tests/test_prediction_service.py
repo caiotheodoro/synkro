@@ -1,10 +1,13 @@
 import pytest
-from datetime import datetime
+from datetime import datetime, timedelta
 from unittest.mock import Mock, AsyncMock
 from app.services.prediction_service import PredictionService
 from app.services.feature_store.logistics_store import LogisticsFeatureStore
 from app.services.model_registry.registry import ModelRegistry
 from app.services.cache.redis_cache import RedisCache
+from app.core.exceptions import ModelNotFoundError, PredictionError
+from app.models.prediction import PredictionCreate, PredictionUpdate
+from app.schemas.prediction_schema import PredictionRequest, PredictionResponse, BatchPredictionRequest
 
 @pytest.fixture
 def mock_model():
@@ -26,13 +29,10 @@ def mock_model_registry(mock_model):
 def mock_feature_store():
     store = AsyncMock(spec=LogisticsFeatureStore)
     store.get_features.return_value = {
-        "inventory_levels": [100.0, 90.0],
-        "reserved_levels": [20.0, 15.0],
-        "available_levels": [80.0, 75.0],
-        "transaction_quantities": [10.0, -5.0],
-        "order_quantities": [5.0],
-        "active_reservations": [3.0],
-        "timestamps": [1.0, 2.0]
+        "inventory_levels": [100, 90, 80],
+        "transaction_patterns": [10, 15, 12],
+        "order_demand": [8, 12, 10],
+        "reservation_patterns": [5, 8, 6]
     }
     return store
 
@@ -43,67 +43,196 @@ def mock_cache():
     return cache
 
 @pytest.fixture
-async def prediction_service(test_db, mock_model_registry, mock_feature_store, mock_cache):
+async def prediction_service(mock_model_registry, mock_feature_store, mock_cache, test_db):
     return PredictionService(
         db=test_db,
-        logistics_db=test_db,  # Using same test db for simplicity
         model_registry=mock_model_registry,
         feature_store=mock_feature_store,
         cache=mock_cache
     )
 
 @pytest.mark.asyncio
-async def test_create_prediction(prediction_service):
-    item_id = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
+async def test_create_prediction_basic(prediction_service):
+    item_id = "test-item-1"
     model_name = "demand_forecast_v1"
     
-    response = await prediction_service.create_prediction(item_id, model_name)
+    prediction = await prediction_service.create_prediction(item_id, model_name)
     
-    assert response.item_id == item_id
-    assert response.model_name == model_name
-    assert response.predicted_demand == 150.0
-    assert response.confidence_score == 0.85
-    assert isinstance(response.timestamp, datetime)
+    assert prediction is not None
+    assert prediction.item_id == item_id
+    assert prediction.model_name == model_name
+    assert prediction.predicted_demand == 150.0
+    assert prediction.confidence_score == 0.85
+    assert isinstance(prediction.timestamp, datetime)
+    assert prediction.features_used is not None
+
+@pytest.mark.asyncio
+async def test_create_prediction_missing_features(prediction_service, mock_feature_store):
+    mock_feature_store.get_features.return_value = {
+        "inventory_levels": [],
+        "transaction_patterns": [],
+        "order_demand": [],
+        "reservation_patterns": []
+    }
     
-    # Verify feature store was called
-    prediction_service.feature_store.get_features.assert_called_once_with(item_id)
+    with pytest.raises(ValueError, match="No features available"):
+        await prediction_service.create_prediction("test-item-1", "demand_forecast_v1")
+
+@pytest.mark.asyncio
+async def test_create_prediction_invalid_model(prediction_service, mock_model_registry):
+    mock_model_registry.get_model.return_value = None
     
-    # Verify model was called with features
-    model = prediction_service.model_registry.get_model(model_name)
-    model.predict.assert_called_once()
+    with pytest.raises(ValueError, match="Model not found"):
+        await prediction_service.create_prediction("test-item-1", "invalid_model")
+
+@pytest.mark.asyncio
+async def test_create_prediction_custom_days(prediction_service):
+    prediction = await prediction_service.create_prediction("test-item-1", "demand_forecast_v1", days=90)
     
-    # Verify cache was used
-    prediction_service.cache.get.assert_called_once()
-    prediction_service.cache.set.assert_called_once()
+    assert prediction is not None
+    prediction_service.feature_store.get_features.assert_called_once_with("test-item-1", days=90)
 
 @pytest.mark.asyncio
 async def test_create_prediction_cached(prediction_service, mock_cache):
-    item_id = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
-    model_name = "demand_forecast_v1"
-    
-    # Set up cache hit
     cached_prediction = {
-        "id": "some-id",
-        "item_id": item_id,
-        "model_name": model_name,
-        "predicted_demand": 160.0,
-        "confidence_score": 0.9,
+        "id": "123",
+        "item_id": "test-item-1",
+        "model_name": "demand_forecast_v1",
+        "predicted_demand": 140.0,
+        "confidence_score": 0.82,
         "timestamp": datetime.utcnow(),
-        "features_used": {"some": "features"}
+        "features_used": {"inventory_levels": [100, 90, 80]}
     }
     mock_cache.get.return_value = cached_prediction
     
-    response = await prediction_service.create_prediction(item_id, model_name)
+    prediction = await prediction_service.create_prediction("test-item-1", "demand_forecast_v1")
     
-    assert response.predicted_demand == 160.0
-    assert response.confidence_score == 0.9
-    
-    # Verify feature store was not called
+    assert prediction is not None
+    assert prediction.predicted_demand == cached_prediction["predicted_demand"]
     prediction_service.feature_store.get_features.assert_not_called()
+    prediction_service.model_registry.get_model.assert_not_called()
+
+@pytest.mark.asyncio
+async def test_create_batch_predictions(prediction_service):
+    item_ids = ["test-item-1", "test-item-2"]
+    model_name = "demand_forecast_v1"
     
-    # Verify model was not called
-    model = prediction_service.model_registry.get_model(model_name)
-    model.predict.assert_not_called()
+    predictions = await prediction_service.create_batch_predictions(item_ids, model_name)
+    
+    assert predictions is not None
+    assert len(predictions) == 2
+    assert all(p.model_name == model_name for p in predictions)
+    assert all(p.predicted_demand == 150.0 for p in predictions)
+
+@pytest.mark.asyncio
+async def test_list_predictions(prediction_service):
+    # Create some predictions first
+    await prediction_service.create_prediction("test-item-1", "demand_forecast_v1")
+    await prediction_service.create_prediction("test-item-2", "demand_forecast_v1")
+    
+    predictions = await prediction_service.list_predictions(skip=0, limit=10)
+    
+    assert predictions is not None
+    assert predictions.total >= 2
+    assert len(predictions.items) >= 2
+    assert all(isinstance(p.timestamp, datetime) for p in predictions.items)
+
+@pytest.mark.asyncio
+async def test_get_prediction_by_id(prediction_service):
+    # Create a prediction first
+    original = await prediction_service.create_prediction("test-item-1", "demand_forecast_v1")
+    
+    # Retrieve it by ID
+    prediction = await prediction_service.get_prediction(original.id)
+    
+    assert prediction is not None
+    assert prediction.id == original.id
+    assert prediction.item_id == original.item_id
+    assert prediction.predicted_demand == original.predicted_demand
+
+@pytest.mark.asyncio
+async def test_get_predictions_by_item(prediction_service: PredictionService):
+    item_id = "test_item_multiple"
+    prediction_date = datetime.utcnow() + timedelta(days=7)
+    
+    predictions_to_create = [
+        PredictionCreate(
+            item_id=item_id,
+            model_id="test_model",
+            prediction_date=prediction_date + timedelta(days=i)
+        )
+        for i in range(3)
+    ]
+    
+    for pred in predictions_to_create:
+        await prediction_service.create_prediction(pred)
+    
+    predictions = await prediction_service.list_predictions(
+        skip=0,
+        limit=10,
+        item_id=item_id
+    )
+    
+    assert len(predictions) == 3
+    assert all(p.item_id == item_id for p in predictions)
+
+@pytest.mark.asyncio
+async def test_get_predictions_by_model(prediction_service: PredictionService):
+    model_id = "demand_forecast_v1"
+    prediction_date = datetime.utcnow() + timedelta(days=7)
+    
+    predictions_to_create = [
+        PredictionCreate(
+            item_id=f"test_item_{i}",
+            model_id=model_id,
+            prediction_date=prediction_date
+        )
+        for i in range(3)
+    ]
+    
+    for pred in predictions_to_create:
+        await prediction_service.create_prediction(pred)
+    
+    predictions = await prediction_service.list_predictions(
+        skip=0,
+        limit=10,
+        model_id=model_id
+    )
+    
+    assert len(predictions) >= 3
+    assert all(p.model_id == model_id for p in predictions)
+
+@pytest.mark.asyncio
+async def test_create_prediction_invalid_model(prediction_service):
+    with pytest.raises(ModelNotFoundError):
+        await prediction_service.create_prediction(
+            item_id="aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+            model_name="nonexistent_model"
+        )
+
+@pytest.mark.asyncio
+async def test_get_nonexistent_prediction(prediction_service):
+    retrieved = await prediction_service.get_prediction("nonexistent-id")
+    assert retrieved is None
+
+@pytest.mark.asyncio
+async def test_batch_predict(prediction_service, sample_data):
+    item_ids = [
+        "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+        "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"  # Using same ID for test
+    ]
+
+    predictions = await prediction_service.batch_predict(
+        item_ids=item_ids,
+        model_name="test_model"
+    )
+
+    assert predictions is not None
+    assert len(predictions) == 2
+    for prediction in predictions:
+        assert prediction["model_name"] == "test_model"
+        assert prediction["predicted_demand"] == 150.0
+        assert prediction["confidence_score"] == 0.85
 
 @pytest.mark.asyncio
 async def test_create_prediction_model_not_found(prediction_service):

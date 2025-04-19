@@ -1,5 +1,5 @@
 from datetime import datetime, timedelta
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Annotated
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config.database import get_logistics_db
@@ -111,6 +111,7 @@ class LogisticsFeatureStore:
         return features
 
 def get_logistics_feature_store(
-    db: AsyncSession = Depends(get_logistics_db)
+    db: Annotated[AsyncSession, Depends(get_logistics_db)]
 ) -> LogisticsFeatureStore:
+    """Get an instance of the logistics feature store."""
     return LogisticsFeatureStore(db) 
