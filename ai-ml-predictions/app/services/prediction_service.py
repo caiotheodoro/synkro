@@ -1,83 +1,68 @@
 from datetime import datetime
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, insert
-from sqlalchemy.dialects.postgresql import insert as pg_insert
-from app.models.database_model import PredictionRecord, PredictionType, PredictionStatus
-from contextlib import asynccontextmanager
-import numpy as np
-import uuid
-import logging
-import json
-from sqlalchemy.exc import SQLAlchemyError
-from abc import ABC, abstractmethod
-from fastapi import Depends
-from app.core.config.settings import settings
-from app.models.prediction import PredictionModel
-from app.schemas.prediction import PredictionCreate, PredictionResponse, PredictionList
+from sqlalchemy import select
+from app.models.database_model import PredictionRecord
 from app.core.exceptions import ModelNotFoundError, PredictionError
 from app.services.model_registry.registry import ModelRegistry
-from app.services.feature_store.store import FeatureStore
+from app.services.feature_store.logistics_store import LogisticsFeatureStore
 from app.services.cache.redis_cache import RedisCache
-from app.core.config.database import get_db
+from app.core.config.database import get_predictions_db, get_logistics_db_session
+from fastapi import Depends
+import logging
+import uuid
 
 logger = logging.getLogger(__name__)
-
-class PredictionServiceInterface(ABC):
-    @abstractmethod
-    async def create_prediction(self, data: PredictionCreate) -> PredictionResponse:
-        pass
-
-    @abstractmethod
-    async def get_prediction(self, prediction_id: str) -> Optional[PredictionResponse]:
-        pass
-
-    @abstractmethod
-    async def list_predictions(self, skip: int = 0, limit: int = 100) -> List[PredictionResponse]:
-        pass
 
 class PredictionService:
     def __init__(
         self,
-        db: AsyncSession,
+        predictions_db: AsyncSession,
+        logistics_db: AsyncSession,
         model_registry: ModelRegistry,
-        feature_store: FeatureStore,
+        feature_store: LogisticsFeatureStore,
         cache: RedisCache
     ):
-        self.db = db
+        self.predictions_db = predictions_db
+        self.logistics_db = logistics_db
         self.model_registry = model_registry
         self.feature_store = feature_store
         self.cache = cache
 
-    async def create_prediction(self, data: PredictionCreate) -> PredictionResponse:
+    async def create_prediction(self, item_id: str, model_name: str) -> Dict:
         try:
-            cache_key = f"prediction:{data.model_name}:{hash(str(data.input_data))}"
+            cache_key = f"prediction:{model_name}:{item_id}"
             cached_prediction = await self.cache.get(cache_key)
             if cached_prediction:
                 logger.info("Returning cached prediction")
-                return PredictionResponse(**cached_prediction)
+                return cached_prediction
 
-            model = self.model_registry.get_model(data.model_name)
+            model = self.model_registry.get_model(model_name)
             if not model:
-                raise ModelNotFoundError(f"Model {data.model_name} not found")
+                raise ModelNotFoundError(f"Model {model_name} not found")
 
-            features = await self.feature_store.get_features(data.input_data)
+            # Get features from logistics database
+            features = await self.feature_store.get_features(item_id)
 
             prediction_result = model.predict(features)
             confidence_score = prediction_result.get("confidence", None)
 
-            prediction = await PredictionModel.create(
-                db=self.db,
-                model_name=data.model_name,
-                input_data=data.input_data,
-                prediction_result=prediction_result,
-                confidence_score=confidence_score
-            )
+            prediction_id = str(uuid.uuid4())
+            prediction = {
+                "id": prediction_id,
+                "item_id": item_id,
+                "model_name": model_name,
+                "predicted_demand": prediction_result["predicted_demand"],
+                "confidence_score": confidence_score,
+                "timestamp": datetime.utcnow(),
+                "features_used": features
+            }
 
-            response = PredictionResponse.model_validate(prediction)
-            await self.cache.set(cache_key, response.model_dump())
+            # Save to database
+            await self._save_prediction(prediction)
 
-            return response
+            await self.cache.set(cache_key, prediction)
+            return prediction
 
         except ModelNotFoundError:
             raise
@@ -85,23 +70,56 @@ class PredictionService:
             logger.error(f"Error creating prediction: {str(e)}")
             raise PredictionError(f"Failed to create prediction: {str(e)}")
 
-    async def get_prediction(self, prediction_id: int) -> Optional[PredictionResponse]:
+    async def _save_prediction(self, prediction: Dict) -> None:
+        query = """
+            INSERT INTO predictions (
+                id, model_name, item_id, input_data, prediction_result,
+                confidence_score, created_at, updated_at
+            ) VALUES (
+                :id, :model_name, :item_id, :input_data, :prediction_result,
+                :confidence_score, :created_at, :updated_at
+            )
+        """
+        values = {
+            "id": prediction["id"],
+            "model_name": prediction["model_name"],
+            "item_id": prediction["item_id"],
+            "input_data": {"features": prediction["features_used"]},
+            "prediction_result": {"predicted_demand": prediction["predicted_demand"]},
+            "confidence_score": prediction["confidence_score"],
+            "created_at": prediction["timestamp"],
+            "updated_at": prediction["timestamp"]
+        }
+        await self.predictions_db.execute(query, values)
+        await self.predictions_db.commit()
+
+    async def get_prediction(self, prediction_id: str) -> Optional[Dict]:
         try:
-            # Try to get from cache
             cache_key = f"prediction_id:{prediction_id}"
             cached_prediction = await self.cache.get(cache_key)
             if cached_prediction:
-                logger.info("Returning cached prediction")
-                return PredictionResponse(**cached_prediction)
+                return cached_prediction
 
-            # Get from database
-            prediction = await PredictionModel.get(self.db, prediction_id)
+            query = """
+                SELECT * FROM predictions WHERE id = :prediction_id
+            """
+            result = await self.predictions_db.execute(query, {"prediction_id": prediction_id})
+            prediction = result.fetchone()
+            
             if not prediction:
                 return None
 
-            # Cache and return
-            response = PredictionResponse.model_validate(prediction)
-            await self.cache.set(cache_key, response.model_dump())
+            response = {
+                "id": prediction.id,
+                "item_id": prediction.item_id,
+                "model_name": prediction.model_name,
+                "predicted_demand": prediction.prediction_result["predicted_demand"],
+                "confidence_score": prediction.confidence_score,
+                "timestamp": prediction.created_at,
+                "features_used": prediction.input_data["features"]
+            }
+
+            await self.cache.set(cache_key, response)
             return response
 
         except Exception as e:
@@ -112,27 +130,34 @@ class PredictionService:
         self,
         skip: int = 0,
         limit: int = 100
-    ) -> PredictionList:
+    ) -> Dict[str, any]:
         try:
-            # Get predictions from database
-            predictions = await PredictionModel.list(
-                db=self.db,
-                skip=skip,
-                limit=limit
-            )
+            query = """
+                SELECT * FROM predictions
+                ORDER BY created_at DESC
+                OFFSET :skip LIMIT :limit
+            """
+            result = await self.predictions_db.execute(query, {"skip": skip, "limit": limit})
+            predictions = result.fetchall()
 
-            # Convert to response models
-            items = [
-                PredictionResponse.model_validate(prediction)
-                for prediction in predictions
-            ]
+            items = []
+            for p in predictions:
+                items.append({
+                    "id": p.id,
+                    "item_id": p.item_id,
+                    "model_name": p.model_name,
+                    "predicted_demand": p.prediction_result["predicted_demand"],
+                    "confidence_score": p.confidence_score,
+                    "timestamp": p.created_at,
+                    "features_used": p.input_data["features"]
+                })
 
-            return PredictionList(
-                items=items,
-                total=len(items),
-                skip=skip,
-                limit=limit
-            )
+            return {
+                "items": items,
+                "total": len(items),
+                "skip": skip,
+                "limit": limit
+            }
 
         except Exception as e:
             logger.error(f"Error listing predictions: {str(e)}")
@@ -140,12 +165,13 @@ class PredictionService:
 
     async def batch_predict(
         self,
-        batch_data: List[PredictionCreate]
-    ) -> List[PredictionResponse]:
+        item_ids: List[str],
+        model_name: str
+    ) -> List[Dict]:
         try:
             results = []
-            for data in batch_data:
-                result = await self.create_prediction(data)
+            for item_id in item_ids:
+                result = await self.create_prediction(item_id, model_name)
                 results.append(result)
             return results
 
@@ -153,10 +179,17 @@ class PredictionService:
             logger.error(f"Error in batch prediction: {str(e)}")
             raise PredictionError(f"Failed to process batch predictions: {str(e)}")
 
-def get_prediction_service(
-    db: AsyncSession = Depends(get_db),
+async def get_prediction_service(
+    predictions_db: AsyncSession = Depends(get_predictions_db),
+    logistics_db: AsyncSession = Depends(get_logistics_db_session),
     model_registry: ModelRegistry = Depends(),
-    feature_store: FeatureStore = Depends(),
+    feature_store: LogisticsFeatureStore = Depends(),
     cache: RedisCache = Depends()
 ) -> PredictionService:
-    return PredictionService(db, model_registry, feature_store, cache)
+    return PredictionService(
+        predictions_db=predictions_db,
+        logistics_db=logistics_db,
+        model_registry=model_registry,
+        feature_store=feature_store,
+        cache=cache
+    )

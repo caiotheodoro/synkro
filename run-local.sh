@@ -326,7 +326,7 @@ main() {
       cd "$ROOT_DIR" || exit 1
     fi
     
-    start_service "ai-ml-predictions" "cd ai-ml-predictions && source venv/bin/activate && python -m app.main > \"$ROOT_DIR/logs/ai-ml-predictions.log\" 2>&1" "$ROOT_DIR"
+    start_service "ai-ml-predictions" "cd ai-ml-predictions && conda activate ai-ml-predictions && uvicorn app.main:app --host 0.0.0.0 --port 3004 --reload" "$ROOT_DIR"
   fi
   
   # Start Inventory Sync Service if it exists (Go service)

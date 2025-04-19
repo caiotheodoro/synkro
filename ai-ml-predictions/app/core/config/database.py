@@ -8,20 +8,23 @@ from app.core.config.settings import settings
 from app.core.logging.logger import logger
 import os
 import asyncio
-
-# Build database URLs with asyncpg driver
-predictions_db_url = str(settings.PREDICTIONS_DB_URI).replace('postgresql://', 'postgresql+asyncpg://')
-predictions_sync_url = str(settings.PREDICTIONS_DB_URI)
-
-# Logistics Database URLs with asyncpg driver
-logistics_db_url = str(settings.LOGISTICS_DB_URI).replace('postgresql://', 'postgresql+asyncpg://')
-logistics_sync_url = str(settings.LOGISTICS_DB_URI)
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
+from sqlalchemy.orm import sessionmaker
+from contextlib import asynccontextmanager
 
 # Create base class for declarative models
 Base = declarative_base()
 
-# AI/ML Predictions Database engines
-predictions_async_engine = create_async_engine(
+# Build database URLs with asyncpg driver
+predictions_db_url = settings.PREDICTIONS_DATABASE_URL.replace('postgresql://', 'postgresql+asyncpg://')
+predictions_sync_url = str(settings.PREDICTIONS_DB_URI)
+
+# Logistics Database URLs with asyncpg driver
+logistics_db_url = settings.LOGISTICS_DATABASE_URL.replace('postgresql://', 'postgresql+asyncpg://')
+logistics_sync_url = str(settings.LOGISTICS_DB_URI)
+
+# Create engines for both databases
+predictions_engine = create_async_engine(
     predictions_db_url,
     echo=settings.DB_ECHO,
     future=True,
@@ -41,7 +44,7 @@ predictions_sync_engine = create_engine(
 )
 
 # Logistics Database engines
-logistics_async_engine = create_async_engine(
+logistics_engine = create_async_engine(
     logistics_db_url,
     echo=settings.DB_ECHO,
     future=True,
@@ -60,9 +63,9 @@ logistics_sync_engine = create_engine(
     max_overflow=settings.DB_MAX_OVERFLOW
 )
 
-# Session factories
+# Create session factories
 PredictionsAsyncSession = async_sessionmaker(
-    predictions_async_engine,
+    predictions_engine,
     expire_on_commit=False,
     class_=AsyncSession,
     autocommit=False,
@@ -70,42 +73,12 @@ PredictionsAsyncSession = async_sessionmaker(
 )
 
 LogisticsAsyncSession = async_sessionmaker(
-    logistics_async_engine,
+    logistics_engine,
     expire_on_commit=False,
     class_=AsyncSession,
     autocommit=False,
     autoflush=False
 )
-
-async def get_predictions_db() -> AsyncGenerator[AsyncSession, None]:
-    """
-    Database dependency for the AI/ML predictions database.
-    Yields an async database session and ensures it's closed after use.
-    """
-    async with PredictionsAsyncSession() as session:
-        try:
-            yield session
-            await session.commit()
-        except Exception:
-            await session.rollback()
-            raise
-        finally:
-            await session.close()
-
-async def get_logistics_db() -> AsyncGenerator[AsyncSession, None]:
-    """
-    Database dependency for the logistics database.
-    Yields an async database session and ensures it's closed after use.
-    """
-    async with LogisticsAsyncSession() as session:
-        try:
-            yield session
-            await session.commit()
-        except Exception:
-            await session.rollback()
-            raise
-        finally:
-            await session.close()
 
 async def verify_database_connection() -> bool:
     """Verify database connection is working."""
@@ -160,77 +133,32 @@ async def init_db():
         with open('app/migrations/create_tables.sql', 'r') as f:
             sql = f.read()
 
-        # Split the SQL into individual statements and clean them up
-        statements = []
-        current_statement = []
-        in_function = False
-        in_do_block = False
+        # Split the SQL into individual statements
+        statements = [stmt.strip() for stmt in sql.split(';') if stmt.strip()]
 
-        for line in sql.splitlines():
-            line = line.strip()
-            if not line or line.startswith('--'):  # Skip empty lines and comments
-                continue
-
-            # Check if we're entering a function definition
-            if 'CREATE OR REPLACE FUNCTION' in line:
-                in_function = True
-            # Check if we're entering a DO block
-            elif line.startswith('DO $$'):
-                in_do_block = True
-
-            current_statement.append(line)
-
-            # If we're in a function definition, wait for the LANGUAGE statement
-            if in_function and 'LANGUAGE plpgsql;' in line:
-                statements.append('\n'.join(current_statement))
-                current_statement = []
-                in_function = False
-            # If we're in a DO block, wait for the END $$ statement
-            elif in_do_block and line.startswith('END $$'):
-                statements.append('\n'.join(current_statement))
-                current_statement = []
-                in_do_block = False
-            # For regular statements, split on semicolon
-            elif not in_function and not in_do_block and line.endswith(';'):
-                statements.append('\n'.join(current_statement))
-                current_statement = []
-
-        # Add any remaining statement
-        if current_statement:
-            statements.append('\n'.join(current_statement))
-
-        # Execute each statement separately
-        async with predictions_async_engine.begin() as conn:
+        # Execute each statement
+        async with predictions_engine.begin() as conn:
             for stmt in statements:
-                if stmt:  # Skip empty statements
-                    try:
-                        await conn.execute(text(stmt))
-                        logger.info(f"Successfully executed: {stmt[:50]}...")  # Log first 50 chars
-                    except Exception as e:
-                        logger.error(f"Error executing statement: {stmt}")
-                        logger.error(f"Error details: {str(e)}")
-                        raise
-
-        # Verify tables were created
-        async with PredictionsAsyncSession() as session:
-            tables = ['predictions', 'prediction_metrics', 'data_change_tracker']
-            for table in tables:
-                result = await session.execute(
-                    text(f"SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = '{table}')")
-                )
-                exists = result.scalar()
-                if not exists:
-                    raise Exception(f"Table {table} was not created successfully")
-                logger.info(f"Verified table {table} exists")
+                try:
+                    await conn.execute(text(stmt))
+                except Exception as e:
+                    logger.error(f"Error executing statement: {stmt}")
+                    logger.error(f"Error details: {str(e)}")
+                    raise
 
         logger.info("Database initialization completed successfully")
-
     except Exception as e:
         logger.error(f"Error during database initialization: {str(e)}")
         raise
 
-async def get_db() -> AsyncGenerator[AsyncSession, None]:
-    """Dependency for getting async database session."""
+async def cleanup_db():
+    """Cleanup database connections."""
+    await predictions_engine.dispose()
+    await logistics_engine.dispose()
+
+# FastAPI dependency functions
+async def get_predictions_db() -> AsyncGenerator[AsyncSession, None]:
+    """Database dependency for the predictions database."""
     async with PredictionsAsyncSession() as session:
         try:
             yield session
@@ -241,7 +169,49 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
         finally:
             await session.close()
 
-async def cleanup_db():
-    """Cleanup database connections."""
-    await predictions_async_engine.dispose()
-    await logistics_async_engine.dispose() 
+async def get_logistics_db() -> AsyncGenerator[AsyncSession, None]:
+    """Database dependency for the logistics database."""
+    async with LogisticsAsyncSession() as session:
+        try:
+            yield session
+            await session.commit()
+        except Exception:
+            await session.rollback()
+            raise
+        finally:
+            await session.close()
+
+@asynccontextmanager
+async def get_db():
+    """Get a database session for the predictions database."""
+    async with PredictionsAsyncSession() as session:
+        try:
+            yield session
+            await session.commit()
+        except Exception:
+            await session.rollback()
+            raise
+        finally:
+            await session.close()
+
+@asynccontextmanager
+async def get_logistics_db():
+    """Get a database session for the logistics database."""
+    async with LogisticsAsyncSession() as session:
+        try:
+            yield session
+            await session.commit()
+        except Exception:
+            await session.rollback()
+            raise
+        finally:
+            await session.close()
+
+# Dependency functions for FastAPI
+async def get_predictions_db():
+    async with get_db() as session:
+        yield session
+
+async def get_logistics_db_session():
+    async with get_logistics_db() as session:
+        yield session 

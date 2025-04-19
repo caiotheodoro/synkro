@@ -1,6 +1,7 @@
 from typing import  Optional, List
 from pydantic_settings import BaseSettings
 from functools import lru_cache
+import os
 
 class Settings(BaseSettings):
     # API Settings
@@ -16,28 +17,28 @@ class Settings(BaseSettings):
     RELOAD: bool = True
 
     # Database Settings
-    POSTGRES_HOST: str = "localhost"
-    POSTGRES_PORT: int = 5434
-    POSTGRES_USER: str = "logistics"
-    POSTGRES_PASSWORD: str = "postgres"
-    POSTGRES_DB: str = "ai_ml_predictions"
+    PREDICTIONS_DB_HOST: str = os.getenv("PREDICTIONS_DB_HOST", "localhost")
+    PREDICTIONS_DB_PORT: int = int(os.getenv("PREDICTIONS_DB_PORT", "5432"))
+    PREDICTIONS_DB_USER: str = os.getenv("PREDICTIONS_DB_USER", "postgres")
+    PREDICTIONS_DB_PASS: str = os.getenv("PREDICTIONS_DB_PASS", "postgres")
+    PREDICTIONS_DB_NAME: str = os.getenv("PREDICTIONS_DB_NAME", "predictions")
 
-    # Logistics Database Settings
-    LOGISTICS_DB_HOST: str = "localhost"
-    LOGISTICS_DB_PORT: int = 5433
-    LOGISTICS_DB_USER: str = "logistics"
-    LOGISTICS_DB_PASSWORD: str = "logistics_password"
-    LOGISTICS_DB_NAME: str = "logistics_engine"
+    LOGISTICS_DB_HOST: str = os.getenv("LOGISTICS_DB_HOST", "localhost")
+    LOGISTICS_DB_PORT: int = int(os.getenv("LOGISTICS_DB_PORT", "5432"))
+    LOGISTICS_DB_USER: str = os.getenv("LOGISTICS_DB_USER", "postgres")
+    LOGISTICS_DB_PASS: str = os.getenv("LOGISTICS_DB_PASS", "postgres")
+    LOGISTICS_DB_NAME: str = os.getenv("LOGISTICS_DB_NAME", "logistics")
 
-    DB_POOL_SIZE: int = 5
-    DB_MAX_OVERFLOW: int = 10
+    DB_POOL_SIZE: int = int(os.getenv("DB_POOL_SIZE", "5"))
+    DB_MAX_OVERFLOW: int = int(os.getenv("DB_MAX_OVERFLOW", "10"))
+    DB_POOL_TIMEOUT: int = int(os.getenv("DB_POOL_TIMEOUT", "30"))
     DB_ECHO: bool = False
-    DB_POOL_TIMEOUT: int = 30
 
-    REDIS_HOST: str = "localhost"
-    REDIS_PORT: int = 6379
-    REDIS_PASSWORD: Optional[str] = None
-    REDIS_DB: int = 0
+    REDIS_HOST: str = os.getenv("REDIS_HOST", "localhost")
+    REDIS_PORT: int = int(os.getenv("REDIS_PORT", "6379"))
+    REDIS_DB: int = int(os.getenv("REDIS_DB", "0"))
+    REDIS_PASSWORD: Optional[str] = os.getenv("REDIS_PASSWORD")
+
     REDIS_URL: Optional[str] = None
     ENABLE_CACHE: bool = True
     CACHE_TTL: int = 300  # 5 minutes
@@ -99,21 +100,21 @@ class Settings(BaseSettings):
     PREDICTION_JOB_INTERVAL: int = 3600
 
     @property
-    def LOGISTICS_DB_URI(self) -> str:
-        return f"postgresql://{self.LOGISTICS_DB_USER}:{self.LOGISTICS_DB_PASSWORD}@{self.LOGISTICS_DB_HOST}:{self.LOGISTICS_DB_PORT}/{self.LOGISTICS_DB_NAME}"
+    def PREDICTIONS_DATABASE_URL(self) -> str:
+        """Get the predictions database URL."""
+        return f"postgresql://{self.PREDICTIONS_DB_USER}:{self.PREDICTIONS_DB_PASS}@{self.PREDICTIONS_DB_HOST}:{self.PREDICTIONS_DB_PORT}/{self.PREDICTIONS_DB_NAME}"
 
     @property
-    def PREDICTIONS_DB_URI(self) -> str:
-        return f"postgresql://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}@{self.POSTGRES_HOST}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
+    def LOGISTICS_DATABASE_URL(self) -> str:
+        """Get the logistics database URL."""
+        return f"postgresql://{self.LOGISTICS_DB_USER}:{self.LOGISTICS_DB_PASS}@{self.LOGISTICS_DB_HOST}:{self.LOGISTICS_DB_PORT}/{self.LOGISTICS_DB_NAME}"
 
     @property
-    def redis_url(self) -> str:
-        """Build Redis URL with proper format."""
-        if self.REDIS_URL:
-            return self.REDIS_URL
-        
-        auth = f":{self.REDIS_PASSWORD}@" if self.REDIS_PASSWORD else ""
-        return f"redis://{auth}{self.REDIS_HOST}:{self.REDIS_PORT}/{self.REDIS_DB}"
+    def REDIS_URL(self) -> str:
+        """Get the Redis URL."""
+        if self.REDIS_PASSWORD:
+            return f"redis://:{self.REDIS_PASSWORD}@{self.REDIS_HOST}:{self.REDIS_PORT}/{self.REDIS_DB}"
+        return f"redis://{self.REDIS_HOST}:{self.REDIS_PORT}/{self.REDIS_DB}"
 
     class Config:
         env_file = ".env"

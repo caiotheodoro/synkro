@@ -1,0 +1,6 @@
+Metadata-Version: 2.4
+Name: ai-ml-predictions
+Version: 1.0.0
+Summary: AI/ML Predictions Service for Synkro
+Requires-Python: >=3.9
+Dynamic: requires-python

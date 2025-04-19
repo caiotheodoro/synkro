@@ -160,15 +160,3 @@ You can check the logs of both services to verify the gRPC communication:
      "location_id": "default-warehouse"
    }' localhost:50052 inventory.InventoryService/AdjustInventory
    ```
-
-## End-to-End Test Scenario
-
-1. Start both services
-2. Create a new item in inventory
-3. Add stock for that item
-4. Create an order via Logistics Engine
-5. Verify stock is reserved
-6. Update order status to "shipped"
-7. Verify reservation is committed
-
-This workflow tests the full inventory reservation and commitment cycle between the two services. 
