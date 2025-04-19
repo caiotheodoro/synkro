@@ -11,6 +11,7 @@ import asyncio
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker
 from contextlib import asynccontextmanager
+import re
 
 # Create base class for declarative models
 Base = declarative_base()
@@ -121,6 +122,32 @@ def create_enum_types():
         logger.error(f"Error creating enum types: {str(e)}")
         return False
 
+def split_sql_statements(sql):
+    """Split SQL statements while preserving function definitions."""
+    # First, temporarily replace semicolons inside dollar-quoted strings
+    dollar_quoted = re.finditer(r'\$\$.*?\$\$', sql, re.DOTALL)
+    temp_sql = sql
+    replacements = []
+    
+    for match in dollar_quoted:
+        quoted_text = match.group()
+        # Replace semicolons with a temporary marker
+        modified_text = quoted_text.replace(';', '###SEMICOLON###')
+        temp_sql = temp_sql.replace(quoted_text, modified_text)
+        replacements.append((modified_text, quoted_text))
+    
+    # Split on semicolons
+    statements = [stmt.strip() for stmt in temp_sql.split(';') if stmt.strip()]
+    
+    # Restore original dollar-quoted strings
+    final_statements = []
+    for stmt in statements:
+        for modified, original in replacements:
+            stmt = stmt.replace(modified, original)
+        final_statements.append(stmt)
+    
+    return final_statements
+
 async def init_db():
     """Initialize the database by creating all tables."""
     try:
@@ -141,8 +168,8 @@ async def init_db():
         with open('app/migrations/create_tables.sql', 'r') as f:
             sql = f.read()
 
-        # Split the SQL into individual statements
-        statements = [stmt.strip() for stmt in sql.split(';') if stmt.strip()]
+        # Split the SQL into individual statements while preserving function definitions
+        statements = split_sql_statements(sql)
 
         # Execute each statement
         async with predictions_engine.begin() as conn:

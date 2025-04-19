@@ -64,6 +64,7 @@ class Settings(BaseSettings):
     FEATURE_STORE_TIMEOUT: int = 30
     FEATURE_STORE_MAX_RETRIES: int = 3
     FEATURE_STORE_RETRY_DELAY: int = 1
+    FEATURE_STORE_URL: str = os.getenv("FEATURE_STORE_URL", "http://localhost:5052")
 
     # Security Settings
     SECRET_KEY: str = "your-secret-key-here"
@@ -117,7 +118,12 @@ class Settings(BaseSettings):
             return f"redis://:{self.REDIS_PASSWORD}@{self.REDIS_HOST}:{self.REDIS_PORT}/{self.REDIS_DB}"
         return f"redis://{self.REDIS_HOST}:{self.REDIS_PORT}/{self.REDIS_DB}"
 
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", case_sensitive=True)
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        case_sensitive=True,
+        extra="allow"  # Allow extra fields
+    )
 
 @lru_cache()
 def get_settings() -> Settings:

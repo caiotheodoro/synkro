@@ -20,16 +20,16 @@ services:
       - RELOAD=false
       # AI/ML Database
       - POSTGRES_HOST=postgres_ml
-      - POSTGRES_PORT=5432
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgres
-      - POSTGRES_DB=ai_ml_predictions
+      - POSTGRES_PORT=5434
+      - POSTGRES_USER=${PREDICTIONS_DB_USER}
+      - POSTGRES_PASSWORD=${PREDICTIONS_DB_PASS}
+      - POSTGRES_DB=${PREDICTIONS_DB_NAME}
       # Logistics Database (Read-only access)
-      - LOGISTICS_DB_HOST=postgres_logistics
-      - LOGISTICS_DB_PORT=5432
-      - LOGISTICS_DB_USER=postgres
-      - LOGISTICS_DB_PASSWORD=postgres
-      - LOGISTICS_DB_NAME=logistics
+      - LOGISTICS_DB_HOST=localhost
+      - LOGISTICS_DB_PORT=5433
+      - LOGISTICS_DB_USER=logistics
+      - LOGISTICS_DB_PASSWORD=logistics_password
+      - LOGISTICS_DB_NAME=logistics_engine
       # Redis Configuration
       - REDIS_HOST=redis
       - REDIS_PORT=6379
@@ -74,15 +74,20 @@ services:
     image: postgres:16-alpine
     container_name: ai-ml-predictions-postgres
     environment:
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgres
-      - POSTGRES_DB=predictions
+      - POSTGRES_USER=${PREDICTIONS_DB_USER}
+      - POSTGRES_PASSWORD=${PREDICTIONS_DB_PASS}
+      - POSTGRES_DB=${PREDICTIONS_DB_NAME}
     ports:
-      - "5432:5432"
+      - "5434:5434"
+    command: -p 5434
     volumes:
       - postgres_ml_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d predictions"]
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${PREDICTIONS_DB_USER} -d ${PREDICTIONS_DB_NAME} -p 5434",
+        ]
       interval: 5s
       timeout: 5s
       retries: 5

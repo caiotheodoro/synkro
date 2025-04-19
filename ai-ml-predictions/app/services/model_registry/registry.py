@@ -75,7 +75,11 @@ class ModelRegistry:
     def _load_models(self):
         """Load all models from the models directory."""
         try:
-            model_dir = "/app/models"
+            # Get the absolute path to the project root directory
+            current_dir = os.path.dirname(os.path.abspath(__file__))
+            project_root = os.path.abspath(os.path.join(current_dir, "..", "..", ".."))
+            model_dir = os.path.join(project_root, "app", "models")
+            
             logger.info(f"Loading models from directory: {model_dir}")
             
             if not os.path.exists(model_dir):
