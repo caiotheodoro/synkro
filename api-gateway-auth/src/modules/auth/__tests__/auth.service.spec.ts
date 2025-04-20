@@ -8,10 +8,9 @@ import {
 import { AuthService } from '../auth.service';
 import { User, UserRole } from '../../user/entities/user.entity';
 import { UserService } from '../../user/user.service';
-import * as bcrypt from 'bcrypt';
+import * as bcrypt from 'bcryptjs';
 
-jest.mock('bcrypt', () => ({
-  hash: jest.fn().mockResolvedValue('hashedPassword'),
+jest.mock('bcryptjs', () => ({
   compare: jest.fn(),
 }));
 

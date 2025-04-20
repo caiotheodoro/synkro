@@ -1,39 +1,23 @@
 version: '3.8'
+
 services:
   postgres:
     image: postgres:16-alpine
+    container_name: api-gateway-auth-postgres
+    environment:
+      POSTGRES_USER: ${DB_USERNAME:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+      POSTGRES_DB: ${DB_DATABASE:-api_gateway_auth}
     ports:
-      - '5432:5432'
-    environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: postgres
-      POSTGRES_MULTIPLE_DATABASES: api_gateway_auth,api_gateway_auth_test
+      - '0.0.0.0:5436:5432'
     volumes:
-      - pgdata:/var/lib/postgresql/data
-      - ./docker-entrypoint-initdb.d:/docker-entrypoint-initdb.d
-
-  migration:
-    image: node:20-alpine
-    working_dir: /app
-    volumes:
-      - .:/app
-    depends_on:
-      - postgres
-    environment:
-      DB_HOST: postgres
-      DB_PORT: 5432
-      DB_USERNAME: postgres
-      DB_PASSWORD: postgres
-      DB_DATABASE: api_gateway_auth
-      NODE_ENV: development
-    command: >
-      sh -c "apk add --no-cache python3 make g++ git &&
-             npm install -g pnpm &&
-             pnpm config set enable-pre-post-scripts true &&
-             pnpm install --unsafe-perm &&
-             pnpm rebuild bcrypt --force &&
-             pnpm run migration:run"
-
+      - postgres_data:/var/lib/postgresql/data
+      - ./pg_hba.conf:/var/lib/postgresql/data/pg_hba.conf
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres -d api_gateway_auth']
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
 volumes:
-  pgdata:
+  postgres_data:

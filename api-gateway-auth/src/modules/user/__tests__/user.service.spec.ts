@@ -6,11 +6,10 @@ import { User, UserRole } from '../entities/user.entity';
 import { Role } from '../entities/role.entity';
 import { CreateUserDto } from '../dto/create-user.dto';
 import { UpdateUserDto } from '../dto/update-user.dto';
-import * as bcrypt from 'bcrypt';
+import * as bcrypt from 'bcryptjs';
 
-jest.mock('bcrypt', () => ({
+jest.mock('bcryptjs', () => ({
   hash: jest.fn().mockResolvedValue('hashedPassword'),
-  compare: jest.fn().mockResolvedValue(true),
 }));
 
 describe('UserService', () => {
@@ -73,7 +72,6 @@ describe('UserService', () => {
     // Reset all mocks before each test
     jest.clearAllMocks();
     (bcrypt.hash as jest.Mock).mockResolvedValue('hashedPassword');
-    (bcrypt.compare as jest.Mock).mockResolvedValue(true);
   });
 
   describe('create', () => {

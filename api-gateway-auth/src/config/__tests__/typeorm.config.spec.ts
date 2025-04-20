@@ -11,7 +11,7 @@ describe('TypeORM Config', () => {
           case 'DB_HOST':
             return 'localhost';
           case 'DB_PORT':
-            return '5432';
+            return '5436';
           case 'DB_USERNAME':
             return 'postgres';
           case 'DB_PASSWORD':
@@ -35,7 +35,7 @@ describe('TypeORM Config', () => {
     expect(config).toEqual({
       type: 'postgres',
       host: 'localhost',
-      port: 5432,
+      port: 5436,
       username: 'postgres',
       password: 'postgres',
       database: 'api_gateway_auth',
@@ -53,7 +53,7 @@ describe('TypeORM Config', () => {
           case 'DB_HOST':
             return 'localhost';
           case 'DB_PORT':
-            return '5432';
+            return '5436';
           case 'DB_USERNAME':
             return 'test';
           case 'DB_PASSWORD':
@@ -77,7 +77,7 @@ describe('TypeORM Config', () => {
     expect(config).toEqual({
       type: 'postgres',
       host: 'localhost',
-      port: 5432,
+      port: 5436,
       username: 'test',
       password: 'test',
       database: 'test_db',

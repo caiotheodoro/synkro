@@ -304,7 +304,7 @@ main() {
   # Print summary
   print_message "$GREEN" "All services started successfully!"
   print_message "$BLUE" "Services running:"
-  print_message "$BLUE" "  - PostgreSQL (API Gateway Auth): localhost:5432"
+  print_message "$BLUE" "  - PostgreSQL (API Gateway Auth): localhost:5436"
   print_message "$BLUE" "  - API Gateway Auth: localhost:3000"
   print_message "$BLUE" "  - Frontend Auth: localhost:3001"
   print_message "$BLUE" "  - Frontend Dashboard: localhost:3003"

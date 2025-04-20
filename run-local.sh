@@ -350,7 +350,7 @@ main() {
   # Print summary
   print_message "$GREEN" "All services started successfully!"
   print_message "$BLUE" "Services running:"
-  print_message "$BLUE" "  - PostgreSQL (API Gateway Auth): localhost:5432"
+  print_message "$BLUE" "  - PostgreSQL (API Gateway Auth): localhost:5436"
   print_message "$BLUE" "  - API Gateway Auth Docker containers: Check docker-compose.yml for ports"
   print_message "$BLUE" "  - API Gateway Auth: Check logs/api-gateway-auth.log for port"
   print_message "$BLUE" "  - Frontend Auth: Check logs/frontend-auth.log for port"
