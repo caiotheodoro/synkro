@@ -1,3 +1,0 @@
-ignoredBuiltDependencies:
-  - '@nestjs/core'
-  - bcrypt

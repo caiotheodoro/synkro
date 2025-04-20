@@ -28,9 +28,11 @@ services:
       DB_DATABASE: api_gateway_auth
       NODE_ENV: development
     command: >
-      sh -c "apk add --no-cache python3 make g++ &&
+      sh -c "apk add --no-cache python3 make g++ git &&
              npm install -g pnpm &&
+             pnpm config set enable-pre-post-scripts true &&
              pnpm install --unsafe-perm &&
+             pnpm rebuild bcrypt --force &&
              pnpm run migration:run"
 
 volumes:

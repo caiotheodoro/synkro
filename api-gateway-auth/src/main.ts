@@ -12,6 +12,7 @@ import { configureSecurityMiddleware } from './config/security.config';
 import { RequestMetricsInterceptor } from './modules/metrics/request-metrics.interceptor';
 import { MetricsService } from './modules/metrics/metrics.service';
 import { createLoggerConfig } from './config/logger.config';
+import { FastifyInstance } from 'fastify';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestFastifyApplication>(
@@ -28,7 +29,7 @@ async function bootstrap() {
   app.setGlobalPrefix('api');
 
   await configureSecurityMiddleware(
-    app.getHttpAdapter().getInstance(),
+    app.getHttpAdapter().getInstance() as FastifyInstance,
     configService,
   );
 

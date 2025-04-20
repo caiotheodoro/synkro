@@ -44,7 +44,7 @@
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.1",
     "dotenv": "^16.4.7",
-    "fastify": "^5.2.1",
+    "fastify": "^5.3.2",
     "nest-winston": "^1.10.2",
     "nestjs-rate-limiter": "^3.1.0",
     "passport": "^0.7.0",
