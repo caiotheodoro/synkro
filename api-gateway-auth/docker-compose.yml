@@ -7,10 +7,31 @@ services:
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: api_gateway_auth_test
+      POSTGRES_DB: postgres
       POSTGRES_MULTIPLE_DATABASES: api_gateway_auth,api_gateway_auth_test
     volumes:
       - pgdata:/var/lib/postgresql/data
+      - ./docker-entrypoint-initdb.d:/docker-entrypoint-initdb.d
+
+  migration:
+    image: node:20-alpine
+    working_dir: /app
+    volumes:
+      - .:/app
+    depends_on:
+      - postgres
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USERNAME: postgres
+      DB_PASSWORD: postgres
+      DB_DATABASE: api_gateway_auth
+      NODE_ENV: development
+    command: >
+      sh -c "apk add --no-cache python3 make g++ &&
+             npm install -g pnpm &&
+             pnpm install --unsafe-perm &&
+             pnpm run migration:run"
 
 volumes:
   pgdata:
