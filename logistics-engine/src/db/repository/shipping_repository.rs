@@ -2,7 +2,7 @@ use chrono::{DateTime, TimeZone, Utc};
 use rust_decimal::{prelude::FromPrimitive, Decimal};
 use sqlx::{
     types::{time::OffsetDateTime, BigDecimal},
-    Error, PgPool, Postgres, Transaction,
+    Error, PgPool, Postgres, Row, Transaction,
 };
 use std::str::FromStr;
 use uuid::Uuid;
@@ -40,7 +40,8 @@ impl ShippingRepository {
             SELECT
                 id, order_id, address_line1, address_line2, city, state,
                 postal_code, country, recipient_name, recipient_phone,
-                shipping_method, shipping_cost as "shipping_cost!: BigDecimal", tracking_number, carrier, status,
+                shipping_method, shipping_cost as "shipping_cost!: BigDecimal", tracking_number, carrier, 
+                status::text as status,
                 expected_delivery, actual_delivery,
                 created_at, updated_at
             FROM shipping_info
@@ -85,7 +86,8 @@ impl ShippingRepository {
             SELECT
                 id, order_id, address_line1, address_line2, city, state,
                 postal_code, country, recipient_name, recipient_phone,
-                shipping_method, shipping_cost as "shipping_cost!: BigDecimal", tracking_number, carrier, status,
+                shipping_method, shipping_cost as "shipping_cost!: BigDecimal", tracking_number, carrier, 
+                status::text as status,
                 expected_delivery, actual_delivery,
                 created_at, updated_at
             FROM shipping_info
@@ -109,11 +111,11 @@ impl ShippingRepository {
                 recipient_phone: row.recipient_phone,
                 shipping_method: row.shipping_method,
                 shipping_cost: Decimal::from_str(&row.shipping_cost.to_string()).unwrap_or_default(),
-                tracking_number: row.tracking_number,
-                carrier: row.carrier,
+                tracking_number: Some(row.tracking_number.unwrap_or_default()),
+                carrier: Some(row.carrier.unwrap_or_default()),
                 status: row.status.unwrap_or_else(|| ShippingStatus::Pending.as_str().to_string()),
-                expected_delivery: None,
-                actual_delivery: None,
+                expected_delivery: Self::convert_optional_datetime(row.expected_delivery),
+                actual_delivery: Self::convert_optional_datetime(row.actual_delivery),
                 created_at: Self::convert_datetime(row.created_at),
                 updated_at: Self::convert_datetime(row.updated_at),
             })
@@ -126,7 +128,8 @@ impl ShippingRepository {
             SELECT
                 id, order_id, address_line1, address_line2, city, state,
                 postal_code, country, recipient_name, recipient_phone,
-                shipping_method, shipping_cost as "shipping_cost!: BigDecimal", tracking_number, carrier, status,
+                shipping_method, shipping_cost as "shipping_cost!: BigDecimal", tracking_number, carrier, 
+                status::text as status,
                 expected_delivery, actual_delivery,
                 created_at, updated_at
             FROM shipping_info
@@ -150,8 +153,8 @@ impl ShippingRepository {
                 recipient_phone: row.recipient_phone,
                 shipping_method: row.shipping_method,
                 shipping_cost: Decimal::from_str(&row.shipping_cost.to_string()).unwrap_or_default(),
-                tracking_number: row.tracking_number,
-                carrier: row.carrier,
+                tracking_number: Some(row.tracking_number.unwrap_or_default()),
+                carrier: Some(row.carrier.unwrap_or_default()),
                 status: row.status.unwrap_or_else(|| ShippingStatus::Pending.as_str().to_string()),
                 expected_delivery: Self::convert_optional_datetime(row.expected_delivery),
                 actual_delivery: Self::convert_optional_datetime(row.actual_delivery),
@@ -170,7 +173,8 @@ impl ShippingRepository {
             SELECT
                 id, order_id, address_line1, address_line2, city, state,
                 postal_code, country, recipient_name, recipient_phone,
-                shipping_method, shipping_cost as "shipping_cost!: BigDecimal", tracking_number, carrier, status,
+                shipping_method, shipping_cost as "shipping_cost!: BigDecimal", tracking_number, carrier, 
+                status::text as status,
                 expected_delivery, actual_delivery,
                 created_at, updated_at
             FROM shipping_info
@@ -194,8 +198,8 @@ impl ShippingRepository {
                 recipient_phone: row.recipient_phone,
                 shipping_method: row.shipping_method,
                 shipping_cost: Decimal::from_str(&row.shipping_cost.to_string()).unwrap_or_default(),
-                tracking_number: row.tracking_number,
-                carrier: row.carrier,
+                tracking_number: Some(row.tracking_number.unwrap_or_default()),
+                carrier: Some(row.carrier.unwrap_or_default()),
                 status: row.status.unwrap_or_else(|| ShippingStatus::Pending.as_str().to_string()),
                 expected_delivery: Self::convert_optional_datetime(row.expected_delivery),
                 actual_delivery: Self::convert_optional_datetime(row.actual_delivery),
@@ -216,7 +220,8 @@ impl ShippingRepository {
             SELECT
                 s.id, s.order_id, s.address_line1, s.address_line2, s.city, s.state,
                 s.postal_code, s.country, s.recipient_name, s.recipient_phone,
-                s.shipping_method, s.shipping_cost as "shipping_cost!: BigDecimal", s.tracking_number, s.carrier, s.status,
+                s.shipping_method, s.shipping_cost as "shipping_cost!: BigDecimal", s.tracking_number, s.carrier, 
+                s.status::text as status,
                 s.expected_delivery, s.actual_delivery,
                 s.created_at, s.updated_at
             FROM shipping_info s
@@ -246,8 +251,8 @@ impl ShippingRepository {
                     recipient_phone: row.recipient_phone,
                     shipping_method: row.shipping_method,
                     shipping_cost: Decimal::from_str(&row.shipping_cost.to_string()).unwrap_or_default(),
-                    tracking_number: row.tracking_number,
-                    carrier: row.carrier,
+                    tracking_number: Some(row.tracking_number.unwrap_or_default()),
+                    carrier: Some(row.carrier.unwrap_or_default()),
                     status: row.status.unwrap_or_else(|| ShippingStatus::Pending.as_str().to_string()),
                     expected_delivery: Self::convert_optional_datetime(row.expected_delivery),
                     actual_delivery: Self::convert_optional_datetime(row.actual_delivery),
@@ -264,23 +269,22 @@ impl ShippingRepository {
         limit: i64,
         offset: i64,
     ) -> Result<Vec<ShippingInfo>, Error> {
-        let status = status.as_str();
-
         sqlx::query!(
             r#"
             SELECT
                 id, order_id, address_line1, address_line2, city, state,
                 postal_code, country, recipient_name, recipient_phone,
-                shipping_method, shipping_cost as "shipping_cost!: BigDecimal", tracking_number, carrier, status,
+                shipping_method, shipping_cost as "shipping_cost!: BigDecimal", tracking_number, carrier, 
+                status::text as status,
                 expected_delivery, actual_delivery,
                 created_at, updated_at
             FROM shipping_info
-            WHERE status = $1
+            WHERE status = $1::shipping_status
             ORDER BY created_at DESC
             LIMIT $2
             OFFSET $3
             "#,
-            status,
+            status as _,
             limit,
             offset
         )
@@ -301,8 +305,8 @@ impl ShippingRepository {
                     recipient_phone: row.recipient_phone,
                     shipping_method: row.shipping_method,
                     shipping_cost: Decimal::from_str(&row.shipping_cost.to_string()).unwrap_or_default(),
-                    tracking_number: row.tracking_number,
-                    carrier: row.carrier,
+                    tracking_number: Some(row.tracking_number.unwrap_or_default()),
+                    carrier: Some(row.carrier.unwrap_or_default()   ),
                     status: row.status.unwrap_or_else(|| ShippingStatus::Pending.as_str().to_string()),
                     expected_delivery: Self::convert_optional_datetime(row.expected_delivery),
                     actual_delivery: Self::convert_optional_datetime(row.actual_delivery),
@@ -325,11 +329,12 @@ impl ShippingRepository {
             r#"
             INSERT INTO shipping_info
             (order_id, address_line1, address_line2, city, state, postal_code, country, recipient_name, recipient_phone, shipping_method, shipping_cost, status, expected_delivery, actual_delivery)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12::shipping_status, $13, $14)
             RETURNING
                 id, order_id, address_line1, address_line2, city, state,
                 postal_code, country, recipient_name, recipient_phone,
-                shipping_method, shipping_cost as "shipping_cost!: BigDecimal", tracking_number, carrier, status,
+                shipping_method, shipping_cost as "shipping_cost!: BigDecimal", tracking_number, carrier, 
+                status::text as status,
                 expected_delivery, actual_delivery,
                 created_at, updated_at
             "#,
@@ -344,7 +349,7 @@ impl ShippingRepository {
             dto.recipient_phone,
             dto.shipping_method,
             shipping_cost,
-            ShippingStatus::Pending.as_str().to_string(),
+            ShippingStatus::Pending as _,
             None::<OffsetDateTime>,
             None::<OffsetDateTime>,
         )
@@ -363,8 +368,8 @@ impl ShippingRepository {
             recipient_phone: row.recipient_phone,
             shipping_method: row.shipping_method,
             shipping_cost: Decimal::from_str(&row.shipping_cost.to_string()).unwrap_or_default(),
-            tracking_number: row.tracking_number,
-            carrier: row.carrier,
+            tracking_number: Some(row.tracking_number.unwrap_or_default()),
+            carrier: Some(row.carrier.unwrap_or_default()),
             status: row.status.unwrap_or_else(|| ShippingStatus::Pending.as_str().to_string()),
             expected_delivery: Self::convert_optional_datetime(row.expected_delivery),
             actual_delivery: Self::convert_optional_datetime(row.actual_delivery),
@@ -378,21 +383,20 @@ impl ShippingRepository {
         id: Uuid,
         status: ShippingStatus,
     ) -> Result<Option<ShippingInfo>, Error> {
-        let status = status.as_str();
-
         sqlx::query!(
             r#"
             UPDATE shipping_info
-            SET status = $1, updated_at = NOW()
+            SET status = $1::shipping_status, updated_at = NOW()
             WHERE id = $2
             RETURNING
                 id, order_id, address_line1, address_line2, city, state,
                 postal_code, country, recipient_name, recipient_phone,
-                shipping_method, shipping_cost as "shipping_cost!: BigDecimal", tracking_number, carrier, status,
+                shipping_method, shipping_cost as "shipping_cost!: BigDecimal", tracking_number, carrier, 
+                status::text as status,
                 expected_delivery, actual_delivery,
                 created_at, updated_at
             "#,
-            status,
+            status as _,
             id
         )
         .fetch_optional(&self.pool)
@@ -411,8 +415,8 @@ impl ShippingRepository {
                 recipient_phone: row.recipient_phone,
                 shipping_method: row.shipping_method,
                 shipping_cost: Decimal::from_str(&row.shipping_cost.to_string()).unwrap_or_default(),
-                tracking_number: row.tracking_number,
-                carrier: row.carrier,
+                tracking_number: Some(row.tracking_number.unwrap_or_default()),
+                carrier: Some(row.carrier.unwrap_or_default()),
                 status: row.status.unwrap_or_else(|| ShippingStatus::Pending.as_str().to_string()),
                 expected_delivery: Self::convert_optional_datetime(row.expected_delivery),
                 actual_delivery: Self::convert_optional_datetime(row.actual_delivery),
@@ -460,7 +464,8 @@ impl ShippingRepository {
             RETURNING
                 id, order_id, address_line1, address_line2, city, state,
                 postal_code, country, recipient_name, recipient_phone,
-                shipping_method, shipping_cost as "shipping_cost!: BigDecimal", tracking_number, carrier, status,
+                shipping_method, shipping_cost as "shipping_cost!: BigDecimal", tracking_number, carrier, 
+                status::text as status,
                 expected_delivery, actual_delivery,
                 created_at, updated_at
             "#,
@@ -492,8 +497,8 @@ impl ShippingRepository {
                 recipient_phone: row.recipient_phone,
                 shipping_method: row.shipping_method,
                 shipping_cost: Decimal::from_str(&row.shipping_cost.to_string()).unwrap_or_default(),
-                tracking_number: row.tracking_number,
-                carrier: row.carrier,
+                tracking_number: Some(row.tracking_number.unwrap_or_default()),
+                carrier: Some(row.carrier.unwrap_or_default()),
                 status: row.status.unwrap_or_else(|| ShippingStatus::Pending.as_str().to_string()),
                 expected_delivery: Self::convert_optional_datetime(row.expected_delivery),
                 actual_delivery: Self::convert_optional_datetime(row.actual_delivery),
@@ -530,14 +535,12 @@ impl ShippingRepository {
     }
 
     pub async fn count_by_status(&self, status: ShippingStatus) -> Result<i64, Error> {
-        let status = status.as_str();
-
         let result = sqlx::query!(
             r#"
             SELECT COUNT(*) as count FROM shipping_info
-            WHERE status = $1
+            WHERE status = $1::shipping_status
             "#,
-            status
+            status as _
         )
         .fetch_one(&self.pool)
         .await?;
@@ -554,19 +557,17 @@ impl ShippingRepository {
             Error::Protocol("Failed to convert shipping cost to BigDecimal".into())
         })?;
 
-        let status = ShippingStatus::Pending.as_str().to_string();
-
         sqlx::query!(
             r#"
             INSERT INTO shipping_info(
                 order_id, address_line1, address_line2, city, state, postal_code, country,
                 recipient_name, recipient_phone, shipping_method, shipping_cost, status)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12::shipping_status)
             RETURNING 
                 id, order_id, address_line1, address_line2, city, state, postal_code, country,
                 recipient_name, recipient_phone, shipping_method, 
                 shipping_cost as "shipping_cost!: BigDecimal",
-                status, carrier, tracking_number,
+                status::text as status, carrier, tracking_number,
                 created_at, updated_at
             "#,
             dto.order_id,
@@ -580,7 +581,7 @@ impl ShippingRepository {
             dto.recipient_phone,
             dto.shipping_method,
             shipping_cost_decimal,
-            status,
+            ShippingStatus::Pending as _,
         )
         .fetch_one(&mut **tx)
         .await
@@ -597,13 +598,212 @@ impl ShippingRepository {
             recipient_phone: row.recipient_phone,
             shipping_method: row.shipping_method,
             shipping_cost: Decimal::from_str(&row.shipping_cost.to_string()).unwrap_or_default(),
-            status: row.status.unwrap_or_default(),
-            carrier: Some(row.carrier.unwrap_or_default()),
             tracking_number: Some(row.tracking_number.unwrap_or_default()),
+            carrier: Some(row.carrier.unwrap_or_default()),
+            status: row
+                .status
+                .unwrap_or_else(|| ShippingStatus::Pending.as_str().to_string()),
             expected_delivery: None,
             actual_delivery: None,
             created_at: Self::convert_datetime(row.created_at),
             updated_at: Self::convert_datetime(row.updated_at),
         })
+    }
+
+    pub async fn create_shipping_info(
+        &self,
+        shipping_info: &ShippingInfo,
+    ) -> Result<ShippingInfo, Error> {
+        let shipping_cost =
+            BigDecimal::from_str(&shipping_info.shipping_cost.to_string()).unwrap_or_default();
+        let created_at = OffsetDateTime::from_unix_timestamp(shipping_info.created_at.timestamp())
+            .unwrap_or_else(|_| OffsetDateTime::now_utc());
+        let updated_at = OffsetDateTime::from_unix_timestamp(shipping_info.updated_at.timestamp())
+            .unwrap_or_else(|_| OffsetDateTime::now_utc());
+        let expected_delivery = shipping_info.expected_delivery.map(|dt| {
+            OffsetDateTime::from_unix_timestamp(dt.timestamp())
+                .unwrap_or_else(|_| OffsetDateTime::now_utc())
+        });
+        let actual_delivery = shipping_info.actual_delivery.map(|dt| {
+            OffsetDateTime::from_unix_timestamp(dt.timestamp())
+                .unwrap_or_else(|_| OffsetDateTime::now_utc())
+        });
+
+        let row = sqlx::query(
+            r#"
+            INSERT INTO shipping_info (
+                id, order_id, address_line1, address_line2, city, state, postal_code, country,
+                recipient_name, recipient_phone, shipping_method, shipping_cost, status,
+                carrier, tracking_number, expected_delivery, actual_delivery, created_at, updated_at
+            )
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13::shipping_status, $14, $15, $16, $17, $18, $19)
+            RETURNING
+                id, order_id, address_line1, address_line2, city, state,
+                postal_code, country, recipient_name, recipient_phone,
+                shipping_method, shipping_cost, tracking_number, carrier, 
+                status::text as status,
+                expected_delivery, actual_delivery,
+                created_at, updated_at
+            "#,
+        )
+        .bind(shipping_info.id)
+        .bind(shipping_info.order_id)
+        .bind(&shipping_info.address_line1)
+        .bind(&shipping_info.address_line2)
+        .bind(&shipping_info.city)
+        .bind(&shipping_info.state)
+        .bind(&shipping_info.postal_code)
+        .bind(&shipping_info.country)
+        .bind(&shipping_info.recipient_name)
+        .bind(&shipping_info.recipient_phone)
+        .bind(&shipping_info.shipping_method)
+        .bind(shipping_cost)
+        .bind(&shipping_info.status)
+        .bind(&shipping_info.carrier)
+        .bind(&shipping_info.tracking_number)
+        .bind(expected_delivery)
+        .bind(actual_delivery)
+        .bind(created_at)
+        .bind(updated_at)
+        .map(|row: sqlx::postgres::PgRow| ShippingInfo {
+            id: row.try_get("id").unwrap_or_default(),
+            order_id: row.try_get("order_id").unwrap_or_default(),
+            address_line1: row.try_get("address_line1").unwrap_or_default(),
+            address_line2: row.try_get("address_line2").ok(),
+            city: row.try_get("city").unwrap_or_default(),
+            state: row.try_get("state").unwrap_or_default(),
+            postal_code: row.try_get("postal_code").unwrap_or_default(),
+            country: row.try_get("country").unwrap_or_default(),
+            recipient_name: row.try_get("recipient_name").unwrap_or_default(),
+            recipient_phone: row.try_get("recipient_phone").ok(),
+            shipping_method: row.try_get("shipping_method").unwrap_or_default(),
+            shipping_cost: Decimal::from_str(&row.try_get::<BigDecimal, _>("shipping_cost").unwrap_or_default().to_string()).unwrap_or_default(),
+            tracking_number: Some(row.try_get::<Option<String>, _>("tracking_number").unwrap_or_default().unwrap_or_default()),
+            carrier: Some(row.try_get::<Option<String>, _>("carrier").unwrap_or_default().unwrap_or_default()),
+            status: row.try_get::<String, _>("status").unwrap_or_else(|_| ShippingStatus::Pending.as_str().to_string()),
+            expected_delivery: Self::convert_optional_datetime(row.try_get("expected_delivery").ok()),
+            actual_delivery: Self::convert_optional_datetime(row.try_get("actual_delivery").ok()),
+            created_at: Self::convert_datetime(row.try_get("created_at").unwrap_or_else(|_| OffsetDateTime::now_utc())),
+            updated_at: Self::convert_datetime(row.try_get("updated_at").unwrap_or_else(|_| OffsetDateTime::now_utc())),
+        })
+        .fetch_one(&self.pool)
+        .await?;
+
+        Ok(row)
+    }
+
+    pub async fn update_shipping_info(
+        &self,
+        shipping_info: &ShippingInfo,
+    ) -> Result<ShippingInfo, Error> {
+        let shipping_cost =
+            BigDecimal::from_str(&shipping_info.shipping_cost.to_string()).unwrap_or_default();
+        let updated_at = OffsetDateTime::from_unix_timestamp(shipping_info.updated_at.timestamp())
+            .unwrap_or_else(|_| OffsetDateTime::now_utc());
+        let expected_delivery = shipping_info.expected_delivery.map(|dt| {
+            OffsetDateTime::from_unix_timestamp(dt.timestamp())
+                .unwrap_or_else(|_| OffsetDateTime::now_utc())
+        });
+        let actual_delivery = shipping_info.actual_delivery.map(|dt| {
+            OffsetDateTime::from_unix_timestamp(dt.timestamp())
+                .unwrap_or_else(|_| OffsetDateTime::now_utc())
+        });
+
+        let row = sqlx::query(
+            r#"
+            UPDATE shipping_info
+            SET order_id = $2,
+                address_line1 = $3,
+                address_line2 = $4,
+                city = $5,
+                state = $6,
+                postal_code = $7,
+                country = $8,
+                recipient_name = $9,
+                recipient_phone = $10,
+                shipping_method = $11,
+                shipping_cost = $12,
+                status = $13::shipping_status,
+                carrier = $14,
+                tracking_number = $15,
+                expected_delivery = $16,
+                actual_delivery = $17,
+                updated_at = $18
+            WHERE id = $1
+            RETURNING 
+                id, order_id, address_line1, address_line2, city, state,
+                postal_code, country, recipient_name, recipient_phone,
+                shipping_method, shipping_cost, tracking_number, carrier, 
+                status::text as status,
+                expected_delivery, actual_delivery,
+                created_at, updated_at
+            "#,
+        )
+        .bind(shipping_info.id)
+        .bind(shipping_info.order_id)
+        .bind(&shipping_info.address_line1)
+        .bind(&shipping_info.address_line2)
+        .bind(&shipping_info.city)
+        .bind(&shipping_info.state)
+        .bind(&shipping_info.postal_code)
+        .bind(&shipping_info.country)
+        .bind(&shipping_info.recipient_name)
+        .bind(&shipping_info.recipient_phone)
+        .bind(&shipping_info.shipping_method)
+        .bind(shipping_cost)
+        .bind(&shipping_info.status)
+        .bind(&shipping_info.carrier)
+        .bind(&shipping_info.tracking_number)
+        .bind(expected_delivery)
+        .bind(actual_delivery)
+        .bind(updated_at)
+        .map(|row: sqlx::postgres::PgRow| ShippingInfo {
+            id: row.try_get("id").unwrap_or_default(),
+            order_id: row.try_get("order_id").unwrap_or_default(),
+            address_line1: row.try_get("address_line1").unwrap_or_default(),
+            address_line2: row.try_get("address_line2").ok(),
+            city: row.try_get("city").unwrap_or_default(),
+            state: row.try_get("state").unwrap_or_default(),
+            postal_code: row.try_get("postal_code").unwrap_or_default(),
+            country: row.try_get("country").unwrap_or_default(),
+            recipient_name: row.try_get("recipient_name").unwrap_or_default(),
+            recipient_phone: row.try_get("recipient_phone").ok(),
+            shipping_method: row.try_get("shipping_method").unwrap_or_default(),
+            shipping_cost: Decimal::from_str(
+                &row.try_get::<BigDecimal, _>("shipping_cost")
+                    .unwrap_or_default()
+                    .to_string(),
+            )
+            .unwrap_or_default(),
+            tracking_number: Some(
+                row.try_get::<Option<String>, _>("tracking_number")
+                    .unwrap_or_default()
+                    .unwrap_or_default(),
+            ),
+            carrier: Some(
+                row.try_get::<Option<String>, _>("carrier")
+                    .unwrap_or_default()
+                    .unwrap_or_default(),
+            ),
+            status: row
+                .try_get::<String, _>("status")
+                .unwrap_or_else(|_| ShippingStatus::Pending.as_str().to_string()),
+            expected_delivery: Self::convert_optional_datetime(
+                row.try_get("expected_delivery").ok(),
+            ),
+            actual_delivery: Self::convert_optional_datetime(row.try_get("actual_delivery").ok()),
+            created_at: Self::convert_datetime(
+                row.try_get("created_at")
+                    .unwrap_or_else(|_| OffsetDateTime::now_utc()),
+            ),
+            updated_at: Self::convert_datetime(
+                row.try_get("updated_at")
+                    .unwrap_or_else(|_| OffsetDateTime::now_utc()),
+            ),
+        })
+        .fetch_one(&self.pool)
+        .await?;
+
+        Ok(row)
     }
 }

@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 use validator::Validate;
 
-use crate::models::shipping::ShippingInfo;
+use crate::models::shipping::{ShippingInfo, ShippingStatus};
 
 #[derive(Debug, Serialize, Deserialize, Validate, Clone)]
 pub struct CreateShippingInfoDto {
@@ -120,9 +120,11 @@ impl From<ShippingInfo> for ShippingInfoDto {
             recipient_phone: info.recipient_phone,
             shipping_method: info.shipping_method,
             shipping_cost: info.shipping_cost.to_string(),
-            status: info.status.clone(),
-            carrier: Some(info.carrier.clone()),
-            tracking_number: Some(info.tracking_number.clone()),
+            status: info
+                .status
+                .unwrap_or_else(|| ShippingStatus::Pending.as_str().to_string()),
+            carrier: info.carrier.clone(),
+            tracking_number: info.tracking_number.clone(),
             expected_delivery: info.expected_delivery,
             actual_delivery: info.actual_delivery,
             created_at: info.created_at,

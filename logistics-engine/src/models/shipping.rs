@@ -1,9 +1,10 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use sqlx::FromRow;
+use sqlx::{postgres::PgHasArrayType, FromRow, Type};
 use uuid::Uuid;
 
-#[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq, Eq, Hash, Type)]
+#[sqlx(type_name = "shipping_status", rename_all = "lowercase")]
 pub enum ShippingStatus {
     Pending,
     Processing,
@@ -53,6 +54,12 @@ impl Default for ShippingStatus {
     }
 }
 
+impl PgHasArrayType for ShippingStatus {
+    fn array_type_info() -> sqlx::postgres::PgTypeInfo {
+        sqlx::postgres::PgTypeInfo::with_name("_shipping_status")
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
 pub struct ShippingInfo {
     pub id: Uuid,
@@ -67,9 +74,9 @@ pub struct ShippingInfo {
     pub recipient_phone: Option<String>,
     pub shipping_method: String,
     pub shipping_cost: f64,
-    pub status: String,
-    pub carrier: String,
-    pub tracking_number: String,
+    pub status: Option<String>,
+    pub carrier: Option<String>,
+    pub tracking_number: Option<String>,
     pub expected_delivery: Option<DateTime<Utc>>,
     pub actual_delivery: Option<DateTime<Utc>>,
     pub created_at: DateTime<Utc>,
