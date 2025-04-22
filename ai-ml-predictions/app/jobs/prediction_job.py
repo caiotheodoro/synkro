@@ -4,6 +4,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.services.prediction_service import PredictionService
 from app.core.config.database import LogisticsAsyncSession, PredictionsAsyncSession
 from app.core.logging.logger import logger
+from app.services.model_registry.registry import ModelRegistry
+from app.services.feature_store.logistics_store import LogisticsFeatureStore
+from app.services.cache.redis_cache import RedisCache
 from typing import Dict, List
 import asyncio
 from sqlalchemy import text
@@ -47,12 +50,25 @@ async def fetch_inventory_data(db: AsyncSession, item_id: str) -> Dict[str, List
             "timestamp": [0]
         }
 
-async def process_item_prediction(logistics_db: AsyncSession, predictions_db: AsyncSession, item_id: str):
+async def process_item_prediction(
+    logistics_db: AsyncSession,
+    predictions_db: AsyncSession,
+    item_id: str,
+    model_registry: ModelRegistry,
+    feature_store: LogisticsFeatureStore,
+    cache: RedisCache
+):
     try:
-        service = PredictionService(predictions_db)
+        service = PredictionService(
+            predictions_db=predictions_db,
+            logistics_db=logistics_db,
+            model_registry=model_registry,
+            feature_store=feature_store,
+            cache=cache
+        )
         data = await fetch_inventory_data(logistics_db, item_id)
-        prediction = await service.create_prediction(item_id, data)
-        logger.info(f"Updated prediction for item {item_id}: {prediction.predicted_demand}")
+        prediction = await service.create_prediction(item_id, "demand_forecast_v1")  # Using default model
+        logger.info(f"Updated prediction for item {item_id}: {prediction['predicted_demand']}")
     
     except Exception as e:
         logger.error(f"Error processing prediction for item {item_id}: {str(e)}")
@@ -60,7 +76,6 @@ async def process_item_prediction(logistics_db: AsyncSession, predictions_db: As
 async def run_predictions():
     try:
         async with LogisticsAsyncSession() as logistics_db:
-            # Get active items in a single query
             query = text("""
                 SELECT id 
                 FROM inventory_items 
@@ -75,18 +90,38 @@ async def run_predictions():
                 logger.warning("No active inventory items found for prediction")
                 return
 
-            # Process predictions in batches to avoid overwhelming the database
+            model_registry = ModelRegistry()
+            feature_store = LogisticsFeatureStore(logistics_db)
+            
+            # Try to initialize Redis cache, but continue without it if it fails
+            try:
+                cache = RedisCache()
+                await cache.initialize()
+            except Exception as e:
+                logger.warning(f"Failed to initialize Redis cache: {str(e)}. Continuing without cache.")
+                cache = None
+
             batch_size = 5
             async with PredictionsAsyncSession() as predictions_db:
                 for i in range(0, len(item_ids), batch_size):
                     batch = item_ids[i:i + batch_size]
                     tasks = [
-                        process_item_prediction(logistics_db, predictions_db, item_id)
+                        process_item_prediction(
+                            logistics_db=logistics_db,
+                            predictions_db=predictions_db,
+                            item_id=item_id,
+                            model_registry=model_registry,
+                            feature_store=feature_store,
+                            cache=cache
+                        )
                         for item_id in batch
                     ]
                     await asyncio.gather(*tasks)
-                    # Small delay between batches to reduce database load
                     await asyncio.sleep(0.1)
+
+            # Only cleanup Redis if it was successfully initialized
+            if cache is not None:
+                await cache.cleanup()
     
     except Exception as e:
         logger.error(f"Error in prediction job: {str(e)}")
@@ -95,7 +130,7 @@ def setup_prediction_job():
     scheduler = AsyncIOScheduler()
     
     trigger = CronTrigger(
-        minute="*/10",
+        minute="*/2",
         timezone="UTC"
     )
     

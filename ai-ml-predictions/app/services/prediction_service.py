@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Dict, List, Optional, Annotated
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, text
 from app.models.database_model import PredictionRecord
 from app.core.exceptions import ModelNotFoundError, PredictionError
 from app.services.model_registry.registry import ModelRegistry
@@ -31,17 +31,18 @@ class PredictionService:
 
     async def create_prediction(self, item_id: str, model_name: str) -> Dict:
         try:
-            cache_key = f"prediction:{model_name}:{item_id}"
-            cached_prediction = await self.cache.get(cache_key)
-            if cached_prediction:
-                logger.info("Returning cached prediction")
-                return cached_prediction
+            # Only try to get from cache if Redis is available
+            if self.cache is not None:
+                cache_key = f"prediction:{model_name}:{item_id}"
+                cached_prediction = await self.cache.get(cache_key)
+                if cached_prediction:
+                    logger.info("Returning cached prediction")
+                    return cached_prediction
 
             model = self.model_registry.get_model(model_name)
             if not model:
                 raise ModelNotFoundError(f"Model {model_name} not found")
 
-            # Get features from logistics database
             features = await self.feature_store.get_features(item_id)
 
             prediction_result = model.predict(features)
@@ -58,10 +59,11 @@ class PredictionService:
                 "features_used": features
             }
 
-            # Save to database
             await self._save_prediction(prediction)
 
-            await self.cache.set(cache_key, prediction)
+            # Only cache if Redis is available
+            if self.cache is not None:
+                await self.cache.set(cache_key, prediction)
             return prediction
 
         except ModelNotFoundError:
@@ -95,10 +97,12 @@ class PredictionService:
 
     async def get_prediction(self, prediction_id: str) -> Optional[Dict]:
         try:
-            cache_key = f"prediction_id:{prediction_id}"
-            cached_prediction = await self.cache.get(cache_key)
-            if cached_prediction:
-                return cached_prediction
+            # Only try to get from cache if Redis is available
+            if self.cache is not None:
+                cache_key = f"prediction_id:{prediction_id}"
+                cached_prediction = await self.cache.get(cache_key)
+                if cached_prediction:
+                    return cached_prediction
 
             query = """
                 SELECT * FROM predictions WHERE id = :prediction_id
@@ -119,7 +123,9 @@ class PredictionService:
                 "features_used": prediction.input_data["features"]
             }
 
-            await self.cache.set(cache_key, response)
+            # Only cache if Redis is available
+            if self.cache is not None:
+                await self.cache.set(cache_key, response)
             return response
 
         except Exception as e:
@@ -132,12 +138,13 @@ class PredictionService:
         limit: int = 100
     ) -> Dict[str, any]:
         try:
-            query = """
+            sql = text("""
                 SELECT * FROM predictions
                 ORDER BY created_at DESC
                 OFFSET :skip LIMIT :limit
-            """
-            result = await self.predictions_db.execute(query, {"skip": skip, "limit": limit})
+            """)
+            
+            result = await self.predictions_db.execute(sql, {"skip": skip, "limit": limit})
             predictions = result.fetchall()
 
             items = []
