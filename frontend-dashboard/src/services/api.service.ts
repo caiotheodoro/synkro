@@ -27,8 +27,8 @@ export class ApiService {
       ? endpoint
       : `/${endpoint}`;
 
-    const normalizedBaseUrl = this.baseUrl.endsWith("/")
-      ? this.baseUrl.slice(0, -1)
+    const normalizedBaseUrl = this.baseUrl?.endsWith("/")
+      ? this.baseUrl?.slice(0, -1)
       : this.baseUrl;
 
     const url = new URL(`${normalizedBaseUrl}${normalizedEndpoint}`);

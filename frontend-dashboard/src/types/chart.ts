@@ -22,8 +22,6 @@ export interface ChartData {
     nodes?: string;
     value?: string;
     groupBy?: string;
-    source?: string;
-    target?: string;
   };
 }
 
@@ -35,10 +33,10 @@ export interface ChartConfig {
   showLegend?: boolean;
   legendPosition?: "top" | "right" | "bottom" | "left";
   className?: string;
+  colorPalette?: string[];
 }
 
 export interface LegendItem {
+  name: string;
   color: string;
-  label: string;
-  value?: number | string;
 }
