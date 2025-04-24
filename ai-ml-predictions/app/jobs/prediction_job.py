@@ -26,8 +26,22 @@ async def fetch_inventory_data(db: AsyncSession, item_id: str) -> Dict[str, List
             LIMIT 30
         """)
         
+        transaction_query = text("""
+            SELECT 
+                CAST(quantity AS FLOAT) as quantity,
+                type,
+                CAST(EXTRACT(epoch FROM created_at) AS BIGINT) as timestamp
+            FROM inventory_transactions
+            WHERE item_id = :item_id
+            AND created_at >= NOW() - INTERVAL '30 days'
+            ORDER BY created_at ASC
+        """)
+        
         historical_result = await db.execute(historical_query, {"item_id": item_id})
         historical_data = historical_result.fetchall()
+        
+        transaction_result = await db.execute(transaction_query, {"item_id": item_id})
+        transaction_data = transaction_result.fetchall()
         
         stock_levels = []
         
@@ -40,38 +54,55 @@ async def fetch_inventory_data(db: AsyncSession, item_id: str) -> Dict[str, List
         
         return {
             "quantity": stock_levels,
-            "timestamp": [row.timestamp for row in historical_data] if historical_data else [0]
+            "timestamp": [row.timestamp for row in historical_data] if historical_data else [0],
+            "transactions": [{
+                "quantity": float(row.quantity) if isinstance(row.quantity, Decimal) else row.quantity,
+                "type": row.type,
+                "timestamp": row.timestamp
+            } for row in transaction_data]
         }
 
     except Exception as e:
         logger.error(f"Error fetching inventory data: {str(e)}")
         return {
             "quantity": [0.0],
-            "timestamp": [0]
+            "timestamp": [0],
+            "transactions": []
         }
 
-async def process_item_prediction(
-    logistics_db: AsyncSession,
-    predictions_db: AsyncSession,
-    item_id: str,
-    model_registry: ModelRegistry,
-    feature_store: LogisticsFeatureStore,
-    cache: RedisCache
-):
-    try:
-        service = PredictionService(
-            predictions_db=predictions_db,
-            logistics_db=logistics_db,
-            model_registry=model_registry,
-            feature_store=feature_store,
-            cache=cache
-        )
-        data = await fetch_inventory_data(logistics_db, item_id)
-        prediction = await service.create_prediction(item_id, "demand_forecast_v1")  # Using default model
-        logger.info(f"Updated prediction for item {item_id}: {prediction['predicted_demand']}")
-    
-    except Exception as e:
-        logger.error(f"Error processing prediction for item {item_id}: {str(e)}")
+async def process_single_prediction(item_id: str, model_registry: ModelRegistry, cache: RedisCache):
+    async with LogisticsAsyncSession() as logistics_db:
+        async with PredictionsAsyncSession() as predictions_db:
+            try:
+                logger.info(f"Starting prediction process for item {item_id}")
+                feature_store = LogisticsFeatureStore(logistics_db)
+                service = PredictionService(
+                    predictions_db=predictions_db,
+                    logistics_db=logistics_db,
+                    model_registry=model_registry,
+                    feature_store=feature_store,
+                    cache=cache
+                )
+                
+                logger.info(f"Fetching inventory data for item {item_id}")
+                data = await fetch_inventory_data(logistics_db, item_id)
+                logger.debug(f"Inventory data: {data}")
+                
+                logger.info(f"Creating prediction for item {item_id}")
+                prediction = await service.create_prediction(item_id, "demand_forecast_v1")
+                logger.debug(f"Raw prediction result: {prediction}")
+                logger.info(f"Updated prediction for item {item_id}: {prediction['predicted_demand']}")
+                
+                await logistics_db.commit()
+                await predictions_db.commit()
+                return True
+            
+            except Exception as e:
+                logger.error(f"Error processing prediction for item {item_id}: {str(e)}")
+                logger.exception("Full traceback:")
+                await logistics_db.rollback()
+                await predictions_db.rollback()
+                return False
 
 async def run_predictions():
     try:
@@ -91,9 +122,7 @@ async def run_predictions():
                 return
 
             model_registry = ModelRegistry()
-            feature_store = LogisticsFeatureStore(logistics_db)
             
-            # Try to initialize Redis cache, but continue without it if it fails
             try:
                 cache = RedisCache()
                 await cache.initialize()
@@ -102,24 +131,30 @@ async def run_predictions():
                 cache = None
 
             batch_size = 5
-            async with PredictionsAsyncSession() as predictions_db:
-                for i in range(0, len(item_ids), batch_size):
-                    batch = item_ids[i:i + batch_size]
-                    tasks = [
-                        process_item_prediction(
-                            logistics_db=logistics_db,
-                            predictions_db=predictions_db,
-                            item_id=item_id,
-                            model_registry=model_registry,
-                            feature_store=feature_store,
-                            cache=cache
-                        )
-                        for item_id in batch
-                    ]
-                    await asyncio.gather(*tasks)
-                    await asyncio.sleep(0.1)
+            for i in range(0, len(item_ids), batch_size):
+                batch = item_ids[i:i + batch_size]
+                tasks = []
+                
+                for item_id in batch:
+                    task = process_single_prediction(
+                        item_id=item_id,
+                        model_registry=model_registry,
+                        cache=cache
+                    )
+                    tasks.append(task)
+                
+                results = await asyncio.gather(*tasks, return_exceptions=True)
+                
+                failed_items = [
+                    item_id for item_id, success in zip(batch, results)
+                    if not success or isinstance(success, Exception)
+                ]
+                
+                if failed_items:
+                    logger.error(f"Failed to process predictions for items: {failed_items}")
+                
+                await asyncio.sleep(0.1)
 
-            # Only cleanup Redis if it was successfully initialized
             if cache is not None:
                 await cache.cleanup()
     

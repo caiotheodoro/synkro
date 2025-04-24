@@ -1,15 +1,18 @@
 from datetime import datetime
 from typing import Dict, Any, Optional
-from sqlalchemy import Column, Integer, String, JSON, DateTime, Float
+from sqlalchemy import Column, String, JSON, DateTime, Float
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from app.core.config.database import Base
+from sqlalchemy.dialects.postgresql import UUID
+import uuid
 
 class PredictionModel(Base):
     __tablename__ = "predictions"
 
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     model_name = Column(String, nullable=False)
+    item_id = Column(String, nullable=False)
     input_data = Column(JSON, nullable=False)
     prediction_result = Column(JSON, nullable=False)
     confidence_score = Column(Float, nullable=True)
@@ -21,12 +24,14 @@ class PredictionModel(Base):
         cls,
         db: AsyncSession,
         model_name: str,
+        item_id: str,
         input_data: Dict[str, Any],
         prediction_result: Dict[str, Any],
         confidence_score: Optional[float] = None
     ) -> "PredictionModel":
         prediction = cls(
             model_name=model_name,
+            item_id=item_id,
             input_data=input_data,
             prediction_result=prediction_result,
             confidence_score=confidence_score
@@ -37,7 +42,7 @@ class PredictionModel(Base):
         return prediction
 
     @classmethod
-    async def get(cls, db: AsyncSession, prediction_id: int) -> Optional["PredictionModel"]:
+    async def get(cls, db: AsyncSession, prediction_id: uuid.UUID) -> Optional["PredictionModel"]:
         result = await db.execute(
             select(cls).where(cls.id == prediction_id)
         )
@@ -60,8 +65,9 @@ class PredictionModel(Base):
 
     def to_dict(self) -> Dict[str, Any]:
         return {
-            "id": self.id,
+            "id": str(self.id),
             "model_name": self.model_name,
+            "item_id": self.item_id,
             "input_data": self.input_data,
             "prediction_result": self.prediction_result,
             "confidence_score": self.confidence_score,

@@ -17,7 +17,17 @@ async def list_models(
 ):
     """List all available prediction models."""
     try:
-        models = service.model_registry.get_all_models()
+        model_names = service.model_registry.get_all_models()
+        models = []
+        for name in model_names:
+            # Create a proper Model object for each model name
+            models.append({
+                "name": name,
+                "version": "1.0",  # Default version
+                "description": f"{name} prediction model",
+                "type": "regression",
+                "status": "active"
+            })
         return ModelListResponse(models=models)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

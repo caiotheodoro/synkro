@@ -1,6 +1,7 @@
 from datetime import datetime
 from typing import Dict, Any, Optional, List
 from pydantic import BaseModel, Field, ConfigDict
+from uuid import UUID
 
 class PredictionBase(BaseModel):
     model_name: str = Field(..., description="Name of the model to use for prediction")
@@ -12,7 +13,7 @@ class PredictionCreate(PredictionBase):
     pass
 
 class PredictionResponse(PredictionBase):
-    id: int
+    id: UUID
     prediction_result: Dict[str, Any] = Field(..., description="Prediction result")
     confidence_score: Optional[float] = Field(None, description="Confidence score of the prediction")
     created_at: datetime

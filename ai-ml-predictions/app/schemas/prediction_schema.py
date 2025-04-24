@@ -1,22 +1,23 @@
-from pydantic import BaseModel, ConfigDict
-from typing import List, Dict, Optional
+from typing import List, Dict, Any, Optional, Union
+from pydantic import BaseModel, Field, ConfigDict
 from datetime import datetime
 
 class PredictionRequest(BaseModel):
     item_id: str
     model_name: str
-    days: Optional[int] = 180  # Number of days of historical data to use
 
-    model_config = ConfigDict(protected_namespaces=())
+class BatchPredictionRequest(BaseModel):
+    item_ids: List[str]
+    model_name: str
 
 class PredictionResponse(BaseModel):
-    id: str
+    id: Union[int, str]
     item_id: str
     model_name: str
     predicted_demand: float
     confidence_score: Optional[float] = None
     timestamp: datetime
-    features_used: Dict[str, List[float]]
+    features_used: Dict[str, Any]
 
     model_config = ConfigDict(protected_namespaces=())
 
@@ -26,20 +27,20 @@ class PredictionList(BaseModel):
     skip: int
     limit: int
 
-class BatchPredictionRequest(BaseModel):
-    item_ids: List[str]
-    model_name: str
-    days: Optional[int] = 180
-
-    model_config = ConfigDict(protected_namespaces=())
-
 class PredictionResult(BaseModel):
-    id: str
+    id: Union[int, str]
     item_id: str
     predicted_demand: float
     timestamp: datetime
     confidence_score: Optional[float] = None
     last_updated: datetime
 
+class Model(BaseModel):
+    name: str
+    version: str
+    description: str
+    type: str
+    status: str
+
 class ModelListResponse(BaseModel):
-    models: List[str] 
+    models: List[Model] 

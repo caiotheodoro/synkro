@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Dict, List, Optional, Annotated
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -20,11 +20,12 @@ class LogisticsFeatureStore:
         - Order demand patterns
         - Reservation patterns
         """
-        cutoff_date = datetime.utcnow() - timedelta(days=days)
+        now = datetime.now(timezone.utc)
+        cutoff_date = now - timedelta(days=days)
         
         # Get inventory levels history
         inventory_query = """
-            SELECT quantity, reserved, available, last_updated
+            SELECT quantity, reserved, available, last_updated AT TIME ZONE 'UTC' as last_updated
             FROM inventory_levels
             WHERE item_id = :item_id
             AND last_updated >= :cutoff_date
@@ -39,11 +40,11 @@ class LogisticsFeatureStore:
 
         # Get transaction history
         transaction_query = """
-            SELECT quantity, type, timestamp
+            SELECT quantity, type, created_at AT TIME ZONE 'UTC' as created_at
             FROM inventory_transactions
             WHERE item_id = :item_id
-            AND timestamp >= :cutoff_date
-            ORDER BY timestamp ASC
+            AND created_at >= :cutoff_date
+            ORDER BY created_at ASC
         """
         
         transaction_result = await self.db.execute(
@@ -54,7 +55,7 @@ class LogisticsFeatureStore:
 
         # Get order demand history
         order_query = """
-            SELECT oi.quantity, o.created_at
+            SELECT oi.quantity, o.created_at AT TIME ZONE 'UTC' as created_at
             FROM order_items oi
             JOIN orders o ON oi.order_id = o.id
             WHERE oi.product_id = :item_id
@@ -71,7 +72,7 @@ class LogisticsFeatureStore:
 
         # Get active reservations
         reservation_query = """
-            SELECT quantity, created_at
+            SELECT quantity, created_at AT TIME ZONE 'UTC' as created_at
             FROM inventory_reservations
             WHERE product_id = :item_id
             AND status = 'active'
@@ -93,7 +94,7 @@ class LogisticsFeatureStore:
             "transaction_quantities": [float(row.quantity) for row in transaction_data],
             "order_quantities": [float(row.quantity) for row in order_data],
             "active_reservations": [float(row.quantity) for row in reservation_data],
-            "timestamps": [(row.last_updated - cutoff_date).total_seconds() / 86400 for row in inventory_data]  # Convert to days
+            "timestamps": [(row.last_updated.replace(tzinfo=timezone.utc) - cutoff_date).total_seconds() / 86400 for row in inventory_data]  # Convert to days
         }
 
         # If no data found, provide default values

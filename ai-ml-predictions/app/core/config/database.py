@@ -123,67 +123,108 @@ def create_enum_types():
         return False
 
 def split_sql_statements(sql):
-    """Split SQL statements while preserving function definitions."""
-    # First, temporarily replace semicolons inside dollar-quoted strings
-    dollar_quoted = re.finditer(r'\$\$.*?\$\$', sql, re.DOTALL)
+    """Split SQL statements while preserving function definitions and DO blocks."""
+    # First, temporarily replace semicolons inside dollar-quoted strings and DO blocks
     temp_sql = sql
-    replacements = []
     
+    # Handle dollar-quoted strings
+    dollar_quoted = re.finditer(r'\$\$.*?\$\$', sql, re.DOTALL)
     for match in dollar_quoted:
         quoted_text = match.group()
-        # Replace semicolons with a temporary marker
         modified_text = quoted_text.replace(';', '###SEMICOLON###')
         temp_sql = temp_sql.replace(quoted_text, modified_text)
-        replacements.append((modified_text, quoted_text))
+    
+    # Handle DO blocks
+    do_blocks = re.finditer(r'DO \$\$.*?END \$\$', temp_sql, re.DOTALL)
+    for match in do_blocks:
+        block_text = match.group()
+        modified_text = block_text.replace(';', '###SEMICOLON###')
+        temp_sql = temp_sql.replace(block_text, modified_text)
     
     # Split on semicolons
-    statements = [stmt.strip() for stmt in temp_sql.split(';') if stmt.strip()]
+    statements = []
+    for stmt in temp_sql.split(';'):
+        stmt = stmt.strip()
+        if stmt:
+            # Restore semicolons
+            stmt = stmt.replace('###SEMICOLON###', ';')
+            statements.append(stmt)
     
-    # Restore original dollar-quoted strings
-    final_statements = []
-    for stmt in statements:
-        for modified, original in replacements:
-            stmt = stmt.replace(modified, original)
-        final_statements.append(stmt)
-    
-    return final_statements
+    return statements
+
+async def run_migrations():
+    """Run all database migrations."""
+    try:
+        logger.info("Running database migrations...")
+        
+        # Create enum types first
+        if not create_enum_types():
+            logger.error("Failed to create enum types")
+            return False
+
+        # Run initial schema creation
+        with predictions_sync_engine.begin() as conn:
+            # Read and execute create_tables.sql
+            with open('app/migrations/create_tables.sql', 'r') as f:
+                sql_content = f.read()
+                statements = split_sql_statements(sql_content)
+                
+                for stmt in statements:
+                    if stmt.strip():
+                        try:
+                            conn.execute(text(stmt))
+                        except Exception as e:
+                            logger.error(f"Error executing statement: {stmt}")
+                            logger.error(f"Error details: {str(e)}")
+                            raise
+            
+            # Read and execute add_item_id_column.sql
+            with open('app/migrations/add_item_id_column.sql', 'r') as f:
+                sql_content = f.read()
+                statements = split_sql_statements(sql_content)
+                
+                for stmt in statements:
+                    if stmt.strip():
+                        try:
+                            conn.execute(text(stmt))
+                        except Exception as e:
+                            logger.error(f"Error executing statement: {stmt}")
+                            logger.error(f"Error details: {str(e)}")
+                            raise
+            
+            conn.commit()
+            
+        logger.info("Database migrations completed successfully")
+        return True
+    except Exception as e:
+        logger.error(f"Error running migrations: {str(e)}")
+        return False
 
 async def init_db():
-    """Initialize the database by creating all tables."""
+    """Initialize the database."""
     try:
-        logger.info("Verifying database connection...")
-        if not await verify_database_connection():
-            logger.warning("Database connection failed, attempting to create database...")
-            from scripts.init_db import init_postgres_db
-            if not init_postgres_db():
-                raise Exception("Could not create database")
-            if not await verify_database_connection():
-                raise Exception("Could not establish database connection after creation")
-
-        logger.info("Creating tables...")
-        # Create enum types first
-        create_enum_types()
-
-        # Read the SQL migration file
-        with open('app/migrations/create_tables.sql', 'r') as f:
-            sql = f.read()
-
-        # Split the SQL into individual statements while preserving function definitions
-        statements = split_sql_statements(sql)
-
-        # Execute each statement
-        async with predictions_engine.begin() as conn:
-            for stmt in statements:
-                try:
-                    await conn.execute(text(stmt))
-                except Exception as e:
-                    logger.error(f"Error executing statement: {stmt}")
-                    logger.error(f"Error details: {str(e)}")
-                    raise
-
+        # Run migrations
+        if not await run_migrations():
+            raise Exception("Failed to run database migrations")
+            
+        # Create session factories
+        global PredictionsAsyncSession, LogisticsAsyncSession
+        
+        PredictionsAsyncSession = async_sessionmaker(
+            predictions_engine,
+            class_=AsyncSession,
+            expire_on_commit=False
+        )
+        
+        LogisticsAsyncSession = async_sessionmaker(
+            logistics_engine,
+            class_=AsyncSession,
+            expire_on_commit=False
+        )
+        
         logger.info("Database initialization completed successfully")
     except Exception as e:
-        logger.error(f"Error during database initialization: {str(e)}")
+        logger.error(f"Database initialization failed: {str(e)}")
         raise
 
 async def cleanup_db():
