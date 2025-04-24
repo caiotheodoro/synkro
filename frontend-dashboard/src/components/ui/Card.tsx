@@ -1,5 +1,5 @@
-import React from 'react';
-import { cn } from '@/utils/cn';
+import React from "react";
+import { cn } from "@/utils/cn";
 
 interface CardProps extends React.HTMLAttributes<HTMLDivElement> {
   children: React.ReactNode;
@@ -54,11 +54,7 @@ interface CardTitleProps extends React.HTMLAttributes<HTMLHeadingElement> {
 export const CardTitle = React.forwardRef<HTMLHeadingElement, CardTitleProps>(
   ({ className, children, ...props }, ref) => {
     return (
-      <h3
-        className={cn("text-xl font-bold", className)}
-        ref={ref}
-        {...props}
-      >
+      <h3 className={cn("text-xl font-bold", className)} ref={ref} {...props}>
         {children}
       </h3>
     );
@@ -66,6 +62,25 @@ export const CardTitle = React.forwardRef<HTMLHeadingElement, CardTitleProps>(
 );
 
 CardTitle.displayName = "CardTitle";
+
+interface CardDescriptionProps
+  extends React.HTMLAttributes<HTMLParagraphElement> {
+  children: React.ReactNode;
+  className?: string;
+}
+
+export const CardDescription = React.forwardRef<
+  HTMLParagraphElement,
+  CardDescriptionProps
+>(({ className, children, ...props }, ref) => {
+  return (
+    <p className={cn("text-sm text-gray-500", className)} ref={ref} {...props}>
+      {children}
+    </p>
+  );
+});
+
+CardDescription.displayName = "CardDescription";
 
 interface CardContentProps extends React.HTMLAttributes<HTMLDivElement> {
   children: React.ReactNode;
@@ -75,11 +90,7 @@ interface CardContentProps extends React.HTMLAttributes<HTMLDivElement> {
 export const CardContent = React.forwardRef<HTMLDivElement, CardContentProps>(
   ({ className, children, ...props }, ref) => {
     return (
-      <div
-        className={cn("p-6", className)}
-        ref={ref}
-        {...props}
-      >
+      <div className={cn("p-6", className)} ref={ref} {...props}>
         {children}
       </div>
     );
@@ -107,4 +118,4 @@ export const CardFooter = React.forwardRef<HTMLDivElement, CardFooterProps>(
   }
 );
 
-CardFooter.displayName = "CardFooter"; 
+CardFooter.displayName = "CardFooter";
