@@ -20,10 +20,9 @@ async def list_models(
         model_names = service.model_registry.get_all_models()
         models = []
         for name in model_names:
-            # Create a proper Model object for each model name
             models.append({
                 "name": name,
-                "version": "1.0",  # Default version
+                "version": "1.0",  
                 "description": f"{name} prediction model",
                 "type": "regression",
                 "status": "active"
@@ -85,3 +84,13 @@ async def list_predictions(
         return await service.list_predictions(skip=skip, limit=limit)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e)) 
+
+@router.post("/generate", response_model=PredictionResponse)
+async def generate_prediction(
+    request: PredictionRequest,
+    service: PredictionService = Depends(get_prediction_service)
+):
+    """Generate a new demand prediction for an item."""
+    from app.jobs.prediction_job import run_predictions
+    await run_predictions()
+    return await service.generate_prediction(request.item_id, request.model_name)
