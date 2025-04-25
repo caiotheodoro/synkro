@@ -20,9 +20,6 @@ class NotificationService {
     this.notifications.push(notification);
     notificationsCounter.inc({ type: dto.type });
 
-    // TODO: Implement real-time notification dispatch logic
-    // This could be through WebSocket, Server-Sent Events, or a message queue
-
     return notification;
   }
 
