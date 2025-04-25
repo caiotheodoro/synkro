@@ -7,6 +7,7 @@ import {
   Activity,
   Gauge,
   TrendingUp,
+  Brain,
 } from "lucide-react";
 
 interface AnalyticsOption {
@@ -54,19 +55,18 @@ const analyticsOptions: AnalyticsOption[] = [
       "Data Flow",
     ],
   },
-  /*
   {
-    title: "Business Analytics",
-    description: "Gain insights into financial performance and forecasts",
-    href: "/analytics/business",
-    icon: <TrendingUp className="w-8 h-8" />,
+    title: "AI Analytics",
+    description: "See the latest AI predictions",
+    href: "/analytics/ai",
+    icon: <Brain className="w-8 h-8" />,
     metrics: [
-      "Financial Overview",
-      "Revenue Analysis",
+      "Latest Predictions",
+      "Predictive Analytics",
       "Data Hierarchy",
       "Predictive Analytics",
     ],
-  },*/
+  },
 ];
 
 const AnalyticsIndex: React.FC = () => {

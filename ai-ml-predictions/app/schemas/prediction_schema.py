@@ -10,6 +10,9 @@ class BatchPredictionRequest(BaseModel):
     item_ids: List[str]
     model_name: str
 
+class GenericResponse(BaseModel):
+    message: str
+
 class PredictionResponse(BaseModel):
     id: Union[int, str]
     item_id: str

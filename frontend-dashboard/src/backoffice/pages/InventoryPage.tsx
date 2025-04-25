@@ -211,7 +211,6 @@ export const InventoryPage: React.FC = () => {
           />
         </div>
 
-        {/* Inventory Table */}
         <Card>
           <CardHeader>
             <CardTitle>Inventory Items</CardTitle>

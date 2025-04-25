@@ -165,7 +165,7 @@ def setup_prediction_job():
     scheduler = AsyncIOScheduler()
     
     trigger = CronTrigger(
-        minute="*/2",
+        minute="*/50",
         timezone="UTC"
     )
     

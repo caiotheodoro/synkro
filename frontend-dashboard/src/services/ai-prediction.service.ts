@@ -150,24 +150,15 @@ export class AIPredictionService {
    * Generate a new prediction for a specific item
    */
   async generatePrediction(
-    itemId: string,
-    modelName?: string
   ): Promise<IPrediction> {
     try {
-      const payload: any = {
-        item_id: itemId,
-      };
-
-      if (modelName) {
-        payload.model_name = modelName;
-      }
+   
 
       const response = await fetch(`${this.baseUrl}/generate`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(payload),
       });
 
       if (!response.ok) {

@@ -1,5 +1,9 @@
 import React, { useState } from "react";
 import { BackofficeListConfig } from "@/backoffice/core/builders/BackofficeBuilder";
+import TableCell from "../atoms/TableCell";
+import TableRow from "../molecules/TableRow";
+import TableHeader from "../molecules/TableHeader";
+import TableActionButton from "../atoms/TableActionButton";
 
 interface DataTableProps {
   data: any[];
@@ -78,37 +82,31 @@ export const DataTable: React.FC<DataTableProps> = ({
     }
   ) => {
     const value = getNestedValue(item, column.field);
-
-    if (column.render) {
-      return column.render(value, item);
-    }
-
-    return value;
+    return column.render ? column.render(value, item) : value;
   };
 
   const hasActions =
     onEdit || onDelete || (config.actions && config.actions.length > 0);
-
   const hasBulkActions =
     config.bulkActions &&
     config.bulkActions.length > 0 &&
     selectedItems.length > 0;
+
   return (
-    <div className="overflow-hidden rounded-md border border-neutral-300 shadow-md">
-      <div className="bg-white border-b">
+    <div className="overflow-hidden rounded-lg border-3 border-black shadow-neo bg-white">
+      <div className="border-b-3 border-black">
         <div className="flex items-center justify-between p-4">
           <h3 className="text-lg font-bold">Results ({data.length})</h3>
 
           {hasBulkActions && (
             <div className="flex space-x-2">
               {config?.bulkActions?.map((action, index) => (
-                <button
+                <TableActionButton
                   key={index}
+                  label={action.label}
                   onClick={() => action.action(selectedItems)}
-                  className="px-4 py-2 text-white bg-orange-500 border-4 border-black rounded-md shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]"
-                >
-                  {action.label}
-                </button>
+                  variant="primary"
+                />
               ))}
             </div>
           )}
@@ -116,11 +114,11 @@ export const DataTable: React.FC<DataTableProps> = ({
       </div>
 
       <div className="overflow-x-auto">
-        <table className="min-w-full divide-y divide-neutral-300">
-          <thead className="bg-neutral-100">
+        <table className="min-w-full divide-y divide-black">
+          <thead className="bg-gray-50 border-b-3 border-black">
             <tr>
               {config.bulkActions && config.bulkActions.length > 0 && (
-                <th className="p-4">
+                <TableCell align="center">
                   <input
                     type="checkbox"
                     className="w-4 h-4 border-2 border-black rounded"
@@ -129,113 +127,84 @@ export const DataTable: React.FC<DataTableProps> = ({
                     }
                     onChange={(e) => handleSelectAll(e.target.checked)}
                   />
-                </th>
+                </TableCell>
               )}
 
               {config.columns.map((column, index) => (
-                <th
+                <TableHeader
                   key={index}
-                  className="p-4 text-left font-bold cursor-pointer"
-                  onClick={() => handleSort(column.field)}
-                >
-                  <div className="flex items-center">
-                    {column.header}
-                    {sortField === column.field && (
-                      <span className="ml-1">
-                        {sortDirection === "asc" ? "↑" : "↓"}
-                      </span>
-                    )}
-                  </div>
-                </th>
+                  field={column.field}
+                  header={column.header}
+                  sortField={sortField}
+                  sortDirection={sortDirection}
+                  onSort={handleSort}
+                />
               ))}
 
-              {hasActions && (
-                <th className="p-4 text-right sticky right-0 bg-neutral-100 z-10 min-w-[170px]">
-                  Actions
-                </th>
-              )}
+              {hasActions && <TableCell align="right">Actions</TableCell>}
             </tr>
           </thead>
 
-          <tbody className="divide-y divide-neutral-300">
+          <tbody className="divide-y divide-black">
             {sortedData.length === 0 ? (
               <tr>
-                <td
+                <TableCell
+                  align="center"
                   colSpan={
                     config.columns.length +
-                    (config.bulkActions && config.bulkActions.length > 0
-                      ? 1
-                      : 0) +
-                    (hasActions ? 1 : 0)
+                    (hasActions ? 1 : 0) +
+                    (config.bulkActions ? 1 : 0)
                   }
-                  className="p-4 text-center text-neutral-500"
                 >
                   No data found
-                </td>
+                </TableCell>
               </tr>
             ) : (
               sortedData.map((item, rowIndex) => (
-                <tr
+                <TableRow
                   key={rowIndex}
-                  className="hover:bg-neutral-50 cursor-pointer"
-                  onClick={() => handleRowClick(item)}
+                  isSelected={selectedItems.some((i) => i.id === item.id)}
+                  onSelect={() =>
+                    handleSelectItem(
+                      item,
+                      !selectedItems.some((i) => i.id === item.id)
+                    )
+                  }
                 >
-                  {config.bulkActions && config.bulkActions.length > 0 && (
-                    <td className="p-4" onClick={(e) => e.stopPropagation()}>
-                      <input
-                        type="checkbox"
-                        className="w-4 h-4 border-2 border-black rounded"
-                        checked={selectedItems.some((i) => i.id === item.id)}
-                        onChange={(e) =>
-                          handleSelectItem(item, e.target.checked)
-                        }
-                      />
-                    </td>
-                  )}
-
                   {config.columns.map((column, colIndex) => (
-                    <td key={colIndex} className="p-4 whitespace-nowrap">
+                    <TableCell key={colIndex}>
                       {renderCell(item, column)}
-                    </td>
+                    </TableCell>
                   ))}
 
                   {hasActions && (
-                    <td
-                      className="p-4 text-right sticky right-0 bg-white z-10 min-w-[170px] shadow-[-4px_0_4px_rgba(0,0,0,0.05)]"
-                      onClick={(e) => e.stopPropagation()}
-                    >
+                    <TableCell align="right">
                       <div className="flex justify-end space-x-2">
                         {config.actions?.map((action, actionIndex) => (
-                          <button
+                          <TableActionButton
                             key={actionIndex}
+                            label={action.label}
                             onClick={() => action.action(item)}
-                            className="px-3 py-1 text-black bg-white border-2 border-black rounded-md shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:bg-neutral-100"
-                          >
-                            {action.label}
-                          </button>
+                          />
                         ))}
-
                         {onEdit && (
-                          <button
+                          <TableActionButton
+                            label="Edit"
                             onClick={() => onEdit(item)}
-                            className="px-3 py-1 text-white bg-blue-500 border-2 border-black rounded-md shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:bg-blue-600"
-                          >
-                            Edit
-                          </button>
+                            variant="primary"
+                          />
                         )}
-
                         {onDelete && (
-                          <button
+                          <TableActionButton
+                            label="Delete"
                             onClick={() => onDelete(item)}
-                            className="px-3 py-1 text-white bg-red-500 border-2 border-black rounded-md shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:bg-red-600"
-                          >
-                            Delete
-                          </button>
+                            variant="danger"
+                          />
                         )}
                       </div>
-                    </td>
+                    </TableCell>
                   )}
-                </tr>
+                </TableRow>
               ))
             )}
           </tbody>

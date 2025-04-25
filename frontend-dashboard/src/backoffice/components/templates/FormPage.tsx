@@ -70,8 +70,8 @@ export const FormPage: React.FC<FormPageProps> = ({
     } catch (err: any) {
       console.error("Error saving data:", err);
       const errorMessage =
-        err.response?.data?.message ||
-        err.message ||
+        err.response?.data?.message ??
+        err.message ??
         "Failed to save data. Please try again later.";
       setError(errorMessage);
       setIsSaving(false);

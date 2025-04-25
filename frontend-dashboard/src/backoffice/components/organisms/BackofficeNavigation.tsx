@@ -12,6 +12,7 @@ import {
   LogOut,
   ArrowLeft,
   Activity,
+  Brain,
 } from "lucide-react";
 import { auth } from "@/services/auth-instance.service";
 import { useBackofficeRegistry } from "@/backoffice/core/builders/BackofficeRegistry";
@@ -63,9 +64,9 @@ export const BackofficeNavigation: React.FC = () => {
   };
 
   const navItems: NavItem[] = Object.values(modules).map((item) => ({
-    label: item.config?.title || item.navItem?.label || "Unknown",
-    href: item.navItem?.href || item.config?.basePath || "#",
-    icon: item.navItem?.icon || getModuleIcon(item.config?.title || ""),
+    label: item.config?.title ?? item.navItem?.label ?? "Unknown",
+    href: item.navItem?.href ?? item.config?.basePath ?? "#",
+    icon: item.navItem?.icon ?? getModuleIcon(item.config?.title ?? ""),
   }));
 
   const analyticsItems: NavItem[] = [
@@ -88,6 +89,11 @@ export const BackofficeNavigation: React.FC = () => {
       label: "Transaction Analytics",
       href: "/analytics/transactions",
       icon: <Activity className="w-5 h-5" />,
+    },
+    {
+      label: "AI Analytics",
+      href: "/analytics/ai",
+      icon: <Brain className="w-5 h-5" />,
     },
   ];
 

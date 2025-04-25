@@ -5,6 +5,7 @@ from app.schemas.prediction_schema import (
     PredictionResponse,
     PredictionList,
     BatchPredictionRequest,
+    GenericResponse,
     ModelListResponse
 )
 from app.services.prediction_service import PredictionService, get_prediction_service
@@ -85,12 +86,9 @@ async def list_predictions(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e)) 
 
-@router.post("/generate", response_model=PredictionResponse)
-async def generate_prediction(
-    request: PredictionRequest,
-    service: PredictionService = Depends(get_prediction_service)
-):
+@router.post("/generate", response_model=GenericResponse)
+async def generate_prediction():
     """Generate a new demand prediction for an item."""
     from app.jobs.prediction_job import run_predictions
     await run_predictions()
-    return await service.generate_prediction(request.item_id, request.model_name)
+    return {"message": "Prediction generated successfully"}
