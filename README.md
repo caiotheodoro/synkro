@@ -60,20 +60,6 @@ For detailed deployment instructions, see [K8S.md](K8S.md).
 - Node.js 18+ for frontend development
 - Python 3.9+ for ML service development
 
-### Local Development
-
-```bash
-# Clone the repository
-git clone https://github.com/yourusername/synkro.git
-cd synkro
-
-# Start the development environment
-docker-compose up -d
-
-# Access the application
-open http://localhost:3000
-```
-
 ### Kubernetes Deployment
 
 ```bash
@@ -164,42 +150,6 @@ Synkro uses a well-structured database schema with relationships between:
 - Customer information
 
 For a detailed entity relationship diagram, see the [ARCHITECTURE.md](ARCHITECTURE.md) document.
-
-## 👨‍💻 Development
-
-### Setting Up the Development Environment
-
-1. Install dependencies:
-   ```bash
-   # Frontend Dashboard
-   cd frontend/dashboard
-   npm install
-   
-   # Backend API Gateway
-   cd backend/api-gateway-auth
-   npm install
-   ```
-
-2. Start the services:
-   ```bash
-   # Start all services with Docker Compose
-   docker-compose up -d
-   
-   # Or start individual services
-   cd frontend/dashboard
-   npm run dev
-   ```
-
-3. Run tests:
-   ```bash
-   # Frontend tests
-   cd frontend/dashboard
-   npm test
-   
-   # Backend tests
-   cd backend/api-gateway-auth
-   npm test
-   ```
 
 ## 🤝 Contributing
 
