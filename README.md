@@ -41,7 +41,7 @@ graph TB
             Auth["OAuth2/JWT Auth"]:::backend
             RBAC["RBAC Authorization"]:::backend
             RateLimit["Rate Limiting"]:::backend
-            APIProxy["Load Balancer"]:::backend
+            APIProxy["Load Balancer(In Progress)"]:::backend 
         end
         
         subgraph NotificationService["Notification Service (Node.js/Bun)"]
@@ -138,11 +138,11 @@ The Synkro system is divided into the following key components:
    - NestJS application serving as the authentication gateway
    - OAuth2/JWT-based authentication and authorization
    - RBAC (Role-Based Access Control)
-   - Rate limiting and API security
+   - Rate limiting and API security 
    - API proxy and load balancing
    - Connects to PostgreSQL for user data
 
-2. **Notification Service** (`notification-service`)
+2. **Notification Service** (`notification-service`) (In Progress)
    - Lightweight Node.js/Bun-based notification system
    - Event-driven architecture
    - Notification engine for orchestration
