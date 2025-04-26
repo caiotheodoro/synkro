@@ -1,16 +1,13 @@
 import os
-import json
 import httpx
-from fastapi import Request, HTTPException, status
+from fastapi import Request,  status
 from fastapi.responses import JSONResponse
 from app.core.logging.logger import logger
 
 async def auth_middleware(request: Request, call_next):
-    # Skip for OPTIONS requests (CORS)
     if request.method == "OPTIONS":
         return await call_next(request)
     
-    # Get the token from the Authorization header
     auth_header = request.headers.get("Authorization")
     if not auth_header:
         logger.warning("Authentication failed: Authorization header missing")
@@ -19,7 +16,6 @@ async def auth_middleware(request: Request, call_next):
             content={"error": "Authorization header missing"}
         )
     
-    # Extract the token from the Bearer format
     if not auth_header.startswith("Bearer "):
         logger.warning("Authentication failed: Invalid authorization format")
         return JSONResponse(
@@ -29,13 +25,11 @@ async def auth_middleware(request: Request, call_next):
     
     token = auth_header.replace("Bearer ", "").strip()
     
-    # Get the auth service URL from environment variable
     auth_service_url = os.environ.get("AUTH_SERVICE_URL", "http://api-gateway-auth:3000")
     validate_endpoint = f"{auth_service_url}/auth/validate-token"
     
     logger.debug(f"Validating token against {validate_endpoint}")
     
-    # Create the request body
     token_request = {"token": token}
     
     try:
@@ -63,12 +57,10 @@ async def auth_middleware(request: Request, call_next):
                     content={"error": "Invalid token"}
                 )
             
-            # Set the user ID in the request state for further use
             user_id = token_response.get("userId")
             if user_id:
                 request.state.user_id = user_id
                 
-                # Modify request to include user ID header for downstream services
                 request.headers["X-User-ID"] = user_id
                 logger.info(f"Authentication successful for user {user_id}")
             else:
@@ -81,5 +73,4 @@ async def auth_middleware(request: Request, call_next):
             content={"error": f"Failed to validate token: {str(e)}"}
         )
     
-    # Continue processing the request
     return await call_next(request) 
