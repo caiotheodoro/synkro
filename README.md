@@ -2,7 +2,6 @@
 
 Synkro is a comprehensive microservice-based inventory management and prediction system designed with a modern cloud-native architecture. It combines powerful inventory tracking capabilities with AI-driven demand forecasting to optimize stock levels and streamline operations.
 
-![Synkro](https://via.placeholder.com/800x400?text=Synkro+Platform)
 
 ## 🚀 Features
 
