@@ -2,7 +2,7 @@
 
 ## Overview
 
-Synkro is a comprehensive microservice-based application designed with a modern cloud-native architecture. The system consists of several interconnected services that communicate with each other through well-defined APIs and gRPC protocols. This document provides a detailed description of the architecture, service interactions, and technical implementation details.
+Synkro is a comprehensive microservice-based application designed with a modern cloud-native architecture. The system consists of several interconnected services that communicate with each other through well-defined APIs, event-driven patterns, and container orchestration. This document provides a detailed description of the architecture, service interactions, and technical implementation details based on the current system implementation.
 
 ## Architecture Diagram
 
@@ -18,7 +18,9 @@ graph TB
     
     %% Frontend Layer
     subgraph Frontend["Frontend Layer"]
-        NextApp["Next.js Dashboard App"]:::frontend
+        FrontendDashboard["Next.js Dashboard App"]:::frontend
+        FrontendAuth["Auth Frontend (Vite)"]:::frontend
+        FrontendLanding["Landing Page (Astro)"]:::frontend
         
         subgraph UIComponents["UI Components"]
             AtomicDesign["Atomic Design System"]:::frontend
@@ -27,7 +29,9 @@ graph TB
             OrderUI["Order Processing"]:::frontend
         end
         
-        NextApp --> AtomicDesign
+        FrontendDashboard --> AtomicDesign
+        FrontendAuth --> AtomicDesign
+        FrontendLanding --> AtomicDesign
         AtomicDesign --> DashboardUI & InventoryUI & OrderUI
     end
     
@@ -40,28 +44,14 @@ graph TB
             APIProxy["Load Balancer"]:::backend
         end
         
-        subgraph LogisticsEngine["Logistics Engine (Rust)"]
-            OrderProcessor["Order Processing"]:::backend
-            InventoryManager["Inventory Management"]:::backend
-            RouteOptimizer["Route Optimization"]:::backend
-            GRPCClient["gRPC Client (Tonic)"]:::backend
-        end
-        
-        subgraph InventorySync["Inventory Sync Service (Go)"]
-            GRPCServer["gRPC Server :50052"]:::backend
-            StockManager["Stock Management"]:::backend
-            ReservationSystem["Reservation System"]:::backend
-            StreamingService["Real-time Updates"]:::backend
-        end
-        
-        subgraph NotificationService["Notification Service (Node.js)"]
+        subgraph NotificationService["Notification Service (Node.js/Bun)"]
             NotificationEngine["Notification Engine"]:::backend
             EventHandler["Event Handler"]:::backend
             PushNotifications["Push Notifications"]:::backend
             EmailService["Email Service"]:::backend
         end
         
-        subgraph MLService["AI/ML Service (Python)"]
+        subgraph MLService["AI/ML Service (Python/FastAPI)"]
             Forecasting["Demand Forecasting"]:::backend
             TimeSeriesAnalysis["Time Series Analysis"]:::backend
             StockOptimizer["Stock Optimization"]:::backend
@@ -85,23 +75,11 @@ graph TB
         Jaeger["Jaeger Tracing"]:::monitoring
     end
     
-    %% Service Communications
-    
-    %% gRPC Communication
-    GRPCClient <-.->|"gRPC Streaming\n- Stock Reservation\n- Inventory Updates\n- Stock Release"|GRPCServer
-    
-    %% Event Bus Communications
-    LogisticsEngine -->|"Order Events"|RabbitMQ
-    InventorySync -->|"Stock Updates"|RabbitMQ
-    NotificationService -->|"Consume Events"|RabbitMQ
-    
     %% Database Communications
-    InventorySync -->|"CRUD Operations"|PostgreSQL
-    LogisticsEngine -->|"Order Management"|PostgreSQL
+    MLService -->|"ML Data Operations"|PostgreSQL
     APIGateway -->|"User & Auth Data"|PostgreSQL
     
     %% Cache Communications
-    InventorySync -->|"Cache Stock Levels"|Redis
     APIGateway -->|"Session & Token Cache"|Redis
     
     %% Analytics & Search
@@ -114,8 +92,8 @@ graph TB
     BackendServices -.->|"Traces"|Jaeger
     
     %% Frontend to Backend
-    Frontend -->|"REST/GraphQL"|APIGateway
-    APIGateway -->|"Route Requests"|LogisticsEngine & InventorySync
+    Frontend -->|"REST APIs"|APIGateway
+    APIGateway -->|"Route Requests"|MLService & NotificationService
     
     %% Link Styles
     linkStyle 0 stroke:#0284c7,stroke-width:2px;
@@ -140,6 +118,20 @@ The Synkro system is divided into the following key components:
      - Inventory Management UI
      - Order Processing UI
 
+2. **Frontend Auth** (`frontend-auth`)
+   - Vite-based authentication frontend
+   - Handles user login and registration flows
+   - Secure token storage and management
+   - Integration with API Gateway Auth
+   - Responsive design with Tailwind CSS
+
+3. **Frontend Landing** (`frontend-landing`)
+   - Astro-based landing page
+   - Fast, static site generation
+   - Marketing and product information
+   - Seamless transition to authentication flow
+   - Optimized for performance and SEO
+
 ### Backend Services
 
 1. **API Gateway Auth** (`api-gateway-auth`)
@@ -150,77 +142,56 @@ The Synkro system is divided into the following key components:
    - API proxy and load balancing
    - Connects to PostgreSQL for user data
 
-2. **Logistics Engine** (`logistics-engine`)
-   - Written in Rust for high performance
-   - Order processing and validation
-   - Inventory state management
-   - Route optimization and delivery planning
-   - gRPC client for inventory communication
-   - Event publishing through RabbitMQ
-
-3. **Inventory Sync Service** (`inventory-sync-service`)
-   - Written in Go for concurrent operations
-   - gRPC server (port 50052)
-   - Stock management and allocation
-   - Reservation and locking system
-   - Real-time stock updates streaming
-   - Event publishing through RabbitMQ
-
-4. **Notification Service** (`notification-service`)
-   - Node.js-based notification system
+2. **Notification Service** (`notification-service`)
+   - Lightweight Node.js/Bun-based notification system
    - Event-driven architecture
    - Notification engine for orchestration
    - Event queue handler
    - Multiple notification channels:
-     - Push notifications (FCM/APNS)
-     - Email service (SMTP)
+     - Push notifications
+     - Email service
 
-5. **AI/ML Service** (`ai-ml-predictions`)
-   - Python-based prediction service
+3. **AI/ML Service** (`ai-ml-predictions`)
+   - Python-based prediction service with FastAPI
    - Demand forecasting models
    - Time series analysis
    - Stock level optimization
    - Model training and validation
+   - Direct PostgreSQL integration for data access
 
 ### Data Layer
 
 1. **PostgreSQL**
    - Primary database for orders and inventory
    - User authentication data
-   - Transactional data storage
+   - ML model data and predictions
+   - Schema migrations and data versioning
 
 2. **Redis**
    - Caching layer
    - Session management
-   - Real-time data storage
+   - Authentication token storage
+   - Rate limiting implementation
 
 3. **Elasticsearch**
    - Analytics and search capabilities
    - ML service data storage
-   - Log aggregation
-
-4. **RabbitMQ**
-   - Event bus for service communication
-   - Message queue for async operations
-   - Event sourcing backbone
+   - Log aggregation and analysis
+   - Part of the ELK stack for observability
 
 ### Observability Stack
 
 1. **ELK Stack**
-   - Centralized logging
-   - Log analysis and visualization
+   - Elasticsearch for log storage and indexing
+   - Logstash for log processing and transformation
+   - Kibana for log visualization and dashboards
+   - Centralized logging across all services
 
-2. **Prometheus**
-   - Metrics collection
-   - Performance monitoring
-
-3. **Grafana**
-   - Metrics visualization
-   - Dashboard creation
-
-4. **Jaeger**
-   - Distributed tracing
-   - Performance analysis
+2. **Prometheus & Grafana**
+   - Metrics collection and monitoring
+   - Performance visualization
+   - System health dashboards
+   - Alerting capabilities
 
 ## Detailed Architecture
 
@@ -232,14 +203,14 @@ The Synkro system is divided into the following key components:
    - API Gateway creates user record in PostgreSQL database
    - User credentials are securely stored (password hashed with bcrypt)
    - JWT token is generated and returned to the frontend
-   - Frontend stores token in localStorage
+   - Frontend stores token securely
 
 2. **User Login**:
    - User enters credentials in `frontend-auth`
    - Credentials are sent to API Gateway Auth
    - API validates credentials against database
    - Valid credentials lead to JWT token generation
-   - Token is returned to frontend and stored in localStorage
+   - Token is returned to frontend and stored securely
 
 3. **Token Validation**:
    - Apps validate tokens by sending them to API Gateway Auth
@@ -254,31 +225,42 @@ The Synkro system is divided into the following key components:
 
 ### Service Communication
 
-#### gRPC Integration
+#### REST API Integration
 
-1. **Logistics Engine to Inventory Sync**
-   - Bidirectional gRPC streaming
-   - Key operations:
-     - Stock reservation
-     - Inventory updates
-     - Stock release
-   - Protocol Buffer definitions
-   - Connection on port 50052
+1. **Frontend to Backend**
+   - REST API communication
+   - Authentication through API Gateway
+   - Protected routes and endpoints
+   - Standardized error handling and responses
 
 #### Event-Driven Communication
 
-1. **RabbitMQ Events**
-   - Order events from Logistics Engine
-   - Stock updates from Inventory Sync
-   - Notification events consumption
-   - Async communication between services
+1. **Notification Events**
+   - Event-driven notification system
+   - Multiple notification channels
+   - Async processing of notification requests
 
-#### REST/GraphQL APIs
+### AI/ML Service Architecture
 
-1. **Frontend to Backend**
-   - REST/GraphQL communication
-   - Authentication through API Gateway
-   - Protected routes and endpoints
+1. **Model Management**
+   - Multiple prediction models available:
+     - Demand forecasting
+     - Stockout prediction
+     - Stock optimization
+   - Model versioning and selection
+   - Dynamic model loading and prediction
+
+2. **Data Processing**
+   - Direct PostgreSQL integration
+   - Time series data processing
+   - Feature engineering and selection
+   - Batch and real-time prediction capabilities
+
+3. **API Integration**
+   - FastAPI-based endpoints for predictions
+   - Health and readiness checks
+   - Input validation and error handling
+   - Swagger documentation
 
 ## Entity Relationships
 
@@ -345,6 +327,38 @@ erDiagram
         timestamp timestamp
         uuid user_id FK
         timestamp updated_at
+    }
+
+    ML_PREDICTIONS {
+        uuid id PK
+        uuid item_id FK
+        string prediction_type
+        jsonb prediction_data
+        decimal confidence
+        timestamp created_at
+        timestamp valid_until
+        string status
+        string model_version
+    }
+    
+    USERS {
+        uuid id PK
+        string username
+        string email
+        string password_hash
+        string role
+        timestamp created_at
+        timestamp updated_at
+        boolean active
+    }
+    
+    AUTH_TOKENS {
+        uuid id PK
+        uuid user_id FK
+        string token_value
+        timestamp expires_at
+        timestamp created_at
+        boolean revoked
     }
 
     ORDER_ITEMS {
@@ -441,23 +455,34 @@ erDiagram
     INVENTORY_RESERVATIONS ||--|| INVENTORY_ITEMS : "reserves"
     INVENTORY_TRANSACTIONS ||--|| INVENTORY_ITEMS : "affects"
     INVENTORY_TRANSACTIONS ||--|| WAREHOUSES : "occurs_in"
+    ML_PREDICTIONS ||--|| INVENTORY_ITEMS : "predicts_for"
     ORDER_ITEMS ||--|| ORDERS : "part_of"
     ORDER_STATUS_HISTORY ||--|| ORDERS : "tracks"
     ORDERS ||--|| CUSTOMERS : "placed_by"
     PAYMENT_INFO ||--|| ORDERS : "belongs_to"
     SHIPPING_INFO ||--|| ORDERS : "belongs_to"
+    AUTH_TOKENS ||--|| USERS : "belongs_to"
 ```
 
 ### Entity Relationships Description
 
-1. **Inventory Management**
+1. **User Authentication**
+   - `USERS` stores user account information
+   - `AUTH_TOKENS` manages JWT tokens and sessions
+
+2. **Inventory Management**
    - `INVENTORY_LEVELS` tracks the quantity of items in each warehouse
    - `INVENTORY_ITEMS` stores product information and thresholds
    - `WAREHOUSES` contains warehouse location and contact details
    - `INVENTORY_RESERVATIONS` manages temporary item holds
    - `INVENTORY_TRANSACTIONS` records all inventory movements
 
-2. **Order Management**
+3. **ML Predictions**
+   - `ML_PREDICTIONS` stores AI/ML model outputs
+   - Connected to inventory items for demand forecasting
+   - Tracks model confidence and version
+
+4. **Order Management**
    - `ORDERS` stores main order information
    - `ORDER_ITEMS` contains individual items in each order
    - `ORDER_STATUS_HISTORY` tracks order status changes
@@ -465,11 +490,13 @@ erDiagram
    - `PAYMENT_INFO` manages payment details
    - `SHIPPING_INFO` handles shipping details
 
-3. **Database Management**
+5. **Database Management**
    - `SCHEMA_MIGRATIONS` tracks database schema changes
 
 ### Key Relationships
 
+- Authentication tokens linked to specific users
+- ML predictions associated with inventory items
 - Each inventory item belongs to a warehouse
 - Inventory levels are tracked per item per warehouse
 - Orders contain multiple order items
@@ -480,98 +507,12 @@ erDiagram
 
 ## Detailed System Communications
 
-### Order Processing Flow
-
-```mermaid
-sequenceDiagram
-    participant C as Client
-    participant FE as Frontend
-    participant AG as API Gateway
-    participant LE as Logistics Engine
-    participant IS as Inventory Sync
-    participant NS as Notification
-    participant RMQ as RabbitMQ
-    participant DB as PostgreSQL
-    participant RC as Redis Cache
-
-    %% Order Creation
-    C->>+FE: Create Order
-    FE->>+AG: POST /api/orders
-    AG->>AG: Validate JWT
-    AG->>+LE: Create Order Request
-    
-    %% Stock Check
-    LE->>+IS: gRPC: CheckAndReserveStock
-    IS->>DB: Check Stock
-    IS->>RC: Reserve Stock
-    IS-->>-LE: Stock Reserved
-    
-    %% Order Processing
-    LE->>DB: Save Order
-    LE->>RMQ: Publish OrderCreated
-    LE-->>-AG: Order Created
-    AG-->>-FE: Order Confirmation
-    FE-->>-C: Success Response
-    
-    %% Async Processing
-    RMQ->>NS: OrderCreated Event
-    NS->>C: WebSocket: Order Status
-    NS->>RMQ: Publish Notification
-    
-    %% Stock Update
-    IS->>RMQ: Publish StockUpdated
-    RMQ->>NS: StockUpdated Event
-    NS->>C: WebSocket: Stock Update
-```
-
-### Inventory Management Flow
-
-```mermaid
-sequenceDiagram
-    participant C as Client
-    participant FE as Frontend
-    participant AG as API Gateway
-    participant IS as Inventory Sync
-    participant LE as Logistics Engine
-    participant ML as ML Service
-    participant ES as Elasticsearch
-    participant DB as PostgreSQL
-    participant RC as Redis Cache
-
-    %% Stock Level Check
-    C->>+FE: View Inventory
-    FE->>+AG: GET /api/inventory
-    AG->>+IS: Get Stock Levels
-    IS->>RC: Check Cache
-    
-    alt Cache Hit
-        RC-->>IS: Return Cached Data
-    else Cache Miss
-        IS->>DB: Query Stock Levels
-        IS->>RC: Update Cache
-        DB-->>IS: Stock Data
-    end
-    
-    IS-->>-AG: Stock Levels
-    AG-->>-FE: Inventory Data
-    FE-->>-C: Display Inventory
-
-    %% ML Predictions
-    ML->>DB: Fetch Historical Data
-    ML->>ES: Process Analytics
-    ML->>IS: Update Predictions
-    
-    %% Real-time Updates
-    IS->>FE: gRPC Stream: Stock Updates
-    FE->>C: Live Updates
-```
-
 ### Authentication Flow
 
 ```mermaid
 sequenceDiagram
     participant C as Client
-    participant FE as Frontend
+    participant FE as Frontend Auth
     participant AG as API Gateway
     participant DB as PostgreSQL
     participant RC as Redis Cache
@@ -598,41 +539,57 @@ sequenceDiagram
     end
 ```
 
-### Event Processing Flow
+### ML Service Prediction Flow
 
 ```mermaid
-flowchart TB
-    %% Styles
-    classDef publisher fill:#f0fdf4,stroke:#16a34a,stroke-width:2px
-    classDef subscriber fill:#e0f2fe,stroke:#0284c7,stroke-width:2px
-    classDef queue fill:#fae8ff,stroke:#c026d3,stroke-width:2px
-    classDef processor fill:#ffe4e6,stroke:#e11d48,stroke-width:2px
+sequenceDiagram
+    participant C as Client
+    participant FD as Frontend Dashboard
+    participant AG as API Gateway
+    participant ML as ML Service
+    participant DB as PostgreSQL
+    participant ES as Elasticsearch
 
-    %% Publishers
-    LE[Logistics Engine]:::publisher
-    IS[Inventory Sync]:::publisher
+    %% Request Prediction
+    C->>+FD: Request Forecast
+    FD->>+AG: GET /api/predictions
+    AG->>AG: Validate JWT
+    AG->>+ML: Forward Request
     
-    %% Queue
-    subgraph RMQ[RabbitMQ Event Bus]
-        direction TB
-        OE[Order Events]:::queue
-        SE[Stock Events]:::queue
-        NE[Notification Events]:::queue
+    %% Generate Prediction
+    ML->>DB: Fetch Historical Data
+    ML->>ML: Run Prediction Model
+    ML->>DB: Save Prediction
+    ML->>ES: Log Prediction Event
+    ML-->>-AG: Return Prediction
+    AG-->>-FD: Prediction Results
+    FD-->>-C: Display Forecast
+    
+    %% Background Processing
+    ML->>DB: Batch Prediction Update
+    ML->>ES: Store Analytics Data
+```
+
+### Notification Flow
+
+```mermaid
+sequenceDiagram
+    participant S as System Event
+    participant NS as Notification Service
+    participant U as User
+
+    %% Notification Trigger
+    S->>+NS: Notification Event
+    
+    alt Email Notification
+        NS->>NS: Format Email
+        NS->>U: Send Email
+    else Push Notification
+        NS->>NS: Format Push
+        NS->>U: Send Push
     end
     
-    %% Subscribers
-    NS[Notification Service]:::subscriber
-    ML[ML Service]:::processor
-    
-    %% Event Flows
-    LE -->|"OrderCreated\nOrderUpdated\nOrderCancelled"| OE
-    IS -->|"StockReserved\nStockReleased\nLowStock"| SE
-    
-    OE --> NS & ML
-    SE --> NS & ML
-    
-    NS -->|"Process & Send"| NE
-    ML -->|"Process & Predict"| SE
+    NS-->>-S: Notification Sent
 ```
 
 ### Cache Strategy Flow
@@ -645,15 +602,14 @@ flowchart TB
     classDef db fill:#fef3c7,stroke:#d97706,stroke-width:2px
     
     %% Services
-    IS[Inventory Sync]:::service
+    ML[ML Service]:::service
     AG[API Gateway]:::service
-    LE[Logistics Engine]:::service
     
     %% Cache Layers
     subgraph Redis[Redis Cache]
         direction TB
-        SC[Stock Cache]:::cache
-        SC_TTL[["TTL: 5m"]]
+        PC[Prediction Cache]:::cache
+        PC_TTL[["TTL: 1h"]]
         
         AC[Auth Cache]:::cache
         AC_TTL[["TTL: 1h"]]
@@ -666,16 +622,16 @@ flowchart TB
     DB[(PostgreSQL)]:::db
     
     %% Cache Flows
-    IS -->|"Read/Write"| SC
-    AG -->|"Read/Write"| AC
-    AG -->|"Rate Limiting"| RC
+    ML -->|"Read/Write"|PC
+    AG -->|"Read/Write"|AC
+    AG -->|"Rate Limiting"|RC
     
-    SC -->|"Cache Miss"| DB
-    AC -->|"Cache Miss"| DB
+    PC -->|"Cache Miss"|DB
+    AC -->|"Cache Miss"|DB
     
     %% Invalidation
-    LE -.->|"Invalidate"| SC
-    AG -.->|"Invalidate"| AC
+    ML -.->|"Invalidate"|PC
+    AG -.->|"Invalidate"|AC
 ```
 
 ### ML Service Data Flow
@@ -729,33 +685,47 @@ flowchart TB
     Predictions --> ES
 ```
 
-These additional diagrams provide detailed insights into:
-1. Order processing sequence with gRPC and event communication
-2. Inventory management with caching strategy
-3. Authentication and authorization flow
-4. Event processing and message queue patterns
-5. Cache strategy with TTLs and invalidation
-6. ML service data processing and predictions
+These diagrams provide detailed insights into:
+1. Authentication and authorization flow
+2. ML service prediction processes
+3. Notification service event handling
+4. Cache strategy with TTLs and invalidation
+5. ML service data processing and predictions
 
 Each diagram uses consistent color coding and styling to maintain readability and shows the specific interactions between services, including:
-- Synchronous communications (REST, gRPC)
-- Asynchronous events (RabbitMQ)
+- Synchronous communications (REST)
 - Caching strategies (Redis)
 - Data persistence (PostgreSQL)
 - Analytics and ML processing (Elasticsearch)
+
+## Kubernetes Deployment
+
+The Synkro system is deployed using Kubernetes for container orchestration, providing:
+
+- Scalability through replica management
+- High availability with multi-pod deployments
+- Resource allocation and limits
+- Health monitoring and self-healing
+- Service discovery and load balancing
+
+Each service is configured with:
+- Appropriate resource requests and limits
+- Health checks for liveness and readiness
+- Proper service discovery through labels and selectors
+- Namespace organization
+- Persistent storage where needed
 
 ## Conclusion
 
 The Synkro system architecture follows modern microservice principles with a focus on:
 
-- Service independence through gRPC and event-driven communication
+- Service independence through well-defined APIs
 - Clear separation of concerns with specialized services
-- High performance with Rust and Go implementations
-- Scalability through microservices architecture
-- Comprehensive monitoring and observability
+- High performance and scalability
+- Comprehensive monitoring with the ELK stack
 - Security-first approach with OAuth2/JWT
-- Real-time capabilities with gRPC streaming
-- Event-driven architecture using RabbitMQ
+- Event-driven architecture for notifications
 - AI/ML integration for predictive analytics
+- Kubernetes-based deployment for orchestration
 
 This architecture enables independent development, testing, and deployment of services while maintaining system cohesion through well-defined interfaces and protocols.
