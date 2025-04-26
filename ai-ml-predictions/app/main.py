@@ -11,6 +11,7 @@ from app.core.config.database import init_db, cleanup_db
 from app.services.model_registry.registry import ModelRegistry
 from app.services.feature_store.store import FeatureStore
 from app.services.cache.redis_cache import RedisCache
+from app.core.middleware.auth import auth_middleware
 from redis.exceptions import ConnectionError as RedisConnectionError
 import sys
 import traceback
@@ -35,6 +36,26 @@ def create_app() -> FastAPI:
     if settings.ENABLE_METRICS:
         metrics_app = make_asgi_app()
         app.mount("/metrics", metrics_app)
+
+    @app.middleware("http")
+    async def auth_middleware_wrapper(request: Request, call_next):
+        # Protected paths that require authentication
+        protected_paths = [
+            f"{settings.API_V1_STR}/predictions/predict",
+            f"{settings.API_V1_STR}/predictions/batch",
+            f"{settings.API_V1_STR}/predictions/generate"
+        ]
+        
+        # Check if the current path needs authentication
+        path = request.url.path
+        requires_auth = any(path.startswith(p) for p in protected_paths)
+        
+        if requires_auth:
+            logger.info(f"Authenticating request to protected endpoint: {path}")
+            return await auth_middleware(request, call_next)
+        
+        logger.debug(f"Skipping authentication for non-protected endpoint: {path}")
+        return await call_next(request)
 
     @app.exception_handler(BaseError)
     async def base_error_handler(request: Request, exc: BaseError):
@@ -102,6 +123,7 @@ def create_app() -> FastAPI:
                 logger.warning(f"Failed to start prediction scheduler: {str(e)}. Continuing without scheduler.")
             
             logger.info("Application startup completed successfully")
+            logger.info(f"Authentication middleware enabled for prediction endpoints")
             
         except Exception as e:
             logger.error(f"Failed to start the service: {str(e)}")

@@ -1,4 +1,5 @@
 import { API_URL_AI_PREDICTIONS } from "@/config";
+import { ApiService } from "./api.service";
 
 export interface IPrediction {
   id: string;
@@ -45,51 +46,45 @@ export interface ModelResponse {
 }
 
 export class AIPredictionService {
-  private baseUrl: string;
+  private baseEndpoint: string;
+  private apiService: ApiService;
 
   constructor() {
-    this.baseUrl = `${API_URL_AI_PREDICTIONS}/api/v1/predictions`;
+    this.baseEndpoint = "api/v1/predictions";
+    this.apiService = new ApiService({
+      baseUrl: API_URL_AI_PREDICTIONS,
+    });
   }
 
-  /**
-   * Get a list of predictions with pagination
-   */
   async getPredictions(
     page: number = 0,
     pageSize: number = 10,
     modelName?: string
   ): Promise<PredictionResponse> {
     try {
-      let url = `${this.baseUrl}?page=${page}&page_size=${pageSize}`;
+      const params: Record<string, string> = {
+        page: page.toString(),
+        page_size: pageSize.toString(),
+      };
+
       if (modelName) {
-        url += `&model=${encodeURIComponent(modelName)}`;
+        params.model = modelName;
       }
 
-      const response = await fetch(url);
-
-      if (!response.ok) {
-        throw new Error(`Failed to fetch predictions: ${response.statusText}`);
-      }
-
-      return await response.json();
+      return await this.apiService.get<PredictionResponse>(this.baseEndpoint, {
+        params,
+      });
     } catch (error) {
       console.error("Error fetching predictions:", error);
       throw error;
     }
   }
 
-  /**
-   * Get a single prediction by ID
-   */
   async getPrediction(id: string): Promise<IPrediction> {
     try {
-      const response = await fetch(`${this.baseUrl}/${id}`);
-
-      if (!response.ok) {
-        throw new Error(`Failed to fetch prediction: ${response.statusText}`);
-      }
-
-      return await response.json();
+      return await this.apiService.get<IPrediction>(
+        `${this.baseEndpoint}/${id}`
+      );
     } catch (error) {
       console.error(`Error fetching prediction ${id}:`, error);
       throw error;
@@ -101,13 +96,9 @@ export class AIPredictionService {
    */
   async getModels(): Promise<ModelResponse> {
     try {
-      const response = await fetch(`${this.baseUrl}/models`);
-
-      if (!response.ok) {
-        throw new Error(`Failed to fetch models: ${response.statusText}`);
-      }
-
-      return await response.json();
+      return await this.apiService.get<ModelResponse>(
+        `${this.baseEndpoint}/models`
+      );
     } catch (error) {
       console.error("Error fetching models:", error);
       throw error;
@@ -123,79 +114,50 @@ export class AIPredictionService {
     modelName?: string
   ): Promise<PredictionResponse> {
     try {
-      let url = `${
-        this.baseUrl
-      }/time-range?start=${startDate.toISOString()}&end=${endDate.toISOString()}`;
+      const params: Record<string, string> = {
+        start: startDate.toISOString(),
+        end: endDate.toISOString(),
+      };
 
       if (modelName) {
-        url += `&model=${encodeURIComponent(modelName)}`;
+        params.model = modelName;
       }
 
-      const response = await fetch(url);
-
-      if (!response.ok) {
-        throw new Error(
-          `Failed to fetch predictions by time range: ${response.statusText}`
-        );
-      }
-
-      return await response.json();
+      return await this.apiService.get<PredictionResponse>(
+        `${this.baseEndpoint}/time-range`,
+        { params }
+      );
     } catch (error) {
       console.error("Error fetching predictions by time range:", error);
       throw error;
     }
   }
 
-  /**
-   * Generate a new prediction for a specific item
-   */
-  async generatePrediction(
-  ): Promise<IPrediction> {
+  async generatePrediction(): Promise<IPrediction> {
     try {
-   
-
-      const response = await fetch(`${this.baseUrl}/generate`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error(
-          `Failed to generate prediction: ${response.statusText}`
-        );
-      }
-
-      return await response.json();
+      return await this.apiService.post<IPrediction>(
+        `${this.baseEndpoint}/generate`
+      );
     } catch (error) {
       console.error("Error generating prediction:", error);
       throw error;
     }
   }
 
-  /**
-   * Get prediction confidence distribution
-   */
   async getConfidenceDistribution(
     modelName?: string
   ): Promise<{ range: string; count: number }[]> {
     try {
-      let url = `${this.baseUrl}/confidence-distribution`;
+      const params: Record<string, string> = {};
 
       if (modelName) {
-        url += `?model=${encodeURIComponent(modelName)}`;
+        params.model = modelName;
       }
 
-      const response = await fetch(url);
-
-      if (!response.ok) {
-        throw new Error(
-          `Failed to fetch confidence distribution: ${response.statusText}`
-        );
-      }
-
-      return await response.json();
+      return await this.apiService.get<{ range: string; count: number }[]>(
+        `${this.baseEndpoint}/confidence-distribution`,
+        { params }
+      );
     } catch (error) {
       console.error("Error fetching confidence distribution:", error);
       throw error;
@@ -207,15 +169,9 @@ export class AIPredictionService {
    */
   async getPredictionsForItem(itemId: string): Promise<IPrediction[]> {
     try {
-      const response = await fetch(`${this.baseUrl}/item/${itemId}`);
-
-      if (!response.ok) {
-        throw new Error(
-          `Failed to fetch predictions for item: ${response.statusText}`
-        );
-      }
-
-      return await response.json();
+      return await this.apiService.get<IPrediction[]>(
+        `${this.baseEndpoint}/item/${itemId}`
+      );
     } catch (error) {
       console.error(`Error fetching predictions for item ${itemId}:`, error);
       throw error;
@@ -227,21 +183,24 @@ export class AIPredictionService {
    */
   async downloadPredictionsCSV(modelName?: string): Promise<Blob> {
     try {
-      let url = `${this.baseUrl}/export`;
+      const params: Record<string, string> = {};
 
       if (modelName) {
-        url += `?model=${encodeURIComponent(modelName)}`;
+        params.model = modelName;
       }
 
-      const response = await fetch(url);
+      const response = await this.apiService.request<Blob>(
+        "GET",
+        `${this.baseEndpoint}/export`,
+        {
+          params,
+          headers: {
+            Accept: "text/csv",
+          },
+        }
+      );
 
-      if (!response.ok) {
-        throw new Error(
-          `Failed to download predictions CSV: ${response.statusText}`
-        );
-      }
-
-      return await response.blob();
+      return new Blob([response as unknown as string], { type: "text/csv" });
     } catch (error) {
       console.error("Error downloading predictions CSV:", error);
       throw error;
