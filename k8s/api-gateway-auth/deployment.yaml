@@ -1,0 +1,42 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-gateway-auth
+  namespace: default
+  labels:
+    app: api-gateway-auth
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: api-gateway-auth
+  template:
+    metadata:
+      labels:
+        app: api-gateway-auth
+    spec:
+      containers:
+      - name: api-gateway-auth
+        image: caiotheodoro/api-gateway-auth:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 3000
+          name: http
+        resources:
+          requests:
+            cpu: "200m"
+            memory: "256Mi"
+          limits:
+            cpu: "500m"
+            memory: "512Mi"
+        env:
+        - name: NODE_ENV
+          value: "production"
+        - name: PORT
+          value: "3000"
+        livenessProbe:
+          httpGet:
+            path: /auth/health
+            port: http
+          initialDelaySeconds: 30
+          periodSeconds: 10 

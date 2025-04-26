@@ -1,0 +1,41 @@
+- op: replace
+  path: /spec/template/spec/containers/0/resources/requests/cpu
+  value: "200m"
+- op: replace
+  path: /spec/template/spec/containers/0/resources/requests/memory
+  value: "512Mi"
+- op: replace
+  path: /spec/template/spec/containers/0/resources/limits/cpu
+  value: "500m"
+- op: replace
+  path: /spec/template/spec/containers/0/resources/limits/memory
+  value: "1Gi"
+- op: replace
+  path: /spec/template/spec/containers/0/env
+  value:
+  - name: PREDICTIONS_DB_HOST
+    value: "postgres"
+  - name: PREDICTIONS_DB_PORT
+    value: "5432"
+  - name: PREDICTIONS_DB_USER
+    value: "postgres"
+  - name: PREDICTIONS_DB_PASS
+    value: "postgres"
+  - name: PREDICTIONS_DB_NAME
+    value: "synkro_dev"
+  - name: PREDICTIONS_DB_URI
+    value: "postgresql://postgres:postgres@postgres:5432/synkro_dev"
+  - name: LOGISTICS_DB_HOST
+    value: "postgres"
+  - name: LOGISTICS_DB_PORT
+    value: "5432"
+  - name: LOGISTICS_DB_USER
+    value: "postgres"
+  - name: LOGISTICS_DB_PASS
+    value: "postgres"
+  - name: LOGISTICS_DB_NAME
+    value: "synkro_dev"
+  - name: LOGISTICS_DB_URI
+    value: "postgresql://postgres:postgres@postgres:5432/synkro_dev"
+  - name: DEBUG
+    value: "true" 

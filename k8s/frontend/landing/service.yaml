@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend-landing
+  namespace: default
+  labels:
+    app: frontend-landing
+spec:
+  type: ClusterIP
+  ports:
+  - port: 3003
+    targetPort: http
+    protocol: TCP
+    name: http
+  selector:
+    app: frontend-landing 

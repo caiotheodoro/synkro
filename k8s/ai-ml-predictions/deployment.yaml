@@ -1,0 +1,68 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ai-ml-predictions
+  namespace: default
+  labels:
+    app: ai-ml-predictions
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: ai-ml-predictions
+  template:
+    metadata:
+      labels:
+        app: ai-ml-predictions
+    spec:
+      containers:
+      - name: ai-ml-predictions
+        image: ai-ml-predictions:v1
+        imagePullPolicy: Never
+        ports:
+        - containerPort: 8000
+          name: http
+        env:
+        - name: PREDICTIONS_DB_HOST
+          value: "postgres"
+        - name: PREDICTIONS_DB_PORT
+          value: "5432"
+        - name: PREDICTIONS_DB_USER
+          value: "postgres"
+        - name: PREDICTIONS_DB_PASS
+          value: "postgres"
+        - name: PREDICTIONS_DB_NAME
+          value: "synkro"
+        - name: PREDICTIONS_DB_URI
+          value: "postgresql://postgres:postgres@postgres:5432/synkro"
+        - name: LOGISTICS_DB_HOST
+          value: "postgres"
+        - name: LOGISTICS_DB_PORT
+          value: "5432"
+        - name: LOGISTICS_DB_USER
+          value: "postgres"
+        - name: LOGISTICS_DB_PASS
+          value: "postgres"
+        - name: LOGISTICS_DB_NAME
+          value: "synkro"
+        - name: LOGISTICS_DB_URI
+          value: "postgresql://postgres:postgres@postgres:5432/synkro"
+        resources:
+          requests:
+            cpu: "500m"
+            memory: "1Gi"
+          limits:
+            cpu: "1000m"
+            memory: "2Gi"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: http
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /readiness
+            port: http
+          initialDelaySeconds: 15
+          periodSeconds: 10 

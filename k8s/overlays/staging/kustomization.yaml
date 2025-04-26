@@ -1,0 +1,27 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+- ../../
+
+namespace: staging
+
+commonLabels:
+  environment: staging
+
+images:
+- name: ai-ml-predictions
+  newName: ghcr.io/synkro/ai-ml-predictions
+  newTag: staging
+- name: frontend-dashboard
+  newName: ghcr.io/synkro/frontend-dashboard
+  newTag: staging
+- name: frontend-auth
+  newName: ghcr.io/synkro/frontend-auth
+  newTag: staging
+- name: frontend-landing
+  newName: ghcr.io/synkro/frontend-landing
+  newTag: staging
+- name: notification-service
+  newName: ghcr.io/synkro/notification-service
+  newTag: staging 

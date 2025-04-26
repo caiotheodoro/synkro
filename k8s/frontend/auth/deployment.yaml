@@ -1,0 +1,31 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend-auth
+  namespace: default
+  labels:
+    app: frontend-auth
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: frontend-auth
+  template:
+    metadata:
+      labels:
+        app: frontend-auth
+    spec:
+      containers:
+      - name: frontend-auth
+        image: frontend-auth:v1
+        imagePullPolicy: Never
+        ports:
+        - containerPort: 3001
+          name: http
+        resources:
+          requests:
+            cpu: "100m"
+            memory: "128Mi"
+          limits:
+            cpu: "200m"
+            memory: "256Mi" 

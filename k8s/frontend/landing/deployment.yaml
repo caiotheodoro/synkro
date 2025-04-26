@@ -1,0 +1,31 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend-landing
+  namespace: default
+  labels:
+    app: frontend-landing
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: frontend-landing
+  template:
+    metadata:
+      labels:
+        app: frontend-landing
+    spec:
+      containers:
+      - name: frontend-landing
+        image: frontend-landing:v1
+        imagePullPolicy: Never
+        ports:
+        - containerPort: 3003
+          name: http
+        resources:
+          requests:
+            cpu: "100m"
+            memory: "128Mi"
+          limits:
+            cpu: "200m"
+            memory: "256Mi" 
