@@ -70,25 +70,6 @@ kubectl apply -k k8s/overlays/development/
 kubectl get all -n development
 ```
 
-## 🧩 Project Structure
-
-```
-synkro/
-├── frontend/
-│   ├── dashboard/        # Next.js dashboard application
-│   ├── auth/             # Vite-based authentication frontend
-│   └── landing/          # Astro-based landing page
-├── backend/
-│   ├── api-gateway-auth/ # NestJS API gateway and authentication
-│   ├── ai-ml-service/    # FastAPI ML prediction service
-│   └── notification/     # Node.js/Bun notification service (In Progress)
-├── k8s/                  # Kubernetes configuration files
-├── docs/                 # Documentation files
-│   ├── ARCHITECTURE.md   # Detailed system architecture
-│   └── K8S.md            # Kubernetes deployment guide
-└── README.md             # This file
-```
-
 ## 💡 Key Components
 
 ### Frontend Layer
