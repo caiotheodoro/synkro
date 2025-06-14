@@ -8,7 +8,7 @@ export class MessageQueueService {
 
   async connect(): Promise<void> {
     try {
-      const rabbitmqUrl = process.env.RABBITMQ_URL || "amqp://localhost:5672";
+      const rabbitmqUrl = process.env.RABBITMQ_URL ?? "amqp://localhost:5672";
       console.log(`Connecting to RabbitMQ at ${rabbitmqUrl}`);
 
       this.connection = await connect(rabbitmqUrl);
