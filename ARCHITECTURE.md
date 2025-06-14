@@ -44,11 +44,13 @@ graph TB
             APIProxy["Load Balancer(In Progress)"]:::backend 
         end
         
-        subgraph NotificationService["Notification Service (Node.js/Bun)"]
+        subgraph NotificationService["Notification Service (Bun/TypeScript)"]
             NotificationEngine["Notification Engine"]:::backend
             EventHandler["Event Handler"]:::backend
-            PushNotifications["Push Notifications"]:::backend
-            EmailService["Email Service"]:::backend
+            TemplateService["Template Service"]:::backend
+            PushNotifications["Push Notifications (FCM)"]:::backend
+            EmailService["Email Service (SendGrid)"]:::backend
+            WebSocketService["WebSocket Service"]:::backend
         end
         
         subgraph MLService["AI/ML Service (Python/FastAPI)"]
@@ -84,6 +86,11 @@ graph TB
     
     %% Analytics & Search
     MLService -->|"Analytics Queries"|ElasticSearch
+    
+    %% Event Communications
+    NotificationService <-->|"Event Processing"|RabbitMQ
+    MLService -->|"Prediction Events"|RabbitMQ
+    APIGateway -->|"User Events"|RabbitMQ
     
     %% Monitoring
     BackendServices -.->|"Logs"|ELK
@@ -142,14 +149,19 @@ The Synkro system is divided into the following key components:
    - API proxy and load balancing
    - Connects to PostgreSQL for user data
 
-2. **Notification Service** (`notification-service`) (In Progress)
-   - Lightweight Node.js/Bun-based notification system
-   - Event-driven architecture
-   - Notification engine for orchestration
-   - Event queue handler
+2. **Notification Service** (`notification-service`)
+   - High-performance Bun/TypeScript-based notification system
+   - Event-driven architecture with RabbitMQ integration
+   - Multi-channel notification engine
+   - Template management with Handlebars
+   - Real-time WebSocket server
    - Multiple notification channels:
-     - Push notifications
-     - Email service
+     - Email notifications (SendGrid integration)
+     - Push notifications (Firebase FCM)
+     - Real-time WebSocket notifications
+     - In-app notifications
+     - SMS notifications (Twilio-ready)
+     - Webhook notifications (configurable)
 
 3. **AI/ML Service** (`ai-ml-predictions`)
    - Python-based prediction service with FastAPI
@@ -502,6 +514,68 @@ sequenceDiagram
     end
 ```
 
+### Notification Service Architecture
+
+```mermaid
+flowchart TB
+    %% Styles
+    classDef event fill:#f0fdf4,stroke:#16a34a,stroke-width:2px
+    classDef handler fill:#e0f2fe,stroke:#0284c7,stroke-width:2px
+    classDef channel fill:#fef3c7,stroke:#d97706,stroke-width:2px
+    classDef external fill:#ffe4e6,stroke:#e11d48,stroke-width:2px
+    
+    %% Event Sources
+    subgraph Events[Event Sources]
+        direction TB
+        UserEvents[User Events]:::event
+        InventoryEvents[Inventory Events]:::event
+        OrderEvents[Order Events]:::event
+        SystemEvents[System Events]:::event
+    end
+    
+    %% Message Queue
+    RMQ[RabbitMQ<br/>Event Bus]:::handler
+    
+    %% Notification Engine
+    subgraph Engine[Notification Engine]
+        direction TB
+        EventProcessor[Event Processor]:::handler
+        RulesEngine[Rules Engine]:::handler
+        TemplateEngine[Template Engine]:::handler
+        ChannelRouter[Channel Router]:::handler
+    end
+    
+    %% Notification Channels
+    subgraph Channels[Notification Channels]
+        direction TB
+        EmailHandler[Email Handler]:::channel
+        PushHandler[Push Handler]:::channel
+        WebSocketHandler[WebSocket Handler]:::channel
+        InAppHandler[In-App Handler]:::channel
+    end
+    
+    %% External Services
+    subgraph External[External Services]
+        direction TB
+        SendGrid[SendGrid]:::external
+        FCM[Firebase FCM]:::external
+        WebSocketClients[WebSocket Clients]:::external
+    end
+    
+    %% Flows
+    Events --> RMQ
+    RMQ --> EventProcessor
+    EventProcessor --> RulesEngine
+    RulesEngine --> TemplateEngine
+    TemplateEngine --> ChannelRouter
+    ChannelRouter --> Channels
+    
+    EmailHandler --> SendGrid
+    PushHandler --> FCM
+    WebSocketHandler --> WebSocketClients
+    InAppHandler --> WebSocketClients
+```
+
 ### ML Service Data Flow
 
 ```mermaid
@@ -553,6 +627,37 @@ flowchart TB
     Predictions --> ES
 ```
 
+## Notification Service Capabilities
+
+The notification service provides comprehensive multi-channel notification capabilities:
+
+### **Event Processing**
+- Event-driven architecture with RabbitMQ integration
+- Topic-based routing with dead letter queues
+- Automatic retry logic and error handling
+- Support for scheduled notifications
+
+### **Notification Channels**
+- **Email**: SendGrid integration with HTML templates
+- **Push Notifications**: Firebase FCM with device token management
+- **Real-time**: WebSocket connections with heartbeat monitoring
+- **In-App**: Persistent notifications with status tracking
+- **SMS**: Twilio integration (ready for configuration)
+- **Webhooks**: Configurable endpoint notifications
+
+### **Template Management**
+- Handlebars-based templating system
+- Built-in professional templates (Welcome, Inventory Alerts, etc.)
+- Template caching for performance
+- Custom helper functions for formatting
+
+### **Advanced Features**
+- Multi-tenant support with tenant isolation
+- Device token lifecycle management
+- Connection pooling and heartbeat monitoring
+- Graceful degradation when external services unavailable
+- Comprehensive metrics and health monitoring
+
 ## Conclusion
 
 The Synkro system architecture follows modern microservice principles with a focus on:
@@ -562,8 +667,9 @@ The Synkro system architecture follows modern microservice principles with a foc
 - High performance and scalability
 - Comprehensive monitoring with the ELK stack
 - Security-first approach with OAuth2/JWT
-- Event-driven architecture for notifications
+- Event-driven architecture for real-time notifications
 - AI/ML integration for predictive analytics
+- Multi-channel communication capabilities
 
 This architecture enables independent development, testing, and deployment of services while maintaining system cohesion through well-defined interfaces and protocols.
 
