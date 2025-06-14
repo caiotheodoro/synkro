@@ -5,6 +5,7 @@ import { register, collectDefaultMetrics } from "prom-client";
 import { notificationService } from "./services/notificationService";
 import { messageQueueService } from "./services/messageQueue";
 import { notificationHandler } from "./handlers/notificationHandler";
+import { websocketHandler } from "./handlers/websocketHandler";
 
 collectDefaultMetrics();
 
@@ -46,6 +47,45 @@ const app = new Elysia()
         "Content-Type": register.contentType,
       },
     });
+  })
+  .get("/api/v1/stats", async () => {
+    const notifications = notificationService.getAllNotifications();
+    const queueConnected = messageQueueService.connected;
+    const wsConnectedClients = websocketHandler.getConnectedClients();
+    const wsClientCount = websocketHandler.getClientCount();
+
+    return {
+      totalNotifications: notifications.length,
+      notificationsByType: notifications.reduce(
+        (acc: Record<string, number>, n) => {
+          acc[n.type] = (acc[n.type] || 0) + 1;
+          return acc;
+        },
+        {}
+      ),
+      notificationsByChannel: notifications.reduce(
+        (acc: Record<string, number>, n) => {
+          acc[n.channel] = (acc[n.channel] || 0) + 1;
+          return acc;
+        },
+        {}
+      ),
+      notificationsByStatus: notifications.reduce(
+        (acc: Record<string, number>, n) => {
+          acc[n.status] = (acc[n.status] || 0) + 1;
+          return acc;
+        },
+        {}
+      ),
+      queueConnected,
+      websocket: {
+        totalClients: wsClientCount,
+        clientsByUser: wsConnectedClients,
+      },
+      uptime: process.uptime(),
+      memory: process.memoryUsage(),
+      timestamp: new Date().toISOString(),
+    };
   })
   .post("/api/v1/notifications", async (context) => {
     try {
@@ -200,6 +240,7 @@ async function start() {
 async function stop() {
   console.log("🛑 Shutting down Notification Service...");
   await messageQueueService.disconnect();
+  await websocketHandler.shutdown();
   console.log("✅ Notification Service stopped");
 }
 

@@ -54,6 +54,10 @@ class NotificationService {
     );
   }
 
+  getAllNotifications(): Notification[] {
+    return [...this.notifications];
+  }
+
   async deleteNotification(id: string, tenantId: string): Promise<boolean> {
     const index = this.notifications.findIndex(
       (n) => n.id === id && n.tenantId === tenantId

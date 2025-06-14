@@ -1,9 +1,10 @@
 import { NotificationEvent, NotificationChannel } from "../types";
 import { notificationService } from "../services/notificationService";
-import { messageQueueService } from "../services/messageQueue";
+import { emailHandler } from "./emailHandler";
+import { websocketHandler } from "./websocketHandler";
 
 export class NotificationHandler {
-  private channelHandlers: Map<
+  private readonly channelHandlers: Map<
     NotificationChannel,
     (event: NotificationEvent) => Promise<void>
   > = new Map();
@@ -73,10 +74,22 @@ export class NotificationHandler {
       metadata: {
         eventType: event.eventType,
         originalData: event.data,
+        email:
+          event.data.email || event.data.contactEmail || "admin@synkro.com",
       },
     });
 
-    console.log(`Created email notification: ${notification.id}`);
+    // Actually send the email using the email handler
+    try {
+      await emailHandler.sendEmail(notification);
+    } catch (error) {
+      console.error(
+        `Failed to send email notification ${notification.id}:`,
+        error
+      );
+    }
+
+    console.log(`Processed email notification: ${notification.id}`);
   }
 
   private async handlePushNotification(
@@ -118,7 +131,17 @@ export class NotificationHandler {
       },
     });
 
-    console.log(`Created in-app notification: ${notification.id}`);
+    // Send real-time notification via WebSocket
+    try {
+      await websocketHandler.sendNotification(notification);
+    } catch (error) {
+      console.error(
+        `Failed to send WebSocket notification ${notification.id}:`,
+        error
+      );
+    }
+
+    console.log(`Processed in-app notification: ${notification.id}`);
   }
 
   private async handleSMSNotification(event: NotificationEvent): Promise<void> {
@@ -182,19 +205,19 @@ export class NotificationHandler {
   private generateSubject(event: NotificationEvent): string {
     const subjectMap: Record<string, string> = {
       "inventory.low_stock": `Low Stock Alert: ${
-        event.data.itemName || "Item"
+        event.data.itemName ?? "Item"
       }`,
       "inventory.out_of_stock": `Out of Stock: ${
-        event.data.itemName || "Item"
+        event.data.itemName ?? "Item"
       }`,
       "user.welcome": "Welcome to Synkro!",
       "user.password_reset": "Password Reset Request",
       "system.maintenance": "Scheduled Maintenance Notice",
       "alert.critical": "Critical Alert",
       "order.completed": `Order Completed: ${
-        event.data.orderNumber || "Order"
+        event.data.orderNumber ?? "Order"
       }`,
-      "order.shipped": `Order Shipped: ${event.data.orderNumber || "Order"}`,
+      "order.shipped": `Order Shipped: ${event.data.orderNumber ?? "Order"}`,
     };
 
     return subjectMap[event.eventType] || "Notification";

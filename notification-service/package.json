@@ -9,14 +9,15 @@
   "dependencies": {
     "@elysiajs/cors": "latest",
     "@elysiajs/swagger": "latest",
-    "elysia": "latest",
-    "prom-client": "latest",
+    "@sendgrid/mail": "^8.1.5",
     "amqplib": "^0.10.3",
+    "elysia": "latest",
     "handlebars": "^4.7.8",
-    "ws": "^8.14.2",
-    "zod": "^3.22.4",
     "pg": "^8.11.3",
-    "redis": "^4.6.10"
+    "prom-client": "latest",
+    "redis": "^4.6.10",
+    "ws": "^8.14.2",
+    "zod": "^3.22.4"
   },
   "devDependencies": {
     "bun-types": "latest",
