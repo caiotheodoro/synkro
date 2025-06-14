@@ -1,8 +1,8 @@
-import { connect, Connection, Channel } from "amqplib";
+import { connect, Channel, ChannelModel } from "amqplib";
 import { NotificationEvent } from "../types";
 
 export class MessageQueueService {
-  private connection: Connection | null = null;
+  private connection: ChannelModel | null = null;
   private channel: Channel | null = null;
   private isConnected = false;
 
