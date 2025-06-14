@@ -2,6 +2,7 @@ import { NotificationEvent, NotificationChannel } from "../types";
 import { notificationService } from "../services/notificationService";
 import { emailHandler } from "./emailHandler";
 import { websocketHandler } from "./websocketHandler";
+import { pushHandler } from "./pushHandler";
 
 export class NotificationHandler {
   private readonly channelHandlers: Map<
@@ -110,7 +111,17 @@ export class NotificationHandler {
       },
     });
 
-    console.log(`Created push notification: ${notification.id}`);
+    // Send push notification using Firebase FCM
+    try {
+      await pushHandler.sendPushNotification(notification);
+    } catch (error) {
+      console.error(
+        `Failed to send push notification ${notification.id}:`,
+        error
+      );
+    }
+
+    console.log(`Processed push notification: ${notification.id}`);
   }
 
   private async handleInAppNotification(

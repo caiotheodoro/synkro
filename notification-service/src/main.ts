@@ -6,6 +6,8 @@ import { notificationService } from "./services/notificationService";
 import { messageQueueService } from "./services/messageQueue";
 import { notificationHandler } from "./handlers/notificationHandler";
 import { websocketHandler } from "./handlers/websocketHandler";
+import { pushHandler } from "./handlers/pushHandler";
+import { templateService } from "./services/templateService";
 
 collectDefaultMetrics();
 
@@ -82,10 +84,77 @@ const app = new Elysia()
         totalClients: wsClientCount,
         clientsByUser: wsConnectedClients,
       },
+      pushNotifications: pushHandler.getTokenStats(),
+      templates: templateService.getTemplateStats(),
       uptime: process.uptime(),
       memory: process.memoryUsage(),
       timestamp: new Date().toISOString(),
     };
+  })
+  .post("/api/v1/push/register", async (context) => {
+    try {
+      const { userId, tenantId, token, platform } = context.body as any;
+      await pushHandler.registerDeviceToken(userId, tenantId, token, platform);
+      return { success: true, message: "Device token registered" };
+    } catch (error) {
+      console.error("Error registering device token:", error);
+      return { error: "Failed to register device token" };
+    }
+  })
+  .delete("/api/v1/push/unregister", async (context) => {
+    try {
+      const { userId, tenantId, token } = context.body as any;
+      await pushHandler.unregisterDeviceToken(userId, tenantId, token);
+      return { success: true, message: "Device token unregistered" };
+    } catch (error) {
+      console.error("Error unregistering device token:", error);
+      return { error: "Failed to unregister device token" };
+    }
+  })
+  .get("/api/v1/templates", async () => {
+    try {
+      return templateService.getAvailableTemplates();
+    } catch (error) {
+      console.error("Error getting templates:", error);
+      return { error: "Failed to get templates" };
+    }
+  })
+  .post("/api/v1/templates", async (context) => {
+    try {
+      const template = await templateService.createTemplate(
+        context.body as any
+      );
+      return template;
+    } catch (error) {
+      console.error("Error creating template:", error);
+      return { error: "Failed to create template" };
+    }
+  })
+  .put("/api/v1/templates/:id", async (context) => {
+    try {
+      const { id } = context.params || {};
+      const template = await templateService.updateTemplate(
+        id,
+        context.body as any
+      );
+      return template || { error: "Template not found" };
+    } catch (error) {
+      console.error("Error updating template:", error);
+      return { error: "Failed to update template" };
+    }
+  })
+  .delete("/api/v1/templates/:id", async (context) => {
+    try {
+      const { id } = context.params || {};
+      const success = await templateService.deleteTemplate(id);
+      return {
+        success,
+        message: success ? "Template deleted" : "Template not found",
+      };
+    } catch (error) {
+      console.error("Error deleting template:", error);
+      return { error: "Failed to delete template" };
+    }
   })
   .post("/api/v1/notifications", async (context) => {
     try {

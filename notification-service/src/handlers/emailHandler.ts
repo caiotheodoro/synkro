@@ -1,6 +1,7 @@
 import sgMail from "@sendgrid/mail";
 import { NotificationEvent, Notification } from "../types";
 import { notificationService } from "../services/notificationService";
+import { templateService } from "../services/templateService";
 
 export class EmailHandler {
   private isInitialized = false;
@@ -14,6 +15,17 @@ export class EmailHandler {
     if (!apiKey) {
       console.warn(
         "SENDGRID_API_KEY not set - email notifications will be logged only"
+      );
+      console.log("To enable SendGrid email notifications:");
+      console.log("1. Sign up at https://sendgrid.com/");
+      console.log("2. Create an API key in Settings > API Keys");
+      console.log("3. Set SENDGRID_API_KEY environment variable");
+      return;
+    }
+
+    if (!apiKey.startsWith("SG.")) {
+      console.warn(
+        "Invalid SendGrid API key format (should start with 'SG.') - email notifications will be logged only"
       );
       return;
     }
@@ -46,12 +58,14 @@ export class EmailHandler {
         throw new Error("No email address provided in notification metadata");
       }
 
+      const emailContent = await this.formatEmailContent(notification);
+
       const msg = {
         to: email,
         from: process.env.FROM_EMAIL || "notifications@synkro.com",
-        subject: notification.subject || "Synkro Notification",
-        html: this.formatHtmlMessage(notification),
-        text: this.formatTextMessage(notification),
+        subject: emailContent.subject,
+        html: emailContent.html,
+        text: emailContent.text,
       };
 
       console.log(`Sending email to ${email}: ${notification.subject}`);
@@ -86,6 +100,69 @@ export class EmailHandler {
 
       throw error;
     }
+  }
+
+  private async formatEmailContent(
+    notification: Notification
+  ): Promise<{ subject: string; html: string; text: string }> {
+    const eventType = notification.metadata?.eventType || "notification";
+    const data = notification.metadata?.originalData || {};
+
+    // Try to use a template based on event type
+    let templateId = this.getTemplateId(eventType);
+
+    if (templateId) {
+      try {
+        const templateVariables = {
+          ...data,
+          userName: data.userName || "User",
+          companyName: "Synkro",
+          alertType: eventType.includes("low_stock")
+            ? "Low Stock"
+            : eventType.includes("out_of_stock")
+            ? "Out of Stock"
+            : "Alert",
+          isUrgent:
+            eventType.includes("out_of_stock") || notification.type === "ALERT",
+          timestamp: new Date(),
+          inventoryUrl: `${
+            process.env.DASHBOARD_URL || "https://app.synkro.com"
+          }/inventory`,
+          dashboardUrl: process.env.DASHBOARD_URL || "https://app.synkro.com",
+          supportEmail: process.env.SUPPORT_EMAIL || "support@synkro.com",
+          unsubscribeUrl: `${
+            process.env.DASHBOARD_URL || "https://app.synkro.com"
+          }/notifications/preferences`,
+        };
+
+        return await templateService.renderTemplate(
+          templateId,
+          templateVariables
+        );
+      } catch (error) {
+        console.warn(
+          `Failed to render template ${templateId}, falling back to default:`,
+          error
+        );
+      }
+    }
+
+    // Fallback to default template
+    return {
+      subject: notification.subject || "Synkro Notification",
+      html: this.formatHtmlMessage(notification),
+      text: this.formatTextMessage(notification),
+    };
+  }
+
+  private getTemplateId(eventType: string): string | null {
+    const templateMap: Record<string, string> = {
+      "user.welcome": "email-welcome",
+      "inventory.low_stock": "email-inventory-alert",
+      "inventory.out_of_stock": "email-inventory-alert",
+    };
+
+    return templateMap[eventType] || null;
   }
 
   private formatHtmlMessage(notification: Notification): string {

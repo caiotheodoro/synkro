@@ -1,0 +1,537 @@
+Initialized 3 built-in templates
+Registered Handlebars helpers
+API key does not start with "SG.".
+Email handler initialized with SendGrid
+WebSocket server started on port 3006
+Failed to initialize Firebase: 34099 |   Object.defineProperty(exports, "__esModule", { value: true });
+34100 |   exports.InstanceIdClientErrorCode = exports.InstallationsClientErrorCode = exports.MessagingClientErrorCode = exports.AuthClientErrorCode = exports.AppErrorCodes = exports.FirebaseProjectManagementError = exports.FirebaseMessagingSessionError = exports.FirebaseMessagingError = exports.FirebaseInstallationsError = exports.FirebaseInstanceIdError = exports.FirebaseFirestoreError = exports.FirebaseDatabaseError = exports.FirebaseAuthError = exports.FirebaseAppError = exports.PrefixedFirebaseError = exports.FirebaseError = undefined;
+34101 |   var deep_copy_1 = require_deep_copy();
+34102 | 
+34103 |   class FirebaseError extends Error {
+34104 |       super(errorInfo.message);
+              ^
+error: Failed to parse private key: Error: Invalid PEM formatted message.
+ code: "app/invalid-credential"
+
+      at new FirebaseError (/home/caio/documents/personal/synkro/notification-service/dist/main.js:34104:7)
+      at new PrefixedFirebaseError (/home/caio/documents/personal/synkro/notification-service/dist/main.js:34125:7)
+      at new FirebaseAppError (/home/caio/documents/personal/synkro/notification-service/dist/main.js:34140:7)
+      at new ServiceAccount (/home/caio/documents/personal/synkro/notification-service/dist/main.js:60752:15)
+      at new ServiceAccountCredential (/home/caio/documents/personal/synkro/notification-service/dist/main.js:60696:133)
+      at cert (/home/caio/documents/personal/synkro/notification-service/dist/main.js:61217:52)
+      at initialize (/home/caio/documents/personal/synkro/notification-service/dist/main.js:182173:68)
+      at new PushHandler (/home/caio/documents/personal/synkro/notification-service/dist/main.js:182160:20)
+      at /home/caio/documents/personal/synkro/notification-service/dist/main.js:182398:19
+
+🚀 Initializing Notification Service...
+Connecting to RabbitMQ at amqp://logistics:logistics_password@localhost:5672
+Successfully connected to RabbitMQ
+✅ Message queue connected
+Started consuming queue: notifications.email
+Started consuming queue: notifications.push
+Started consuming queue: notifications.in_app
+Started consuming queue: notifications.sms
+Started consuming queue: notifications.webhook
+✅ Queue consumers started
+✅ Notification Service initialized successfully
+🦊 Synkro Notification Service is running at localhost:3005
+📚 API Documentation available at http://localhost:3005/swagger
+Registered FCM token for user test-user-123 on android
+WebSocket client connected: test-tenant-123:test-user-123 (1 total connections)
+📤 Publishing event: user.welcome
+Processing notification event: user.welcome
+Handling email notification for event: user.welcome
+Sending email to john.doe@acme.com: Welcome to Synkro!
+Email sending failed: 27775 | 
+27776 | // node_modules/@sendgrid/helpers/classes/response-error.js
+27777 | var require_response_error = __commonJS((exports, module) => {
+27778 |   class ResponseError extends Error {
+27779 |     constructor(response) {
+27780 |       super();
+                   ^
+error: Unauthorized
+ code: "401"
+
+      at new ResponseError (dist/main.js:27780:12)
+      at dist/main.js:28188:46
+      at processTicksAndRejections (native:7:39)
+
+Failed to send email notification 019362c7-33e9-494b-ba4b-73900ca6a906: 27775 | 
+27776 | // node_modules/@sendgrid/helpers/classes/response-error.js
+27777 | var require_response_error = __commonJS((exports, module) => {
+27778 |   class ResponseError extends Error {
+27779 |     constructor(response) {
+27780 |       super();
+                   ^
+error: Unauthorized
+ code: "401"
+
+      at new ResponseError (dist/main.js:27780:12)
+      at dist/main.js:28188:46
+      at processTicksAndRejections (native:7:39)
+
+Processed email notification: 019362c7-33e9-494b-ba4b-73900ca6a906
+Handling in-app notification for event: user.welcome
+Real-time notification delivered to 1/1 clients for test-tenant-123:test-user-123
+Processed in-app notification: 218ce50c-21b3-4ec7-8afd-1c6cee82d43f
+Published event user.welcome to email.user_welcome
+Published event user.welcome to in_app.user_welcome
+Processing event user.welcome from notifications.email
+Processing notification event: user.welcome
+Handling email notification for event: user.welcome
+Processing event user.welcome from notifications.in_app
+Processing notification event: user.welcome
+Handling email notification for event: user.welcome
+Sending email to john.doe@acme.com: Welcome to Synkro!
+Sending email to john.doe@acme.com: Welcome to Synkro!
+Email sending failed: 27775 | 
+27776 | // node_modules/@sendgrid/helpers/classes/response-error.js
+27777 | var require_response_error = __commonJS((exports, module) => {
+27778 |   class ResponseError extends Error {
+27779 |     constructor(response) {
+27780 |       super();
+                   ^
+error: Unauthorized
+ code: "401"
+
+      at new ResponseError (dist/main.js:27780:12)
+      at dist/main.js:28188:46
+      at processTicksAndRejections (native:7:39)
+
+Failed to send email notification da9daca9-9fa3-407e-9fc3-fb1f0eabc97c: 27775 | 
+27776 | // node_modules/@sendgrid/helpers/classes/response-error.js
+27777 | var require_response_error = __commonJS((exports, module) => {
+27778 |   class ResponseError extends Error {
+27779 |     constructor(response) {
+27780 |       super();
+                   ^
+error: Unauthorized
+ code: "401"
+
+      at new ResponseError (dist/main.js:27780:12)
+      at dist/main.js:28188:46
+      at processTicksAndRejections (native:7:39)
+
+Processed email notification: da9daca9-9fa3-407e-9fc3-fb1f0eabc97c
+Handling in-app notification for event: user.welcome
+Real-time notification delivered to 1/1 clients for test-tenant-123:test-user-123
+Processed in-app notification: 24e2cce3-ed04-4313-a73f-ed02924a5c19
+Email sending failed: 27775 | 
+27776 | // node_modules/@sendgrid/helpers/classes/response-error.js
+27777 | var require_response_error = __commonJS((exports, module) => {
+27778 |   class ResponseError extends Error {
+27779 |     constructor(response) {
+27780 |       super();
+                   ^
+error: Unauthorized
+ code: "401"
+
+      at new ResponseError (dist/main.js:27780:12)
+      at dist/main.js:28188:46
+      at processTicksAndRejections (native:7:39)
+
+Failed to send email notification eec22cf0-60ed-4f12-a087-ca99bc61adee: 27775 | 
+27776 | // node_modules/@sendgrid/helpers/classes/response-error.js
+27777 | var require_response_error = __commonJS((exports, module) => {
+27778 |   class ResponseError extends Error {
+27779 |     constructor(response) {
+27780 |       super();
+                   ^
+error: Unauthorized
+ code: "401"
+
+      at new ResponseError (dist/main.js:27780:12)
+      at dist/main.js:28188:46
+      at processTicksAndRejections (native:7:39)
+
+Processed email notification: eec22cf0-60ed-4f12-a087-ca99bc61adee
+Handling in-app notification for event: user.welcome
+Real-time notification delivered to 1/1 clients for test-tenant-123:test-user-123
+Processed in-app notification: c3fb8489-0dd7-4d36-8b9a-eac0c98d568d
+📤 Publishing event: inventory.out_of_stock
+Processing notification event: inventory.out_of_stock
+Handling email notification for event: inventory.out_of_stock
+Sending email to admin@synkro.com: Out of Stock: Critical Component X
+Email sending failed: 27775 | 
+27776 | // node_modules/@sendgrid/helpers/classes/response-error.js
+27777 | var require_response_error = __commonJS((exports, module) => {
+27778 |   class ResponseError extends Error {
+27779 |     constructor(response) {
+27780 |       super();
+                   ^
+error: Unauthorized
+ code: "401"
+
+      at new ResponseError (dist/main.js:27780:12)
+      at dist/main.js:28188:46
+      at processTicksAndRejections (native:7:39)
+
+Failed to send email notification 36f8c136-a853-4420-9d97-e1f61f6401cc: 27775 | 
+27776 | // node_modules/@sendgrid/helpers/classes/response-error.js
+27777 | var require_response_error = __commonJS((exports, module) => {
+27778 |   class ResponseError extends Error {
+27779 |     constructor(response) {
+27780 |       super();
+                   ^
+error: Unauthorized
+ code: "401"
+
+      at new ResponseError (dist/main.js:27780:12)
+      at dist/main.js:28188:46
+      at processTicksAndRejections (native:7:39)
+
+Processed email notification: 36f8c136-a853-4420-9d97-e1f61f6401cc
+Handling push notification for event: inventory.out_of_stock
+Push notification logged: Out of Stock: Critical Component X
+To: test-user-123
+Message: The item "Critical Component X" (SKU: CCX-001) is now out of stock in Main Distribution Center.
+Processed push notification: 5ae3a70d-c780-4e24-b7f7-22436b059e3d
+Handling in-app notification for event: inventory.out_of_stock
+Real-time notification delivered to 1/1 clients for test-tenant-123:test-user-123
+Processed in-app notification: dbe9569a-fa6d-4ff2-ba1b-8186ce20fb5d
+Published event inventory.out_of_stock to email.inventory_out_of_stock
+Published event inventory.out_of_stock to push.inventory_out_of_stock
+Published event inventory.out_of_stock to in_app.inventory_out_of_stock
+Processing event inventory.out_of_stock from notifications.email
+Processing notification event: inventory.out_of_stock
+Handling email notification for event: inventory.out_of_stock
+Processing event inventory.out_of_stock from notifications.in_app
+Processing notification event: inventory.out_of_stock
+Handling email notification for event: inventory.out_of_stock
+Sending email to admin@synkro.com: Out of Stock: Critical Component X
+Sending email to admin@synkro.com: Out of Stock: Critical Component X
+Processing event inventory.out_of_stock from notifications.push
+Processing notification event: inventory.out_of_stock
+Handling email notification for event: inventory.out_of_stock
+Sending email to admin@synkro.com: Out of Stock: Critical Component X
+Email sending failed: 27775 | 
+27776 | // node_modules/@sendgrid/helpers/classes/response-error.js
+27777 | var require_response_error = __commonJS((exports, module) => {
+27778 |   class ResponseError extends Error {
+27779 |     constructor(response) {
+27780 |       super();
+                   ^
+error: Unauthorized
+ code: "401"
+
+      at new ResponseError (dist/main.js:27780:12)
+      at dist/main.js:28188:46
+      at processTicksAndRejections (native:7:39)
+
+Failed to send email notification 2cf613cb-2568-461f-bd05-ba3549c958ff: 27775 | 
+27776 | // node_modules/@sendgrid/helpers/classes/response-error.js
+27777 | var require_response_error = __commonJS((exports, module) => {
+27778 |   class ResponseError extends Error {
+27779 |     constructor(response) {
+27780 |       super();
+                   ^
+error: Unauthorized
+ code: "401"
+
+      at new ResponseError (dist/main.js:27780:12)
+      at dist/main.js:28188:46
+      at processTicksAndRejections (native:7:39)
+
+Processed email notification: 2cf613cb-2568-461f-bd05-ba3549c958ff
+Handling push notification for event: inventory.out_of_stock
+Push notification logged: Out of Stock: Critical Component X
+To: test-user-123
+Message: The item "Critical Component X" (SKU: CCX-001) is now out of stock in Main Distribution Center.
+Processed push notification: fb769412-9fe3-474f-96ce-d7c8b21b2c22
+Handling in-app notification for event: inventory.out_of_stock
+Real-time notification delivered to 1/1 clients for test-tenant-123:test-user-123
+Processed in-app notification: 086cddf5-2f13-43ad-8743-3d4b095f51fc
+Email sending failed: 27775 | 
+27776 | // node_modules/@sendgrid/helpers/classes/response-error.js
+27777 | var require_response_error = __commonJS((exports, module) => {
+27778 |   class ResponseError extends Error {
+27779 |     constructor(response) {
+27780 |       super();
+                   ^
+error: Unauthorized
+ code: "401"
+
+      at new ResponseError (dist/main.js:27780:12)
+      at dist/main.js:28188:46
+      at processTicksAndRejections (native:7:39)
+
+Failed to send email notification 525e194f-2561-4d52-81eb-cd34ff89bcfc: 27775 | 
+27776 | // node_modules/@sendgrid/helpers/classes/response-error.js
+27777 | var require_response_error = __commonJS((exports, module) => {
+27778 |   class ResponseError extends Error {
+27779 |     constructor(response) {
+27780 |       super();
+                   ^
+error: Unauthorized
+ code: "401"
+
+      at new ResponseError (dist/main.js:27780:12)
+      at dist/main.js:28188:46
+      at processTicksAndRejections (native:7:39)
+
+Processed email notification: 525e194f-2561-4d52-81eb-cd34ff89bcfc
+Handling push notification for event: inventory.out_of_stock
+Push notification logged: Out of Stock: Critical Component X
+To: test-user-123
+Message: The item "Critical Component X" (SKU: CCX-001) is now out of stock in Main Distribution Center.
+Processed push notification: 91c00a0c-925e-4beb-a16d-cf89604cc9aa
+Handling in-app notification for event: inventory.out_of_stock
+Real-time notification delivered to 1/1 clients for test-tenant-123:test-user-123
+Processed in-app notification: e7a97889-443e-4dd9-adff-f980d671c55b
+Email sending failed: 27775 | 
+27776 | // node_modules/@sendgrid/helpers/classes/response-error.js
+27777 | var require_response_error = __commonJS((exports, module) => {
+27778 |   class ResponseError extends Error {
+27779 |     constructor(response) {
+27780 |       super();
+                   ^
+error: Unauthorized
+ code: "401"
+
+      at new ResponseError (dist/main.js:27780:12)
+      at dist/main.js:28188:46
+      at processTicksAndRejections (native:7:39)
+
+Failed to send email notification 7c252def-659d-4fbf-8e4f-8e8499befe28: 27775 | 
+27776 | // node_modules/@sendgrid/helpers/classes/response-error.js
+27777 | var require_response_error = __commonJS((exports, module) => {
+27778 |   class ResponseError extends Error {
+27779 |     constructor(response) {
+27780 |       super();
+                   ^
+error: Unauthorized
+ code: "401"
+
+      at new ResponseError (dist/main.js:27780:12)
+      at dist/main.js:28188:46
+      at processTicksAndRejections (native:7:39)
+
+Processed email notification: 7c252def-659d-4fbf-8e4f-8e8499befe28
+Handling push notification for event: inventory.out_of_stock
+Push notification logged: Out of Stock: Critical Component X
+To: test-user-123
+Message: The item "Critical Component X" (SKU: CCX-001) is now out of stock in Main Distribution Center.
+Processed push notification: 9f6aa4b1-76f7-4894-ac14-4b984acfabd5
+Handling in-app notification for event: inventory.out_of_stock
+Real-time notification delivered to 1/1 clients for test-tenant-123:test-user-123
+Processed in-app notification: 767f8aa8-81ac-40fa-9e42-62775ffd55e9
+📤 Publishing event: alert.critical
+Processing notification event: alert.critical
+Handling email notification for event: alert.critical
+Sending email to admin@acme.com: Critical Alert
+Email sending failed: 27775 | 
+27776 | // node_modules/@sendgrid/helpers/classes/response-error.js
+27777 | var require_response_error = __commonJS((exports, module) => {
+27778 |   class ResponseError extends Error {
+27779 |     constructor(response) {
+27780 |       super();
+                   ^
+error: Unauthorized
+ code: "401"
+
+      at new ResponseError (dist/main.js:27780:12)
+      at dist/main.js:28188:46
+      at processTicksAndRejections (native:7:39)
+
+Failed to send email notification e8b1e647-445c-479e-acf7-eedf66924553: 27775 | 
+27776 | // node_modules/@sendgrid/helpers/classes/response-error.js
+27777 | var require_response_error = __commonJS((exports, module) => {
+27778 |   class ResponseError extends Error {
+27779 |     constructor(response) {
+27780 |       super();
+                   ^
+error: Unauthorized
+ code: "401"
+
+      at new ResponseError (dist/main.js:27780:12)
+      at dist/main.js:28188:46
+      at processTicksAndRejections (native:7:39)
+
+Processed email notification: e8b1e647-445c-479e-acf7-eedf66924553
+Handling push notification for event: alert.critical
+Push notification logged: Critical Alert
+To: test-user-123
+Message: Critical alert: Multiple warehouse systems are experiencing connectivity issues. Immediate attention required.
+Processed push notification: 4ebbf2be-bf09-4746-a2b0-9193a4066cd1
+Handling SMS notification for event: alert.critical
+Created SMS notification: 2acdb0a8-bf67-4200-9bcd-22189ab73271
+Handling in-app notification for event: alert.critical
+Real-time notification delivered to 1/1 clients for test-tenant-123:test-user-123
+Processed in-app notification: 726db216-6c2a-4ea9-bbd4-be4321e59980
+Published event alert.critical to email.alert_critical
+Published event alert.critical to push.alert_critical
+Published event alert.critical to sms.alert_critical
+Published event alert.critical to in_app.alert_critical
+Processing event alert.critical from notifications.email
+Processing notification event: alert.critical
+Handling email notification for event: alert.critical
+Processing event alert.critical from notifications.push
+Processing notification event: alert.critical
+Handling email notification for event: alert.critical
+Processing event alert.critical from notifications.sms
+Processing notification event: alert.critical
+Handling email notification for event: alert.critical
+Processing event alert.critical from notifications.in_app
+Processing notification event: alert.critical
+Handling email notification for event: alert.critical
+Sending email to admin@acme.com: Critical Alert
+Sending email to admin@acme.com: Critical Alert
+Sending email to admin@acme.com: Critical Alert
+Sending email to admin@acme.com: Critical Alert
+Email sending failed: 27775 | 
+27776 | // node_modules/@sendgrid/helpers/classes/response-error.js
+27777 | var require_response_error = __commonJS((exports, module) => {
+27778 |   class ResponseError extends Error {
+27779 |     constructor(response) {
+27780 |       super();
+                   ^
+error: Unauthorized
+ code: "401"
+
+      at new ResponseError (dist/main.js:27780:12)
+      at dist/main.js:28188:46
+      at processTicksAndRejections (native:7:39)
+
+Failed to send email notification 5cfd270d-6738-4d0f-8112-fe91ca798ec6: 27775 | 
+27776 | // node_modules/@sendgrid/helpers/classes/response-error.js
+27777 | var require_response_error = __commonJS((exports, module) => {
+27778 |   class ResponseError extends Error {
+27779 |     constructor(response) {
+27780 |       super();
+                   ^
+error: Unauthorized
+ code: "401"
+
+      at new ResponseError (dist/main.js:27780:12)
+      at dist/main.js:28188:46
+      at processTicksAndRejections (native:7:39)
+
+Processed email notification: 5cfd270d-6738-4d0f-8112-fe91ca798ec6
+Handling push notification for event: alert.critical
+Push notification logged: Critical Alert
+To: test-user-123
+Message: Critical alert: Multiple warehouse systems are experiencing connectivity issues. Immediate attention required.
+Processed push notification: a6c048a7-1442-41d9-a8aa-78baee67caa4
+Handling SMS notification for event: alert.critical
+Created SMS notification: 3d79b378-d3a6-4134-a147-0a7a074cf848
+Handling in-app notification for event: alert.critical
+Real-time notification delivered to 1/1 clients for test-tenant-123:test-user-123
+Processed in-app notification: 6c3cc6b1-b1b8-4306-b8c8-38de7a50833d
+Email sending failed: 27775 | 
+27776 | // node_modules/@sendgrid/helpers/classes/response-error.js
+27777 | var require_response_error = __commonJS((exports, module) => {
+27778 |   class ResponseError extends Error {
+27779 |     constructor(response) {
+27780 |       super();
+                   ^
+error: Unauthorized
+ code: "401"
+
+      at new ResponseError (dist/main.js:27780:12)
+      at dist/main.js:28188:46
+      at processTicksAndRejections (native:7:39)
+
+Failed to send email notification 36f366b5-d6b8-4a55-a0aa-a7e8501e7556: 27775 | 
+27776 | // node_modules/@sendgrid/helpers/classes/response-error.js
+27777 | var require_response_error = __commonJS((exports, module) => {
+27778 |   class ResponseError extends Error {
+27779 |     constructor(response) {
+27780 |       super();
+                   ^
+error: Unauthorized
+ code: "401"
+
+      at new ResponseError (dist/main.js:27780:12)
+      at dist/main.js:28188:46
+      at processTicksAndRejections (native:7:39)
+
+Processed email notification: 36f366b5-d6b8-4a55-a0aa-a7e8501e7556
+Handling push notification for event: alert.critical
+Push notification logged: Critical Alert
+To: test-user-123
+Message: Critical alert: Multiple warehouse systems are experiencing connectivity issues. Immediate attention required.
+Processed push notification: 03488fa8-ceeb-4089-ac85-cb55649cf252
+Handling SMS notification for event: alert.critical
+Created SMS notification: 4b265047-7863-4b0b-99aa-7d9c60cae202
+Handling in-app notification for event: alert.critical
+Real-time notification delivered to 1/1 clients for test-tenant-123:test-user-123
+Processed in-app notification: 2a6b3b92-eb78-4e42-b6b6-8b457329ba35
+Email sending failed: 27775 | 
+27776 | // node_modules/@sendgrid/helpers/classes/response-error.js
+27777 | var require_response_error = __commonJS((exports, module) => {
+27778 |   class ResponseError extends Error {
+27779 |     constructor(response) {
+27780 |       super();
+                   ^
+error: Unauthorized
+ code: "401"
+
+      at new ResponseError (dist/main.js:27780:12)
+      at dist/main.js:28188:46
+      at processTicksAndRejections (native:7:39)
+
+Failed to send email notification 278d22a1-771d-48f0-a323-3440a927274b: 27775 | 
+27776 | // node_modules/@sendgrid/helpers/classes/response-error.js
+27777 | var require_response_error = __commonJS((exports, module) => {
+27778 |   class ResponseError extends Error {
+27779 |     constructor(response) {
+27780 |       super();
+                   ^
+error: Unauthorized
+ code: "401"
+
+      at new ResponseError (dist/main.js:27780:12)
+      at dist/main.js:28188:46
+      at processTicksAndRejections (native:7:39)
+
+Processed email notification: 278d22a1-771d-48f0-a323-3440a927274b
+Handling push notification for event: alert.critical
+Push notification logged: Critical Alert
+To: test-user-123
+Message: Critical alert: Multiple warehouse systems are experiencing connectivity issues. Immediate attention required.
+Processed push notification: e793aa3e-3b8c-43f2-906a-31c3a7888fd8
+Handling SMS notification for event: alert.critical
+Created SMS notification: 852015e7-de9e-40c2-a88a-cee54500fbeb
+Handling in-app notification for event: alert.critical
+Real-time notification delivered to 1/1 clients for test-tenant-123:test-user-123
+Processed in-app notification: a77e5ab2-f0de-4474-92e2-8e0aff2a13bb
+Email sending failed: 27775 | 
+27776 | // node_modules/@sendgrid/helpers/classes/response-error.js
+27777 | var require_response_error = __commonJS((exports, module) => {
+27778 |   class ResponseError extends Error {
+27779 |     constructor(response) {
+27780 |       super();
+                   ^
+error: Unauthorized
+ code: "401"
+
+      at new ResponseError (dist/main.js:27780:12)
+      at dist/main.js:28188:46
+      at processTicksAndRejections (native:7:39)
+
+Failed to send email notification 40ec639f-e232-4911-870f-5515f4f30ada: 27775 | 
+27776 | // node_modules/@sendgrid/helpers/classes/response-error.js
+27777 | var require_response_error = __commonJS((exports, module) => {
+27778 |   class ResponseError extends Error {
+27779 |     constructor(response) {
+27780 |       super();
+                   ^
+error: Unauthorized
+ code: "401"
+
+      at new ResponseError (dist/main.js:27780:12)
+      at dist/main.js:28188:46
+      at processTicksAndRejections (native:7:39)
+
+Processed email notification: 40ec639f-e232-4911-870f-5515f4f30ada
+Handling push notification for event: alert.critical
+Push notification logged: Critical Alert
+To: test-user-123
+Message: Critical alert: Multiple warehouse systems are experiencing connectivity issues. Immediate attention required.
+Processed push notification: e46ae31b-a6ea-49b4-b32b-587658bdd52e
+Handling SMS notification for event: alert.critical
+Created SMS notification: 7602fb77-3452-4efd-8aa5-08e5d94f5580
+Handling in-app notification for event: alert.critical
+Real-time notification delivered to 1/1 clients for test-tenant-123:test-user-123
+Processed in-app notification: 92bc12bd-6e54-4554-a763-11e1d435c348
+WebSocket client disconnected: test-tenant-123:test-user-123
