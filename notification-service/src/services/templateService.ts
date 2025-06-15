@@ -7,8 +7,9 @@ interface TemplateCache {
 }
 
 export class TemplateService {
-  private templateCache: Map<string, TemplateCache> = new Map();
-  private builtInTemplates: Map<string, NotificationTemplate> = new Map();
+  private readonly templateCache: Map<string, TemplateCache> = new Map();
+  private readonly builtInTemplates: Map<string, NotificationTemplate> =
+    new Map();
 
   constructor() {
     this.initializeBuiltInTemplates();

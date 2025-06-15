@@ -6,61 +6,63 @@ import { TrendingUp } from "lucide-astro";
 
 const features = [
   {
-    title: "AI-Based Demand Forecasting",
+    title: "AI-Powered Demand Forecasting",
     description:
-      "Machine learning predicts optimal inventory levels from historic data",
+      "Python/FastAPI ML service with time series analysis and stock optimization models",
     color: "primary",
     badgeColor: "secondary",
     number: 1,
     colSpan: 1,
     hasPersistentHover: true,
-    tags: ["AI", "ML", "Forecasting"],
+    tags: ["Python", "FastAPI", "ML"],
   },
   {
-    title: "Real-Time Inventory Management",
+    title: "Multi-Channel Notifications",
     description:
-      "Go-based service synchronizes real-time warehouses and suppliers",
+      "Event-driven Bun/TypeScript service with Email, Push, WebSocket, SMS, and Webhook support",
     color: "secondary",
     badgeColor: "primary",
     number: 2,
     colSpan: 2,
-    tags: ["Go", "Real-time"],
+    tags: ["Bun", "RabbitMQ", "Multi-channel"],
   },
   {
-    title: "Multi-Protocol APIs",
+    title: "Comprehensive Inventory Tracking",
     description:
-      "REST for web apps, gRPC for internal microservices, WebSockets for real-time updates",
+      "Track inventory levels, reservations, and transactions across multiple warehouses",
     color: "accent",
     badgeColor: "secondary",
     number: 3,
     colSpan: 2,
-    tags: ["REST", "gRPC", "WebSockets"],
+    tags: ["PostgreSQL", "Multi-warehouse"],
   },
   {
-    title: "Order Fulfillment Automation",
-    description: "Rust microservice decides routes with AI",
+    title: "Order Processing & Management",
+    description:
+      "Complete order lifecycle management with status tracking and fulfillment",
     color: "primary",
     badgeColor: "accent",
     number: 4,
-    tags: ["Rust", "Automation"],
+    tags: ["Orders", "Fulfillment"],
   },
   {
-    title: "Event-Driven Processing",
-    description: "RabbitMQ for reliable order processing and async processes",
+    title: "Real-Time WebSocket Updates",
+    description:
+      "Live inventory updates and notifications with WebSocket connections",
     color: "secondary",
     badgeColor: "primary",
     number: 5,
-    tags: ["RabbitMQ", "Async"],
+    tags: ["WebSocket", "Real-time"],
   },
   {
-    title: "Multi-Tenant SaaS",
+    title: "Role-Based Access Control",
     description:
-      "Suppliers, retailers, and logistics operators have customized dashboards",
+      "NestJS API Gateway with OAuth2/JWT authentication and multi-tenant support",
     color: "accent",
     badgeColor: "secondary",
     number: 6,
     colSpan: 2,
-    tags: ["SaaS", "Multi-tenant"],
+    tags: ["NestJS", "OAuth2", "RBAC"],
   },
 ] as BentoItem[];
 ---

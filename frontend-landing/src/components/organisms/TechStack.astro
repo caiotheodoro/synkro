@@ -10,36 +10,40 @@ import Card from "../atoms/Card.astro";
 
     <div class="grid md:grid-cols-2 gap-8">
       <!-- Communication Layer -->
-      <Card headerColor="primary" headerText="Communication Layer">
+      <Card headerColor="primary" headerText="Communication & Integration">
         <ul class="list-disc pl-5 space-y-2">
           <li>
-            <strong>RabbitMQ:</strong> Async tasks, notifications, and event-driven
-            order processing
+            <strong>RabbitMQ:</strong> Event-driven architecture for multi-channel
+            notifications and async processing
           </li>
           <li>
-            <strong>gRPC:</strong> Optimized inter-service communication (Go & Rust
-            services)
+            <strong>REST APIs:</strong> Standardized HTTP endpoints for all microservices
+            communication
           </li>
           <li>
-            <strong>REST + WebSockets:</strong> Public and live tracking APIs for
-            shipments
+            <strong>WebSockets:</strong> Real-time inventory updates and live notifications
+          </li>
+          <li>
+            <strong>Firebase FCM:</strong> Push notifications for mobile and web
+            applications
           </li>
         </ul>
       </Card>
 
       <!-- Data Storage -->
-      <Card headerColor="accent" headerText="Data Storage">
+      <Card headerColor="accent" headerText="Data Storage & Management">
         <ul class="list-disc pl-5 space-y-2">
           <li>
-            <strong>PostgreSQL:</strong> User & order management (ACID-compliant)
+            <strong>PostgreSQL:</strong> Primary database for inventory, orders,
+            users, and ML predictions
           </li>
           <li>
-            <strong>MongoDB:</strong> Elastic document store (inventory, tracking
-            information)
+            <strong>Redis:</strong> Caching layer for sessions, tokens, and real-time
+            data
           </li>
-          <li><strong>Redis:</strong> Cache of real-time order statuses</li>
           <li>
-            <strong>MinIO/S3:</strong> Invoice storage, documents of shipment
+            <strong>Elasticsearch:</strong> Analytics, search capabilities, and log
+            aggregation
           </li>
         </ul>
       </Card>
@@ -48,20 +52,28 @@ import Card from "../atoms/Card.astro";
       <Card
         class="md:col-span-2"
         headerColor="secondary"
-        headerText="Observability Stack"
+        headerText="Observability & Monitoring"
       >
         <ul class="list-disc pl-5 space-y-2 md:columns-3">
           <li>
-            <strong>Metrics:</strong> Prometheus + Grafana for service metrics (API
-            response time, load balancing)
+            <strong>Metrics:</strong> Prometheus + Grafana for performance monitoring
+            and visualization across all services
           </li>
           <li>
             <strong>Logging:</strong> ELK Stack (Elasticsearch, Logstash, Kibana)
-            for centralized logs
+            for centralized logging and analysis
           </li>
           <li>
-            <strong>Tracing:</strong> Jaeger / OpenTelemetry for distributed tracing
-            of microservices
+            <strong>Tracing:</strong> Jaeger for distributed tracing and microservice
+            interaction monitoring
+          </li>
+          <li>
+            <strong>Health Checks:</strong> Comprehensive health monitoring with
+            automatic service discovery
+          </li>
+          <li>
+            <strong>Alerting:</strong> Real-time alerts for system issues and threshold
+            breaches
           </li>
         </ul>
       </Card>

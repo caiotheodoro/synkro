@@ -11,15 +11,20 @@ import Card from "../atoms/Card.astro";
     <Card
       class="mb-12"
       headerColor="secondary"
-      headerText="Frontend (Microfrontend Architecture)"
+      headerText="Frontend Layer (Multi-App Architecture)"
     >
       <ul class="list-disc pl-5 space-y-2">
-        <li><strong>Vue.js:</strong> Supplier & Retailer Dashboards</li>
         <li>
-          <strong>Next.js:</strong> Admin Panel, Authentication, SEO-Friendly Landing
+          <strong>Next.js Dashboard:</strong> Main inventory management interface
+          with Atomic Design and Neobrutalism styling
         </li>
         <li>
-          <strong>GraphQL:</strong> Apollo Federation for centralized API Gateway
+          <strong>Vite Auth Frontend:</strong> Secure authentication and user registration
+          flows
+        </li>
+        <li>
+          <strong>Astro Landing:</strong> Fast, static site generation for marketing
+          and product information
         </li>
       </ul>
     </Card>
@@ -48,53 +53,34 @@ import Card from "../atoms/Card.astro";
                 >API Gateway & Auth</td
               >
               <td class="py-2 px-4 border-b-[3px] border-r-[3px] border-black"
-                >TypeScript (NestJS/Fastify)</td
+                >NestJS</td
               >
               <td class="py-2 px-4 border-b-[3px] border-black"
-                >Handles REST, GraphQL, and WebSockets for real-time updates</td
+                >OAuth2/JWT authentication, RBAC authorization, and API routing</td
               >
             </tr>
             <tr>
               <td class="py-2 px-4 border-b-[3px] border-r-[3px] border-black"
-                >Logistics Engine</td
-              >
-              <td class="py-2 px-4 border-b-[3px] border-r-[3px] border-black"
-                >Rust (Axum/Actix-Web)</td
-              >
-              <td class="py-2 px-4 border-b-[3px] border-black"
-                >Order fulfillment, routing, and optimization algorithms for
-                high performance</td
-              >
-            </tr>
-            <tr>
-              <td class="py-2 px-4 border-b-[3px] border-r-[3px] border-black"
-                >Real-Time Inventory Sync</td
-              >
-              <td class="py-2 px-4 border-b-[3px] border-r-[3px] border-black"
-                >Go (gRPC + Gin)</td
-              >
-              <td class="py-2 px-4 border-b-[3px] border-black"
-                >Handles inventory synchronization between warehouses via gRPC</td
-              >
-            </tr>
-            <tr>
-              <td class="py-2 px-4 border-b-[3px] border-r-[3px] border-black"
-                >AI/ML Predictions</td
+                >AI/ML Service</td
               >
               <td class="py-2 px-4 border-b-[3px] border-r-[3px] border-black"
                 >Python (FastAPI)</td
               >
               <td class="py-2 px-4 border-b-[3px] border-black"
-                >Machine learning-based demand forecasting (TensorFlow, Pandas)</td
+                >Demand forecasting, time series analysis, and stock
+                optimization models</td
               >
             </tr>
             <tr>
               <td class="py-2 px-4 border-r-[3px] border-black"
                 >Notification Service</td
               >
-              <td class="py-2 px-4 border-r-[3px] border-black">Bun</td>
+              <td class="py-2 px-4 border-r-[3px] border-black"
+                >Bun/TypeScript</td
+              >
               <td class="py-2 px-4 border-black"
-                >Handles real-time notifications and alerts</td
+                >Event-driven multi-channel notifications (Email, Push,
+                WebSocket, SMS, Webhooks)</td
               >
             </tr>
           </tbody>
