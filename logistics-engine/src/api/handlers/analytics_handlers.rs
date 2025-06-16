@@ -8,7 +8,7 @@ use crate::{
     },
 };
 use axum::{extract::State, Json};
-use tracing::{error, info};
+use tracing::info;
 
 // Inventory Analytics
 pub async fn get_stock_level_trends(

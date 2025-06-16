@@ -6,7 +6,6 @@ use axum::{
 use chrono::{DateTime, Utc};
 use num_traits::ToPrimitive;
 use serde::{Deserialize, Serialize};
-use std::sync::Arc;
 use uuid::Uuid;
 
 use crate::{api::SharedState, errors::LogisticsError, models::entities::order::OrderStatus};
@@ -83,7 +82,6 @@ pub async fn get_dashboard_overview(
 }
 
 async fn get_inventory_overview(state: &SharedState) -> Result<InventoryOverview, LogisticsError> {
-    // Get all inventory items from the inventory service
     let items = state.inventory_service.get_all_items(1, 1000, None).await?;
 
     let total_items = items.len() as i64;
@@ -95,7 +93,7 @@ async fn get_inventory_overview(state: &SharedState) -> Result<InventoryOverview
     for item in items {
         total_quantity += item.quantity as i64;
         let price_f64 = item.price.to_f64().unwrap_or(0.0);
-        total_value += (price_f64 * item.quantity as f64);
+        total_value += price_f64 * item.quantity as f64;
 
         if item.quantity < item.low_stock_threshold.unwrap_or(0) {
             low_stock_count += 1;
