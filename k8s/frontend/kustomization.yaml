@@ -6,5 +6,7 @@ resources:
 - auth
 - landing
 
-commonLabels:
-  group: frontend 
+labels:
+  - pairs:
+      part-of: synkro-platform
+      group: frontend

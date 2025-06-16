@@ -6,8 +6,9 @@ resources:
 
 namespace: staging
 
-commonLabels:
-  environment: staging
+labels:
+  - pairs:
+      part-of: synkro-platform
 
 images:
 - name: ai-ml-predictions

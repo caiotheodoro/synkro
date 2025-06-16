@@ -5,6 +5,8 @@ resources:
 - deployment.yaml
 - service.yaml
 
-commonLabels:
-  app: logstash
-  component: logging 
+labels:
+  - pairs:
+    app: logstash
+    part-of: synkro-platform
+      component: logging 

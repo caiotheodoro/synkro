@@ -5,6 +5,8 @@ resources:
 - deployment.yaml
 - service.yaml
 
-commonLabels:
-  app: frontend-landing
-  component: landing-ui 
+labels:
+  - pairs:
+    app: frontend-landing
+    part-of: synkro-platform
+      component: landing-ui 

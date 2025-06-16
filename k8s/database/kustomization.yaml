@@ -4,5 +4,7 @@ kind: Kustomization
 resources:
 - postgres
 
-commonLabels:
-  group: database 
+labels:
+  - pairs:
+      part-of: synkro-platform
+      group: database 

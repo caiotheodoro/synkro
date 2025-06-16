@@ -6,5 +6,7 @@ resources:
 - logstash
 - kibana
 
-commonLabels:
-  group: logging 
+labels:
+  - pairs:
+      part-of: synkro-platform
+      group: logging 

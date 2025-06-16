@@ -5,6 +5,8 @@ resources:
 - statefulset.yaml
 - service.yaml
 
-commonLabels:
-  app: elasticsearch
-  component: logging 
+labels:
+  - pairs:
+    app: elasticsearch
+    part-of: synkro-platform
+      component: logging 

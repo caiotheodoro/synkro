@@ -7,8 +7,9 @@ resources:
 
 namespace: production
 
-commonLabels:
-  environment: production
+labels:
+  - pairs:
+      part-of: synkro-platform
 
 patches:
 - path: hpa-patch.yaml

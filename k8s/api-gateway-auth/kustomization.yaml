@@ -5,6 +5,8 @@ resources:
 - deployment.yaml
 - service.yaml
 
-commonLabels:
-  app: api-gateway-auth
-  component: authentication 
+labels:
+  - pairs:
+      app: api-gateway-auth
+      part-of: synkro-platform
+      component: authentication

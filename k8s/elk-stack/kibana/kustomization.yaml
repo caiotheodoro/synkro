@@ -5,6 +5,8 @@ resources:
 - deployment.yaml
 - service.yaml
 
-commonLabels:
-  app: kibana
-  component: logging-ui 
+labels:
+  - pairs:
+    app: kibana
+    part-of: synkro-platform
+      component: logging-ui 

@@ -5,6 +5,8 @@ resources:
 - deployment.yaml
 - service.yaml
 
-commonLabels:
-  app: notification-service
-  component: notifications 
+labels:
+  - pairs:
+      app: notification-service
+      part-of: synkro-platform
+      component: notifications

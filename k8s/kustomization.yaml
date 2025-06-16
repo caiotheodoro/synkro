@@ -12,5 +12,6 @@ resources:
 
 namespace: default
 
-commonLabels:
-  part-of: synkro-platform 
+labels:
+  - pairs:
+      part-of: synkro-platform 

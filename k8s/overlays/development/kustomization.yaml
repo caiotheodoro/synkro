@@ -6,8 +6,9 @@ resources:
 
 namespace: development
 
-commonLabels:
-  environment: development
+labels:
+  - pairs:
+      part-of: synkro-platform
 
 patches:
 - path: replicas-patch.yaml

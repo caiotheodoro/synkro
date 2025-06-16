@@ -5,6 +5,8 @@ resources:
 - deployment.yaml
 - service.yaml
 
-commonLabels:
-  app: ai-ml-predictions
-  component: prediction-service 
+labels:
+  - pairs:
+      app: ai-ml-predictions
+      part-of: synkro-platform
+      component: prediction-service 

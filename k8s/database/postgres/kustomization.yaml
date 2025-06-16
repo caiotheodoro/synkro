@@ -5,6 +5,8 @@ resources:
 - statefulset.yaml
 - service.yaml
 
-commonLabels:
-  app: postgres
-  component: database 
+labels:
+  - pairs:
+    app: postgres
+    part-of: synkro-platform
+      component: database 

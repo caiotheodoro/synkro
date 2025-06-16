@@ -5,6 +5,8 @@ resources:
 - deployment.yaml
 - service.yaml
 
-commonLabels:
-  app: frontend-auth
-  component: auth-ui 
+labels:
+  - pairs:
+      app: frontend-auth
+      part-of: synkro-platform
+      component: auth-ui

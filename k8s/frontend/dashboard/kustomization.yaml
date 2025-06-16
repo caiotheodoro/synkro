@@ -5,6 +5,8 @@ resources:
 - deployment.yaml
 - service.yaml
 
-commonLabels:
-  app: frontend-dashboard
-  component: ui 
+labels:
+  - pairs:
+      app: frontend-dashboard
+      part-of: synkro-platform
+      component: ui
